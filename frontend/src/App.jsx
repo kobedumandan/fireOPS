@@ -10,14 +10,19 @@ import NewIncidentModal from './components/NewIncidentModal'
 import LocationRequestModal from './components/LocationRequestModal'
 import ReporterPage from './components/ReporterPage'
 import StationsPage from './components/StationsPage'
+import SettingsPage from './components/SettingsPage'
 import LoginPage from './components/LoginPage'
 import './App.css'
 
-// Detect reporter route from URL hash once on load — no reactivity needed
 function getInitialRoute() {
   const hash = window.location.hash
   if (hash.startsWith('#/report/')) {
     return { view: 'reporter', token: hash.slice('#/report/'.length) }
+  }
+  const token = localStorage.getItem('bfp_token')
+  const user  = localStorage.getItem('bfp_user')
+  if (token && user) {
+    return { view: 'dashboard', user: JSON.parse(user) }
   }
   return { view: 'login' }
 }
@@ -27,6 +32,7 @@ export default function App() {
 
   // ── Dashboard-only state ───────────────────────────────────────────────────
   const [activeNav, setActiveNav]                 = useState('Dashboard')
+  const [showSettings, setShowSettings]           = useState(false)
   const [selectedIncident, setSelectedIncident]   = useState('INC-2026-084')
   const [theme, setTheme]                         = useState('dark')
   const [pickingMode, setPickingMode]             = useState(false)
@@ -70,9 +76,19 @@ export default function App() {
     })
   }
 
+  function handleLogin(user) {
+    setRoute({ view: 'dashboard', user })
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('bfp_token')
+    localStorage.removeItem('bfp_user')
+    setRoute({ view: 'login' })
+  }
+
   // ── Login page ────────────────────────────────────────────────────────────
   if (route.view === 'login') {
-    return <LoginPage onLogin={() => setRoute({ view: 'dashboard' })} />
+    return <LoginPage onLogin={handleLogin} />
   }
 
   // ── Reporter page — render in isolation, no chrome ───────────────────────
@@ -83,8 +99,23 @@ export default function App() {
   // ── Dashboard ─────────────────────────────────────────────────────────────
   return (
     <>
-      <TopBar activeNav={activeNav} onNavChange={setActiveNav} theme={theme} onThemeToggle={toggleTheme} />
-      {activeNav === 'Incidents' ? (
+      <TopBar
+        activeNav={activeNav}
+        onNavChange={nav => { setActiveNav(nav); setShowSettings(false) }}
+        theme={theme}
+        onThemeToggle={toggleTheme}
+        onOpenSettings={() => setShowSettings(s => !s)}
+        showingSettings={showSettings}
+        user={route.user}
+      />
+      {showSettings ? (
+        <SettingsPage
+          user={route.user}
+          theme={theme}
+          onThemeToggle={toggleTheme}
+          onLogout={handleLogout}
+        />
+      ) : activeNav === 'Incidents' ? (
         <IncidentsPage />
       ) : activeNav === 'Personnel' ? (
         <PersonnelPage />
@@ -111,7 +142,7 @@ export default function App() {
           <RightSidebar />
         </div>
       )}
-      <StatusBar />
+      {!showSettings && <StatusBar />}
 
       {pickedLocation && (
         <NewIncidentModal

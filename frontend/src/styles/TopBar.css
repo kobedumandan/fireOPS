@@ -94,6 +94,18 @@
   border-radius: 20px;
   font-size: 12px;
   color: var(--text-secondary);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.user-chip:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.user-chip.active {
+  background: var(--accent-fire-dim);
+  border-color: rgba(255,77,26,0.3);
+  color: var(--accent-fire);
 }
 
 .user-avatar {

@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import '../styles/PersonnelPage.css'
+import AddPersonnelModal from './AddPersonnelModal'
 
 const PERSONNEL = [
   { id: 'FU-001', name: 'Juan Dela Cruz',    initials: 'JD', rank: 'Fire Officer II',     status: 'dispatched', station: 'Station 1', incident: 'INC-2026-084', iot: 'active',  battery: 82, phone: '+63-917-111-0001', joined: 'Jan 2020' },
@@ -69,6 +70,7 @@ export default function PersonnelPage() {
   const [sortDir, setSortDir]           = useState(-1)
   const [selectedId, setSelectedId]     = useState(null)
   const [view, setView]                 = useState('list')
+  const [showAddModal, setShowAddModal] = useState(false)
 
   const stats = useMemo(() => ({
     dispatched: PERSONNEL.filter(p => p.status === 'dispatched').length,
@@ -120,6 +122,7 @@ export default function PersonnelPage() {
   const selected = PERSONNEL.find(p => p.id === selectedId)
 
   return (
+    <>
     <div className="per-page">
 
       {/* PAGE HEADER */}
@@ -131,7 +134,7 @@ export default function PersonnelPage() {
           </div>
           <div className="per-header-actions">
             <button className="per-btn-secondary">⬇ Export</button>
-            <button className="per-btn-primary">+ Add Personnel</button>
+            <button className="per-btn-primary" onClick={() => setShowAddModal(true)}>+ Add Personnel</button>
           </div>
         </div>
 
@@ -406,5 +409,16 @@ export default function PersonnelPage() {
       </div>
 
     </div>
+
+    {showAddModal && (
+      <AddPersonnelModal
+        onClose={() => setShowAddModal(false)}
+        onSubmit={data => {
+          console.log('New personnel:', data)
+          setShowAddModal(false)
+        }}
+      />
+    )}
+    </>
   )
 }

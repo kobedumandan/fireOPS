@@ -1,189 +1,305 @@
-import { useState, useEffect, useMemo } from 'react'
-import '../styles/MapArea.css'
-import { MapContainer, TileLayer, Marker, Polyline, GeoJSON, Tooltip, useMap, useMapEvents } from 'react-leaflet'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import { PANABO_BOUNDARY } from '../data/panaboBoundary'
+import { useState, useEffect, useMemo } from "react";
+import "../styles/MapArea.css";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Polyline,
+  GeoJSON,
+  Tooltip,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { PANABO_BOUNDARY } from "../data/panaboBoundary";
 
 // Panabo City, Davao del Norte
-const PANABO_CENTER = [7.307, 125.635]
-const ZOOM = 12
+const PANABO_CENTER = [7.307, 125.635];
+const ZOOM = 12;
 
-const LAYER_LABELS = ['Incidents', 'Personnel', 'Stations', 'Routes', 'Heat Map']
+const LAYER_LABELS = [
+  "Incidents",
+  "Personnel",
+  "Stations",
+  "Routes",
+  "Heat Map",
+];
+
+// Tile z=5 x=27 y=15 covers the Philippines area (used for thumbnails)
+const TILE_OPTIONS = [
+  {
+    id: "street",
+    label: "Light",
+    thumb: "https://a.basemaps.cartocdn.com/rastertiles/voyager/5/27/15.png",
+    layers: [
+      {
+        url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        subdomains: "abcd",
+        maxZoom: 19,
+      },
+    ],
+  },
+  {
+    id: "dark",
+    label: "Dark",
+    thumb: "https://a.basemaps.cartocdn.com/dark_all/5/27/15.png",
+    layers: [
+      {
+        url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        subdomains: "abcd",
+        maxZoom: 19,
+      },
+    ],
+  },
+  {
+    id: "satellite",
+    label: "Satellite",
+    thumb:
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/5/15/27",
+    layers: [
+      {
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attribution:
+          '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
+        maxZoom: 23,
+      },
+    ],
+  },
+];
 
 // ── Coordinate data (inside Panabo City) ─────────────────────────────────────
 const STATIONS = [
-  { id: 's1', pos: [7.312, 125.684], label: 'BFP Station 1 · Panabo City' },
-  { id: 's2', pos: [7.292, 125.618], label: 'BFP Station 2 · Sto. Niño' },
-]
+  { id: "s1", pos: [7.312, 125.684], label: "BFP Station 1 · Panabo City" },
+  { id: "s2", pos: [7.292, 125.618], label: "BFP Station 2 · Sto. Niño" },
+];
 
 const INCIDENTS = [
   {
-    id: 'INC-2026-084',
-    pos: [7.330, 125.667],
-    severity: 'critical',
-    label: '🔥 Brgy. San Francisco',
-    sub: 'Critical · 2 units · ETA 4 min',
+    id: "INC-2026-084",
+    pos: [7.33, 125.667],
+    severity: "critical",
+    label: "🔥 Brgy. San Francisco",
+    sub: "Critical · 2 units · ETA 4 min",
   },
   {
-    id: 'INC-2026-083',
+    id: "INC-2026-083",
     pos: [7.352, 125.648],
-    severity: 'moderate',
-    label: '🔥 Brgy. New Visayas',
-    sub: 'Moderate · 1 unit',
+    severity: "moderate",
+    label: "🔥 Brgy. New Visayas",
+    sub: "Moderate · 1 unit",
   },
   {
-    id: 'INC-2026-081',
+    id: "INC-2026-081",
     pos: [7.295, 125.655],
-    severity: 'contained',
-    label: '🔥 Brgy. Cagangohan',
-    sub: 'Contained · 3 units',
+    severity: "contained",
+    label: "🔥 Brgy. Cagangohan",
+    sub: "Contained · 3 units",
   },
-]
+];
 
 const PERSONNEL = [
-  { initials: 'JD', pos: [7.320, 125.675], cssColor: 'var(--accent-fire)',  shadow: 'rgba(255,77,26,0.5)' },
-  { initials: 'MR', pos: [7.300, 125.630], cssColor: 'var(--accent-green)', shadow: 'rgba(0,230,118,0.5)' },
-  { initials: 'AB', pos: [7.348, 125.651], cssColor: 'var(--accent-amber)', shadow: 'rgba(255,176,32,0.5)' },
-]
+  {
+    initials: "JD",
+    pos: [7.32, 125.675],
+    cssColor: "var(--accent-fire)",
+    shadow: "rgba(255,77,26,0.5)",
+  },
+  {
+    initials: "MR",
+    pos: [7.3, 125.63],
+    cssColor: "var(--accent-green)",
+    shadow: "rgba(0,230,118,0.5)",
+  },
+  {
+    initials: "AB",
+    pos: [7.348, 125.651],
+    cssColor: "var(--accent-amber)",
+    shadow: "rgba(255,176,32,0.5)",
+  },
+];
 
 const ROUTES = [
-  { positions: [[7.312, 125.684], [7.330, 125.667]], color: '#1e90ff', cls: 'route-primary' },
-  { positions: [[7.292, 125.618], [7.330, 125.667]], color: '#00e676', cls: 'route-secondary' },
-]
+  {
+    positions: [
+      [7.312, 125.684],
+      [7.33, 125.667],
+    ],
+    color: "#1e90ff",
+    cls: "route-primary",
+  },
+  {
+    positions: [
+      [7.292, 125.618],
+      [7.33, 125.667],
+    ],
+    color: "#00e676",
+    cls: "route-secondary",
+  },
+];
 
 // ── Picking-mode helpers (must be inside MapContainer) ───────────────────────
 function MapClickHandler({ active, onPick }) {
   useMapEvents({
     click(e) {
-      if (active) onPick([e.latlng.lat, e.latlng.lng])
+      if (active) onPick([e.latlng.lat, e.latlng.lng]);
     },
-  })
-  return null
+  });
+  return null;
 }
 
 function CursorController({ active }) {
-  const map = useMap()
+  const map = useMap();
   useEffect(() => {
-    map.getContainer().classList.toggle('pick-cursor', active)
-    return () => map.getContainer().classList.remove('pick-cursor')
-  }, [active, map])
-  return null
+    map.getContainer().classList.toggle("pick-cursor", active);
+    return () => map.getContainer().classList.remove("pick-cursor");
+  }, [active, map]);
+  return null;
 }
 
 function reporterIcon() {
   return L.divIcon({
-    className: '',
+    className: "",
     iconSize: [36, 36],
     iconAnchor: [18, 18],
     html: `<div class="reporter-pin">
              <div class="reporter-pin-ring"></div>
              <div class="reporter-pin-core">R</div>
            </div>`,
-  })
+  });
 }
 
 function newIncidentIcon() {
   return L.divIcon({
-    className: '',
+    className: "",
     iconSize: [44, 44],
     iconAnchor: [22, 22],
     html: `<div class="new-inc-pin">
              <div class="new-inc-ring"></div>
              <div class="new-inc-core">+</div>
            </div>`,
-  })
+  });
 }
 
 // ── Icon factories ────────────────────────────────────────────────────────────
 function fireIcon(severity) {
-  const color   = severity === 'critical' ? '#ff4d1a' : severity === 'moderate' ? '#ffb020' : '#2a5a3a'
-  const shadow  = severity === 'critical' ? 'rgba(255,77,26,0.6)' : severity === 'moderate' ? 'rgba(255,176,32,0.5)' : 'rgba(0,230,118,0.3)'
-  const opacity = severity === 'contained' ? '0.5' : '1'
-  const pulse   = severity === 'critical'
+  const color =
+    severity === "critical"
+      ? "#ff4d1a"
+      : severity === "moderate"
+      ? "#ffb020"
+      : "#2a5a3a";
+  const shadow =
+    severity === "critical"
+      ? "rgba(255,77,26,0.6)"
+      : severity === "moderate"
+      ? "rgba(255,176,32,0.5)"
+      : "rgba(0,230,118,0.3)";
+  const opacity = severity === "contained" ? "0.5" : "1";
+  const pulse = severity === "critical";
 
   return L.divIcon({
-    className: '',
+    className: "",
     iconSize: [36, 36],
     iconAnchor: [18, 18],
     html: `
       <div class="fire-marker" style="opacity:${opacity}">
-        ${pulse ? '<div class="fire-pulse-ring"></div>' : ''}
+        ${pulse ? '<div class="fire-pulse-ring"></div>' : ""}
         <div class="fire-marker-inner" style="background:${color};box-shadow:0 0 16px ${shadow}"></div>
       </div>`,
-  })
+  });
 }
 
 function personnelIcon(initials, color, shadow) {
   return L.divIcon({
-    className: '',
+    className: "",
     iconSize: [28, 28],
     iconAnchor: [14, 14],
     html: `<div class="personnel-marker" style="border-color:${color};color:${color};box-shadow:0 0 10px ${shadow}">${initials}</div>`,
-  })
+  });
 }
 
 function stationIcon() {
   return L.divIcon({
-    className: '',
+    className: "",
     iconSize: [32, 32],
     iconAnchor: [16, 16],
     html: `<div class="station-marker">🚒</div>`,
-  })
+  });
 }
 
 // ── Coverage mask + boundary ──────────────────────────────────────────────────
 // Must be rendered inside MapContainer (uses useMap hook)
 function CoverageLayers() {
-  const map = useMap()
+  const map = useMap();
 
   useEffect(() => {
     // Inject diagonal hatch pattern into the Leaflet SVG overlay pane
-    const svg = map.getPanes().overlayPane.querySelector('svg')
-    if (!svg || svg.querySelector('#cov-hatch')) return
+    const svg = map.getPanes().overlayPane.querySelector("svg");
+    if (!svg || svg.querySelector("#cov-hatch")) return;
 
-    const NS = 'http://www.w3.org/2000/svg'
-    const defs    = document.createElementNS(NS, 'defs')
-    const pattern = document.createElementNS(NS, 'pattern')
-    const line    = document.createElementNS(NS, 'line')
-
-    Object.entries({
-      id: 'cov-hatch',
-      patternUnits: 'userSpaceOnUse',
-      width: '10', height: '10',
-      patternTransform: 'rotate(45 0 0)',
-    }).forEach(([k, v]) => pattern.setAttribute(k, v))
+    const NS = "http://www.w3.org/2000/svg";
+    const defs = document.createElementNS(NS, "defs");
+    const pattern = document.createElementNS(NS, "pattern");
+    const line = document.createElementNS(NS, "line");
 
     Object.entries({
-      x1: '0', y1: '0', x2: '0', y2: '10',
-      stroke: 'rgba(30,144,255,0.15)',
-      'stroke-width': '1.5',
-    }).forEach(([k, v]) => line.setAttribute(k, v))
+      id: "cov-hatch",
+      patternUnits: "userSpaceOnUse",
+      width: "10",
+      height: "10",
+      patternTransform: "rotate(45 0 0)",
+    }).forEach(([k, v]) => pattern.setAttribute(k, v));
 
-    pattern.appendChild(line)
-    defs.appendChild(pattern)
-    svg.insertBefore(defs, svg.firstChild)
-  }, [map])
+    Object.entries({
+      x1: "0",
+      y1: "0",
+      x2: "0",
+      y2: "10",
+      stroke: "rgba(30,144,255,0.15)",
+      "stroke-width": "1.5",
+    }).forEach(([k, v]) => line.setAttribute(k, v));
+
+    pattern.appendChild(line);
+    defs.appendChild(pattern);
+    svg.insertBefore(defs, svg.firstChild);
+  }, [map]);
 
   // World polygon with Panabo City cut out as a hole
-  const maskFeature = useMemo(() => ({
-    type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      // GeoJSON: outer ring CCW, inner ring (hole) CW
-      // evenodd fill-rule used by Leaflet handles both orientations correctly
-      coordinates: [
-        [[-180, -90], [-180, 90], [180, 90], [180, -90], [-180, -90]],
-        PANABO_BOUNDARY,
-      ],
-    },
-  }), [])
+  const maskFeature = useMemo(
+    () => ({
+      type: "Feature",
+      geometry: {
+        type: "Polygon",
+        // GeoJSON: outer ring CCW, inner ring (hole) CW
+        // evenodd fill-rule used by Leaflet handles both orientations correctly
+        coordinates: [
+          [
+            [-180, -90],
+            [-180, 90],
+            [180, 90],
+            [180, -90],
+            [-180, -90],
+          ],
+          PANABO_BOUNDARY,
+        ],
+      },
+    }),
+    []
+  );
 
   // Panabo City outline only (no fill)
-  const boundaryFeature = useMemo(() => ({
-    type: 'Feature',
-    geometry: { type: 'Polygon', coordinates: [PANABO_BOUNDARY] },
-  }), [])
+  const boundaryFeature = useMemo(
+    () => ({
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: [PANABO_BOUNDARY] },
+    }),
+    []
+  );
 
   return (
     <>
@@ -192,7 +308,7 @@ function CoverageLayers() {
         key="mask-dark"
         data={maskFeature}
         style={() => ({
-          fillColor: '#060810',
+          fillColor: "#060810",
           fillOpacity: 0.72,
           stroke: false,
         })}
@@ -203,7 +319,7 @@ function CoverageLayers() {
         key="mask-hatch"
         data={maskFeature}
         style={() => ({
-          className: 'cov-hatch-path',
+          className: "cov-hatch-path",
           fillOpacity: 1,
           stroke: false,
         })}
@@ -216,27 +332,34 @@ function CoverageLayers() {
         style={() => ({
           fill: false,
           stroke: true,
-          color: '#1e90ff',
+          color: "#1e90ff",
           weight: 2,
           opacity: 0.85,
         })}
       />
     </>
-  )
+  );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function MapArea({ pickingMode = false, onLocationPicked, pickedLocation, newIncidents = [], reporterLocations = [] }) {
+export default function MapArea({
+  pickingMode = false,
+  onLocationPicked,
+  pickedLocation,
+  newIncidents = [],
+  reporterLocations = [],
+}) {
   const [activeLayers, setActiveLayers] = useState(
-    new Set(['Incidents', 'Personnel', 'Stations', 'Routes'])
-  )
+    new Set(["Incidents", "Personnel", "Stations", "Routes"])
+  );
+  const [tileMode, setTileMode] = useState("satellite");
 
   function toggleLayer(label) {
-    setActiveLayers(prev => {
-      const next = new Set(prev)
-      next.has(label) ? next.delete(label) : next.add(label)
-      return next
-    })
+    setActiveLayers((prev) => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      return next;
+    });
   }
 
   return (
@@ -245,25 +368,23 @@ export default function MapArea({ pickingMode = false, onLocationPicked, pickedL
       {pickingMode && (
         <div className="map-pick-banner">
           {pickedLocation
-            ? `📍 ${pickedLocation[0].toFixed(4)}, ${pickedLocation[1].toFixed(4)}  ·  Click elsewhere to reposition`
-            : '🎯 Click on the map to mark the incident location  ·  ESC to cancel'}
+            ? `📍 ${pickedLocation[0].toFixed(4)}, ${pickedLocation[1].toFixed(
+                4
+              )}  ·  Click elsewhere to reposition`
+            : "🎯 Click on the map to mark the incident location  ·  ESC to cancel"}
         </div>
       )}
 
       <MapContainer
         center={PANABO_CENTER}
         zoom={ZOOM}
-        style={{ height: '100%', width: '100%' }}
+        style={{ height: "100%", width: "100%" }}
         zoomControl={false}
         attributionControl={true}
       >
-        {/* CartoDB Dark Matter tiles */}
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
-          subdomains="abcd"
-          maxZoom={19}
-        />
+        {TILE_OPTIONS.find((t) => t.id === tileMode).layers.map((layer, i) => (
+          <TileLayer key={`${tileMode}-${i}`} {...layer} />
+        ))}
 
         {/* Picking-mode handlers */}
         <MapClickHandler active={pickingMode} onPick={onLocationPicked} />
@@ -273,30 +394,41 @@ export default function MapArea({ pickingMode = false, onLocationPicked, pickedL
         <CoverageLayers />
 
         {/* GNN routes */}
-        {activeLayers.has('Routes') &&
-          ROUTES.map(r => (
+        {activeLayers.has("Routes") &&
+          ROUTES.map((r) => (
             <Polyline
               key={r.cls}
               positions={r.positions}
               className={r.cls}
-              pathOptions={{ color: r.color, weight: 3, dashArray: '10 6', opacity: 0.9 }}
+              pathOptions={{
+                color: r.color,
+                weight: 3,
+                dashArray: "10 6",
+                opacity: 0.9,
+              }}
             />
           ))}
 
         {/* Fire stations */}
-        {activeLayers.has('Stations') &&
-          STATIONS.map(s => (
+        {activeLayers.has("Stations") &&
+          STATIONS.map((s) => (
             <Marker key={s.id} position={s.pos} icon={stationIcon()}>
-              <Tooltip direction="top" className="leaflet-dark-tooltip">{s.label}</Tooltip>
+              <Tooltip direction="top" className="leaflet-dark-tooltip">
+                {s.label}
+              </Tooltip>
             </Marker>
           ))}
 
         {/* Incident markers */}
-        {activeLayers.has('Incidents') &&
-          INCIDENTS.map(inc => (
-            <Marker key={inc.id} position={inc.pos} icon={fireIcon(inc.severity)}>
+        {activeLayers.has("Incidents") &&
+          INCIDENTS.map((inc) => (
+            <Marker
+              key={inc.id}
+              position={inc.pos}
+              icon={fireIcon(inc.severity)}
+            >
               <Tooltip
-                permanent={inc.id === 'INC-2026-084'}
+                permanent={inc.id === "INC-2026-084"}
                 direction="top"
                 className="leaflet-dark-tooltip"
               >
@@ -308,24 +440,34 @@ export default function MapArea({ pickingMode = false, onLocationPicked, pickedL
           ))}
 
         {/* Personnel markers */}
-        {activeLayers.has('Personnel') &&
-          PERSONNEL.map(p => (
-            <Marker key={p.initials} position={p.pos} icon={personnelIcon(p.initials, p.cssColor, p.shadow)} />
+        {activeLayers.has("Personnel") &&
+          PERSONNEL.map((p) => (
+            <Marker
+              key={p.initials}
+              position={p.pos}
+              icon={personnelIcon(p.initials, p.cssColor, p.shadow)}
+            />
           ))}
 
         {/* Newly logged incidents */}
-        {newIncidents.map(inc => (
-          <Marker key={inc.id} position={inc.coords} icon={fireIcon('critical')}>
+        {newIncidents.map((inc) => (
+          <Marker
+            key={inc.id}
+            position={inc.coords}
+            icon={fireIcon("critical")}
+          >
             <Tooltip direction="top" className="leaflet-dark-tooltip">
               <div className="tooltip-id">{inc.id} · NEW</div>
               <div className="tooltip-name">🔥 {inc.locationName}</div>
-              <div className="tooltip-sub">{inc.severity} · {inc.alarm}</div>
+              <div className="tooltip-sub">
+                {inc.severity} · {inc.alarm}
+              </div>
             </Tooltip>
           </Marker>
         ))}
 
         {/* Reporter location markers */}
-        {reporterLocations.map(r => (
+        {reporterLocations.map((r) => (
           <Marker key={r.token} position={r.coords} icon={reporterIcon()}>
             <Tooltip direction="top" className="leaflet-dark-tooltip">
               <div className="tooltip-id">{r.token}</div>
@@ -343,12 +485,34 @@ export default function MapArea({ pickingMode = false, onLocationPicked, pickedL
         )}
       </MapContainer>
 
+      {/* Tile switcher — bottom-left, Google Maps style */}
+      <div className="tile-switcher">
+        {TILE_OPTIONS.map((opt) => (
+          <button
+            key={opt.id}
+            className={`tile-option${tileMode === opt.id ? " active" : ""}`}
+            onClick={() => setTileMode(opt.id)}
+            title={opt.label}
+          >
+            <img
+              src={opt.thumb}
+              alt={opt.label}
+              className="tile-option-thumb"
+              draggable={false}
+            />
+            <span className="tile-option-label">{opt.label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Layer toggles */}
       <div className="map-layers">
-        {LAYER_LABELS.map(label => (
+        {LAYER_LABELS.map((label) => (
           <button
             key={label}
-            className={`layer-toggle${activeLayers.has(label) ? ' active' : ''}`}
+            className={`layer-toggle${
+              activeLayers.has(label) ? " active" : ""
+            }`}
             onClick={() => toggleLayer(label)}
           >
             {label}
@@ -356,5 +520,5 @@ export default function MapArea({ pickingMode = false, onLocationPicked, pickedL
         ))}
       </div>
     </div>
-  )
+  );
 }

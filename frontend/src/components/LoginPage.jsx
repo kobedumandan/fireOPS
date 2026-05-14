@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { apiFetch } from '../api'
 import '../styles/LoginPage.css'
+
 
 export default function LoginPage({ onLogin }) {
   const [email, setEmail]         = useState('')
@@ -19,21 +21,30 @@ export default function LoginPage({ onLogin }) {
     return !e.email && !e.password
   }
 
-  function handleLogin() {
+  async function handleLogin() {
     setAlert('')
     if (!validate()) return
 
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      // TODO: replace with real auth check
-      if (email === 'admin@bfp.gov.ph' && password === 'admin') {
-        onLogin()
+    try {
+      const res = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        localStorage.setItem('bfp_token', data.access_token)
+        localStorage.setItem('bfp_user', JSON.stringify(data.user))
+        onLogin(data.user)
       } else {
         setErrors({ email: true, password: true })
         setAlert('Invalid credentials. Please check your email and password.')
       }
-    }, 1600)
+    } catch {
+      setAlert('Unable to reach the server. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   function handleKeyDown(e) {
@@ -46,7 +57,7 @@ export default function LoginPage({ onLogin }) {
 
         {/* LEFT: HERO */}
         <div className="lp-hero">
-          <div className="lp-eyebrow">Bureau of Fire Protection</div>
+          <div className="lp-eyebrow">Panabo City · Bureau of Fire Protection</div>
 
           <div className="lp-title">
             <div className="lp-title-wrap">
@@ -60,17 +71,19 @@ export default function LoginPage({ onLogin }) {
 
           <div className="lp-features">
             {[
-              { cls: 'fi-fire', icon: '🔥', title: 'Real-Time Incident Management',
+              { cls: 'fi-fire', icon: 'src/assets/svg_icons/fire_icon.svg', title: 'Real-Time Incident Management',
                 desc: 'Monitor active fire incidents across all barangays with live severity tracking and alarm escalation.' },
-              { cls: 'fi-blue', icon: '🧠', title: 'GNN-RL Routing Engine',
+              { cls: 'fi-blue', icon: 'src/assets/svg_icons/routing_icon.svg', title: 'GNN-RL Routing Engine',
                 desc: 'Optimal routing computed by a Graph Neural Network trained with reinforcement learning for dynamic road conditions.' },
-              { cls: 'fi-green', icon: '📡', title: 'IoT Personnel Tracking',
+              { cls: 'fi-green', icon: 'src/assets/svg_icons/location_tracking_icon.svg', title: 'IoT Personnel Tracking',
                 desc: 'Field unit locations tracked via ESP32 GPS with SMS fallback for low-coverage areas.' },
-              { cls: 'fi-amber', icon: '🗺', title: 'Multi-Station Dispatch',
+              { cls: 'fi-amber', icon: 'src/assets/svg_icons/fire_truck_icon.svg', title: 'Multi-Station Dispatch',
                 desc: 'Coordinate response teams across main and sub-stations from a single command dashboard.' },
             ].map(f => (
               <div className="lp-feature" key={f.title}>
-                <div className={`lp-feature-icon ${f.cls}`}>{f.icon}</div>
+                <div className={`lp-feature-icon ${f.cls}`}>
+                  <img src={f.icon} alt='x' width='14px' />
+                </div>
                 <div>
                   <div className="lp-feature-title">{f.title}</div>
                   <div className="lp-feature-desc">{f.desc}</div>
@@ -81,13 +94,16 @@ export default function LoginPage({ onLogin }) {
 
           <div className="lp-stats">
             {[
-              { val: '3',   label: 'Main Stations' },
-              { val: '14',  label: 'Personnel' },
-              { val: '8',   label: 'Fire Units' },
-              { val: '94%', label: 'Model Accuracy' },
+              { val: '3',   unit: '',  label: 'Main Stations' },
+              { val: '14',  unit: '',  label: 'Personnel' },
+              { val: '8',   unit: '',  label: 'Fire Units' },
+              { val: '94',  unit: '%',  label: 'Model Accuracy' },
             ].map(s => (
               <div key={s.label}>
-                <span className="lp-stat-val">{s.val}</span>
+                <div className="lp-stat-val-wrapper">
+                  <span className="lp-stat-val">{s.val}</span>
+                  <span className="lp-stat-unit">{s.unit}</span>
+                </div>
                 <span className="lp-stat-label">{s.label}</span>
               </div>
             ))}
@@ -117,7 +133,7 @@ export default function LoginPage({ onLogin }) {
           <div className="lp-field-group">
             <label className="lp-field-label">Email</label>
             <div className="lp-field-wrap">
-              <span className="lp-field-icon">✉</span>
+              <img className="lp-field-icon" src="src/assets/svg_icons/email_icon.svg" alt="" />
               <input
                 className={`lp-field-input${errors.email ? ' error' : ''}`}
                 type="email"
@@ -136,7 +152,7 @@ export default function LoginPage({ onLogin }) {
           <div className="lp-field-group">
             <label className="lp-field-label">Password</label>
             <div className="lp-field-wrap">
-              <span className="lp-field-icon">🔒</span>
+              <img className="lp-field-icon" src="src/assets/svg_icons/lock_icon.svg" alt="" />
               <input
                 className={`lp-field-input${errors.password ? ' error' : ''}`}
                 type={showPw ? 'text' : 'password'}
@@ -145,13 +161,12 @@ export default function LoginPage({ onLogin }) {
                 onChange={e => setPassword(e.target.value)}
                 autoComplete="current-password"
               />
-              <span
+              <img
                 className="lp-pw-toggle"
+                src={showPw ? 'src/assets/svg_icons/visibility_on.svg' : 'src/assets/svg_icons/visibility_off.svg'}
+                alt={showPw ? 'Hide password' : 'Show password'}
                 onClick={() => setShowPw(v => !v)}
-                style={showPw ? { color: 'var(--lp-accent-blue)' } : {}}
-              >
-                {showPw ? 'HIDE' : 'SHOW'}
-              </span>
+              />
             </div>
             {errors.password && (
               <div className="lp-field-error">Password is required.</div>
@@ -168,11 +183,17 @@ export default function LoginPage({ onLogin }) {
           </div>
 
           <button
+            type="button"
             className={`lp-btn-login${loading ? ' loading' : ''}`}
             onClick={handleLogin}
             disabled={loading}
           >
-            {loading ? 'Authenticating...' : 'Sign In'}
+            {loading ? (
+              <>
+                <span className="lp-spinner" />
+                Authenticating...
+              </>
+            ) : 'Sign In'}
           </button>
 
           <div className="lp-card-footer">

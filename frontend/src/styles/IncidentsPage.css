@@ -238,6 +238,9 @@
   user-select: none;
 }
 
+.inc-table th:first-child { padding-left: 20px; }
+.inc-table td:first-child { padding-left: 20px; }
+
 .inc-table th:hover { color: var(--text-secondary); }
 .inc-table th.sort-active { color: var(--accent-blue); }
 

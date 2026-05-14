@@ -11,11 +11,22 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
 from database import Base
-from models import (
-    FireStation as FireStation,
-    Incident as Incident,
-    Personnel as Personnel,
-    Dispatch as Dispatch,
+from models import (  # noqa: F401 — import side-effects register all tables with Base.metadata
+    Users,
+    Admin,
+    Personnel,
+    Device,
+    LocationLog,
+    ResponseTeam,
+    ResponseTeamMember,
+    Truck,
+    TruckLog,
+    PurokBoundary,
+    FireIncident,
+    Route,
+    HeatmapData,
+    DispatchRecord,
+    DispatchTruck,
 )
 
 config = context.config

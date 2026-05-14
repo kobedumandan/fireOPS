@@ -284,6 +284,13 @@
   vertical-align: middle;
 }
 
+.per-table th:first-child {
+  padding-left: 20px;
+}
+.per-table td:first-child {
+  padding-left: 20px;
+}
+
 .per-table tr { transition: background 0.1s; cursor: pointer; }
 .per-table tr:hover td { background: var(--bg-hover); }
 .per-table tr.selected td { background: rgba(255,77,26,0.06); }
