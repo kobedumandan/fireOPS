@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import check_connection, get_db
-from models import Users
+from models import Users, Personnel, HeatmapData, Station
 from ai import GeoAIRoutingEngine, load_qgis_graph, load_panabo_graph, register_env, Config
 from ai.config import BASE_DIR
 
@@ -232,3 +232,130 @@ def nearest_station(lat: float, lon: float):
         raise HTTPException(status_code=404, detail="No station node found near that location.")
     node_data = routing_engine.graph.G.nodes[node_id]
     return {"node_id": node_id, "lat": node_data["lat"], "lon": node_data["lon"]}
+
+
+@app.get("/api/personnel")
+def get_personnel(
+    db: Session = Depends(get_db),
+    _auth: Users = Depends(get_current_user),
+):
+    rows = db.query(Personnel).all()
+    result = []
+    for p in rows:
+        first = p.per_firstname or ""
+        last  = p.per_lastname  or ""
+        initials = ((first[0] if first else "") + (last[0] if last else "")).upper()
+
+        device = p.devices[0] if p.devices else None
+        if device and device.device_status == "active":
+            iot = "active"
+        elif device and device.device_status == "sms":
+            iot = "sms"
+        else:
+            iot = "offline"
+
+        designation = (p.per_designation or "standby").lower()
+        valid_statuses = {"dispatched", "onscene", "standby", "offduty"}
+        status = designation if designation in valid_statuses else "standby"
+
+        joined = None
+        if p.user and p.user.created_at:
+            joined = p.user.created_at.strftime("%b %Y")
+
+        result.append({
+            "id":       f"FU-{p.per_id:03d}",
+            "per_id":   p.per_id,
+            "name":     f"{first} {last}".strip(),
+            "initials": initials or "??",
+            "rank":     p.per_rank        or "—",
+            "status":   status,
+            "station":  p.station.station_name if p.station else "—",
+            "incident": "—",
+            "iot":      iot,
+            "battery":  0,
+            "phone":    p.per_contact or "—",
+            "joined":   joined or "—",
+        })
+    return result
+
+
+class StationCreate(BaseModel):
+    station_name: str
+    station_type: str = "main"
+    parent_station_id: int | None = None
+    station_address: str
+    station_barangay: str
+    station_latitude: float
+    station_longitude: float
+    station_contact: str
+    station_status: str = "operational"
+
+
+def _station_dict(r: Station) -> dict:
+    return {
+        "station_id":        r.station_id,
+        "station_name":      r.station_name,
+        "station_type":      r.station_type or "main",
+        "parent_station_id": r.parent_station_id,
+        "station_address":   r.station_address  or "",
+        "station_barangay":  r.station_barangay or "",
+        "station_latitude":  r.station_latitude,
+        "station_longitude": r.station_longitude,
+        "station_contact":   r.station_contact  or "",
+        "station_status":    r.station_status   or "operational",
+        "created_at":        r.created_at.isoformat() if r.created_at else None,
+    }
+
+
+@app.get("/api/stations")
+def get_stations(
+    db: Session = Depends(get_db),
+    _auth: Users = Depends(get_current_user),
+):
+    rows = db.query(Station).order_by(Station.station_id).all()
+    return [_station_dict(r) for r in rows]
+
+
+@app.post("/api/stations", status_code=201)
+def create_station(
+    body: StationCreate,
+    db: Session = Depends(get_db),
+    _auth: Users = Depends(get_current_user),
+):
+    if db.query(Station).filter(Station.station_name == body.station_name).first():
+        raise HTTPException(status_code=409, detail="A station with that name already exists.")
+    if body.station_type == "sub" and body.parent_station_id is None:
+        raise HTTPException(status_code=422, detail="A sub-station must have a parent station.")
+    if body.parent_station_id and not db.get(Station, body.parent_station_id):
+        raise HTTPException(status_code=404, detail="Parent station not found.")
+    station = Station(
+        station_name=body.station_name,
+        station_type=body.station_type,
+        parent_station_id=body.parent_station_id,
+        station_address=body.station_address,
+        station_barangay=body.station_barangay,
+        station_latitude=body.station_latitude,
+        station_longitude=body.station_longitude,
+        station_contact=body.station_contact,
+        station_status=body.station_status,
+    )
+    db.add(station)
+    db.commit()
+    db.refresh(station)
+    return _station_dict(station)
+
+
+@app.get("/api/heatmap")
+def get_heatmap(
+    db: Session = Depends(get_db),
+    _auth: Users = Depends(get_current_user),
+):
+    rows = db.query(HeatmapData).all()
+    return [
+        {
+            "lat":    r.heatmap_latitude,
+            "lng":    r.heatmap_longitude,
+            "weight": float(r.heatmap_density_value),
+        }
+        for r in rows
+    ]

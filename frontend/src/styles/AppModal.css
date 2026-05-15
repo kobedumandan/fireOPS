@@ -158,6 +158,58 @@
 .apm-field select option { background: var(--bg-card); color: var(--text-primary); }
 .apm-field textarea { resize: vertical; min-height: 72px; }
 
+/* ── Number spinner ── */
+.apm-field input[type="number"]::-webkit-outer-spin-button,
+.apm-field input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+.apm-field input[type="number"] { -moz-appearance: textfield; }
+
+.apm-num-wrap {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.apm-num-wrap:focus-within { border-color: var(--accent-blue); }
+.apm-num-wrap input {
+  flex: 1;
+  border: none !important;
+  border-radius: 0 !important;
+  outline: none;
+  min-width: 0;
+}
+.apm-num-wrap input:focus { border-color: transparent !important; }
+
+.apm-spin {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-hover);
+  border-left: 1px solid var(--border-bright);
+  flex-shrink: 0;
+}
+.apm-spin button {
+  flex: 1;
+  width: 22px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s;
+}
+.apm-spin button:first-child { border-bottom: 1px solid var(--border-bright); }
+.apm-spin button:hover { background: var(--border-bright); color: var(--text-primary); }
+
 /* ── Password visibility toggle ── */
 .apm-input-wrap {
   position: relative;
@@ -183,7 +235,9 @@
   align-items: center;
   transition: color 0.15s;
 }
-.apm-eye:hover { color: var(--text-secondary); }
+.apm-eye:hover { opacity: 0.8; }
+.apm-eye img { width: 16px; height: 16px; opacity: 0.55; transition: opacity 0.15s; display: block; }
+.apm-eye:hover img { opacity: 0.9; }
 
 /* ── Inline error ── */
 .apm-error {

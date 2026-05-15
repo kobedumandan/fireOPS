@@ -1,18 +1,37 @@
-import { useState } from 'react'
-import '../styles/RightSidebar.css'
+import { useState } from "react";
+import "../styles/RightSidebar.css";
 
-const TABS = ['Incident', 'Routing', 'Timeline']
+const TABS = ["Incident", "Timeline"];
 
-export default function RightSidebar() {
-  const [activeTab, setActiveTab] = useState('Incident')
+export default function RightSidebar({ collapsed = false, onToggleCollapse }) {
+  const [activeTab, setActiveTab] = useState("Incident");
+
+  if (collapsed) {
+    return (
+      <button
+        className="right-sidebar-float-btn"
+        onClick={onToggleCollapse}
+        title="Expand details panel"
+      >
+        ‹
+      </button>
+    );
+  }
 
   return (
     <div className="sidebar-right">
       <div className="sidebar-tabs">
-        {TABS.map(tab => (
+        <button
+          className="sidebar-collapse-btn--right"
+          onClick={onToggleCollapse}
+          title="Collapse"
+        >
+          ›
+        </button>
+        {TABS.map((tab) => (
           <button
             key={tab}
-            className={`sidebar-tab${activeTab === tab ? ' active' : ''}`}
+            className={`sidebar-tab${activeTab === tab ? " active" : ""}`}
             onClick={() => setActiveTab(tab)}
           >
             {tab}
@@ -33,7 +52,9 @@ export default function RightSidebar() {
       <div className="detail-body">
         <div className="detail-row">
           <span className="detail-label">Address</span>
-          <span className="detail-value">123 Maharlika St., San Isidro, QC</span>
+          <span className="detail-value">
+            123 Maharlika St., San Isidro, QC
+          </span>
         </div>
         <div className="detail-row">
           <span className="detail-label">Reported By</span>
@@ -45,11 +66,21 @@ export default function RightSidebar() {
         </div>
         <div className="detail-row">
           <span className="detail-label">Casualties</span>
-          <span className="detail-value" style={{ color: 'var(--accent-amber)' }}>Unconfirmed</span>
+          <span
+            className="detail-value"
+            style={{ color: "var(--accent-amber)" }}
+          >
+            Unconfirmed
+          </span>
         </div>
         <div className="detail-row">
           <span className="detail-label">Alarm Level</span>
-          <span className="detail-value" style={{ color: 'var(--accent-fire)' }}>2nd Alarm</span>
+          <span
+            className="detail-value"
+            style={{ color: "var(--accent-fire)" }}
+          >
+            2nd Alarm
+          </span>
         </div>
 
         <div className="detail-section-title">Assigned Units</div>
@@ -109,5 +140,5 @@ export default function RightSidebar() {
         <button className="btn-secondary">✎ Edit Incident Details</button>
       </div>
     </div>
-  )
+  );
 }

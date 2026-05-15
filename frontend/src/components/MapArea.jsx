@@ -12,11 +12,12 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.heat";
 import { PANABO_BOUNDARY } from "../data/panaboBoundary";
+import { PANABO_CENTER, PANABO_ZOOM, TILE_OPTIONS } from "../data/mapConfig";
+import { fetchHeatmap } from "../api";
 
-// Panabo City, Davao del Norte
-const PANABO_CENTER = [7.307, 125.635];
-const ZOOM = 12;
+const ZOOM = PANABO_ZOOM;
 
 const LAYER_LABELS = [
   "Incidents",
@@ -26,51 +27,6 @@ const LAYER_LABELS = [
   "Heat Map",
 ];
 
-// Tile z=5 x=27 y=15 covers the Philippines area (used for thumbnails)
-const TILE_OPTIONS = [
-  {
-    id: "street",
-    label: "Light",
-    thumb: "https://a.basemaps.cartocdn.com/rastertiles/voyager/5/27/15.png",
-    layers: [
-      {
-        url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-        subdomains: "abcd",
-        maxZoom: 19,
-      },
-    ],
-  },
-  {
-    id: "dark",
-    label: "Dark",
-    thumb: "https://a.basemaps.cartocdn.com/dark_all/5/27/15.png",
-    layers: [
-      {
-        url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-        subdomains: "abcd",
-        maxZoom: 19,
-      },
-    ],
-  },
-  {
-    id: "satellite",
-    label: "Satellite",
-    thumb:
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/5/15/27",
-    layers: [
-      {
-        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        attribution:
-          '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
-        maxZoom: 23,
-      },
-    ],
-  },
-];
 
 // ── Coordinate data (inside Panabo City) ─────────────────────────────────────
 const STATIONS = [
@@ -341,6 +297,45 @@ function CoverageLayers() {
   );
 }
 
+// ── Weighted KDE heatmap layer (leaflet.heat) ─────────────────────────────────
+function HeatmapLayer({ points }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!points.length) return;
+
+    // points: [{lat, lng, weight}] — weight is heatmap_density_value (0.10–5.0)
+    const data = points.map((p) => [p.lat, p.lng, p.weight]);
+
+    console.log('Heatmap density range:',
+      Math.min(...data.map(d => d[2])),
+      'to',
+      Math.max(...data.map(d => d[2]))
+    );
+    console.log('Sample points:', data.slice(0, 5));
+
+    const layer = L.heatLayer(data, {
+      radius:     25,
+      blur:       18,
+      minOpacity: 0.35,
+      maxZoom:    17,
+      max:        5.0,
+      gradient: {
+        0.0: "#0000ff",
+        0.2: "#00ffff",
+        0.4: "#00ff00",
+        0.6: "#ffff00",
+        0.8: "#ff8000",
+        1.0: "#ff0000",
+      },
+    }).addTo(map);
+
+    return () => map.removeLayer(layer);
+  }, [map, points]);
+
+  return null;
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function MapArea({
   pickingMode = false,
@@ -348,11 +343,21 @@ export default function MapArea({
   pickedLocation,
   newIncidents = [],
   reporterLocations = [],
+  leftCollapsed = false,
 }) {
+  const leftOffset = leftCollapsed ? 52 + 12 : 280 + 12;
   const [activeLayers, setActiveLayers] = useState(
     new Set(["Incidents", "Personnel", "Stations", "Routes"])
   );
   const [tileMode, setTileMode] = useState("satellite");
+  const [heatPoints, setHeatPoints] = useState([]);
+
+  useEffect(() => {
+    if (!activeLayers.has("Heat Map") || heatPoints.length) return;
+    fetchHeatmap()
+      .then(setHeatPoints)
+      .catch(err => console.error("Heatmap fetch failed:", err));
+  }, [activeLayers, heatPoints.length]);
 
   function toggleLayer(label) {
     setActiveLayers((prev) => {
@@ -392,6 +397,9 @@ export default function MapArea({
 
         {/* Coverage mask + jurisdiction boundary */}
         <CoverageLayers />
+
+        {/* Weighted KDE heatmap */}
+        {activeLayers.has("Heat Map") && <HeatmapLayer points={heatPoints} />}
 
         {/* GNN routes */}
         {activeLayers.has("Routes") &&
@@ -486,7 +494,7 @@ export default function MapArea({
       </MapContainer>
 
       {/* Tile switcher — bottom-left, Google Maps style */}
-      <div className="tile-switcher">
+      <div className="tile-switcher" style={{ left: leftOffset, transition: 'left 0.2s ease' }}>
         {TILE_OPTIONS.map((opt) => (
           <button
             key={opt.id}
@@ -506,7 +514,7 @@ export default function MapArea({
       </div>
 
       {/* Layer toggles */}
-      <div className="map-layers">
+      <div className="map-layers" style={{ left: leftOffset, transition: 'left 0.2s ease' }}>
         {LAYER_LABELS.map((label) => (
           <button
             key={label}

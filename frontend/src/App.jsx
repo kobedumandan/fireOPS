@@ -35,6 +35,8 @@ export default function App() {
   const [showSettings, setShowSettings]           = useState(false)
   const [selectedIncident, setSelectedIncident]   = useState('INC-2026-084')
   const [theme, setTheme]                         = useState('dark')
+  const [leftCollapsed, setLeftCollapsed]         = useState(false)
+  const [rightCollapsed, setRightCollapsed]       = useState(false)
   const [pickingMode, setPickingMode]             = useState(false)
   const [pickedLocation, setPickedLocation]       = useState(null)
   const [loggedIncidents, setLoggedIncidents]     = useState([])
@@ -131,6 +133,8 @@ export default function App() {
             pickingMode={pickingMode}
             onOpenLocationRequest={() => setShowLocationRequest(true)}
             reporterCount={reporterLocations.length}
+            collapsed={leftCollapsed}
+            onToggleCollapse={() => setLeftCollapsed(c => !c)}
           />
           <MapArea
             pickingMode={pickingMode}
@@ -138,8 +142,12 @@ export default function App() {
             pickedLocation={pickedLocation}
             newIncidents={loggedIncidents}
             reporterLocations={reporterLocations}
+            leftCollapsed={leftCollapsed}
           />
-          <RightSidebar />
+          <RightSidebar
+            collapsed={rightCollapsed}
+            onToggleCollapse={() => setRightCollapsed(c => !c)}
+          />
         </div>
       )}
       {!showSettings && <StatusBar />}

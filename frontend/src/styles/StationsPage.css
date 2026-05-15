@@ -611,3 +611,289 @@
   transition: all 0.15s;
 }
 .sta-btn-sec:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* ── ADD STATION MODAL ── */
+.asm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 12, 0.75);
+  backdrop-filter: blur(3px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.asm-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-bright);
+  border-radius: 6px;
+  width: 520px;
+  max-width: calc(100vw - 40px);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,77,26,0.12);
+  overflow: hidden;
+}
+
+.asm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.asm-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--accent-fire);
+  letter-spacing: 2px;
+  margin-bottom: 3px;
+}
+
+.asm-title {
+  font-family: var(--font-condensed);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+.asm-close {
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  border-radius: 3px;
+  color: var(--text-muted);
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.asm-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.asm-form {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.asm-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.asm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.asm-field label {
+  font-family: var(--font-condensed);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.asm-required { color: var(--accent-fire); }
+
+.asm-field input,
+.asm-field select {
+  background: var(--bg-card);
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  padding: 7px 10px;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.asm-field input:focus,
+.asm-field select:focus { border-color: var(--accent-blue); }
+.asm-field input::placeholder { color: var(--text-muted); }
+.asm-field select option { background: var(--bg-card); color: var(--text-primary); }
+
+.asm-field input[type="number"]::-webkit-outer-spin-button,
+.asm-field input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+.asm-field input[type="number"] { -moz-appearance: textfield; }
+
+.asm-num-wrap {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.asm-num-wrap:focus-within { border-color: var(--accent-blue); }
+.asm-num-wrap input {
+  flex: 1;
+  border: none !important;
+  border-radius: 0 !important;
+  outline: none;
+}
+.asm-num-wrap input:focus { border-color: transparent !important; }
+
+.asm-spin {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-hover);
+  border-left: 1px solid var(--border-bright);
+  flex-shrink: 0;
+}
+.asm-spin button {
+  flex: 1;
+  width: 22px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s;
+}
+.asm-spin button:first-child { border-bottom: 1px solid var(--border-bright); }
+.asm-spin button:hover { background: var(--border-bright); color: var(--text-primary); }
+
+.asm-error {
+  background: var(--accent-fire-dim);
+  border: 1px solid rgba(255, 77, 26, 0.35);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: var(--font-condensed);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-fire);
+  letter-spacing: 0.3px;
+}
+
+.asm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.asm-btn-cancel {
+  padding: 8px 18px;
+  background: transparent;
+  border: 1px solid var(--border-bright);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: var(--font-condensed);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.asm-btn-cancel:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.asm-btn-submit {
+  padding: 8px 22px;
+  background: var(--accent-fire);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-family: var(--font-condensed);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.asm-btn-submit:hover { background: #ff6633; box-shadow: 0 0 16px rgba(255,77,26,0.4); }
+
+.asm-map-wrap {
+  position: relative;
+  width: 100%;
+}
+.asm-tile-switcher {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 1000;
+  display: flex;
+  gap: 3px;
+}
+.asm-tile-btn {
+  border: 2px solid transparent;
+  border-radius: 4px;
+  overflow: hidden;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  transition: border-color 0.15s;
+}
+.asm-tile-btn img {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  display: block;
+}
+.asm-tile-btn span { display: none; }
+.asm-tile-btn.active { border-color: var(--accent-fire); }
+.asm-tile-btn:not(.active):hover { border-color: var(--border); }
+
+.asm-map-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.asm-coords-display {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 5px 8px;
+  background: var(--bg-subtle, var(--bg-card));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.asm-coords-display strong { color: var(--text-primary); }
+
+.asm-type-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.asm-type-btn {
+  flex: 1;
+  padding: 7px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.asm-type-btn + .asm-type-btn { border-left: 1px solid var(--border); }
+.asm-type-btn.active {
+  background: var(--accent-fire);
+  color: #fff;
+}
+.asm-type-btn:not(.active):hover { background: var(--bg-hover); color: var(--text-primary); }

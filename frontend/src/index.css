@@ -48,6 +48,7 @@ body {
   display: flex;
   flex: 1;
   overflow: hidden;
+  position: relative;
 }
 
 /* Shared brand mark — used in TopBar and ReporterPage */

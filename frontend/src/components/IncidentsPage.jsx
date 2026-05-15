@@ -1,19 +1,11 @@
 import { useState, useMemo } from 'react'
 import '../styles/IncidentsPage.css'
+import LogIncidentModal from './LogIncidentModal'
 
 const INCIDENTS = [
-  { id: 'INC-2026-084', loc: 'Brgy. San Isidro, QC',    addr: '123 Maharlika St.',           sev: 'Critical', status: 'active',    rep: 'Today 08:42 AM', units: 2, alarm: '2nd Alarm', structure: 'Residential 2-storey', casualties: 'Unconfirmed', reporter: 'BFP Hotline · 911', eta: '4 min' },
-  { id: 'INC-2026-083', loc: 'Tandang Sora Ave., QC',    addr: '456 Tandang Sora Ave.',        sev: 'Moderate', status: 'enroute',   rep: 'Today 07:15 AM', units: 1, alarm: '1st Alarm', structure: 'Commercial',          casualties: 'None',        reporter: '911 Call',          eta: '9 min' },
-  { id: 'INC-2026-081', loc: 'Batasan Hills, QC',         addr: '78 Batasan Rd.',               sev: 'Minor',    status: 'active',    rep: 'Today 05:30 AM', units: 3, alarm: '1st Alarm', structure: 'Residential',         casualties: 'None',        reporter: 'SMS Report',        eta: 'On scene' },
-  { id: 'INC-2026-079', loc: 'Project 4, QC',             addr: '12 Apo St.',                   sev: 'Moderate', status: 'contained', rep: 'May 3 11:20 PM',  units: 2, alarm: '1st Alarm', structure: 'Residential',         casualties: 'None',        reporter: '911 Call',          eta: '—' },
-  { id: 'INC-2026-077', loc: 'Fairview, QC',              addr: '89 Regalado Ave.',             sev: 'Critical', status: 'closed',    rep: 'May 3 09:10 AM',  units: 4, alarm: '3rd Alarm', structure: 'Industrial',          casualties: '2 injured',   reporter: 'BFP Hotline',       eta: '—' },
-  { id: 'INC-2026-075', loc: 'Novaliches, QC',            addr: '34 Quirino Hwy.',              sev: 'Minor',    status: 'closed',    rep: 'May 2 03:45 PM',  units: 1, alarm: '1st Alarm', structure: 'Vehicle fire',        casualties: 'None',        reporter: '911 Call',          eta: '—' },
-  { id: 'INC-2026-073', loc: 'Diliman, QC',               addr: 'UP Campus, Katipunan',         sev: 'Moderate', status: 'closed',    rep: 'May 2 01:00 PM',  units: 2, alarm: '1st Alarm', structure: 'Institutional',       casualties: 'None',        reporter: 'SMS Report',        eta: '—' },
-  { id: 'INC-2026-071', loc: 'Commonwealth Ave., QC',     addr: 'Commonwealth cor. Luzon Ave.', sev: 'Critical', status: 'closed',    rep: 'May 1 07:30 PM',  units: 3, alarm: '2nd Alarm', structure: 'Commercial',          casualties: 'None',        reporter: '911 Call',          eta: '—' },
-  { id: 'INC-2026-069', loc: 'Cubao, QC',                 addr: 'Aurora Blvd. cor. EDSA',       sev: 'Moderate', status: 'contained', rep: 'May 1 02:00 PM',  units: 2, alarm: '1st Alarm', structure: 'Market stall',        casualties: 'None',        reporter: 'BFP Hotline',       eta: '—' },
-  { id: 'INC-2026-067', loc: 'Kamuning, QC',              addr: '15 Kamuning Rd.',              sev: 'Minor',    status: 'contained', rep: 'Apr 30 10:15 AM', units: 1, alarm: '1st Alarm', structure: 'Residential',         casualties: 'None',        reporter: '911 Call',          eta: '—' },
-  { id: 'INC-2026-065', loc: 'Balintawak, QC',            addr: 'EDSA Balintawak',              sev: 'Moderate', status: 'closed',    rep: 'Apr 29 06:50 PM', units: 2, alarm: '1st Alarm', structure: 'Warehouse',           casualties: 'None',        reporter: 'SMS Report',        eta: '—' },
-  { id: 'INC-2026-063', loc: 'Payatas, QC',               addr: 'Payatas Rd. Brgy. B',          sev: 'Critical', status: 'closed',    rep: 'Apr 28 11:00 AM', units: 5, alarm: '3rd Alarm', structure: 'Squatter area',       casualties: '3 injured',   reporter: 'BFP Hotline',       eta: '—' },
+  { id: 'INC-2026-084', loc: 'Brgy. San Isidro, QC',  addr: '123 Maharlika St.',     sev: 'Critical', status: 'active',    rep: 'Today 08:42 AM', units: 2, alarm: '2nd Alarm', structure: 'Residential 2-storey', casualties: 'Unconfirmed', reporter: 'BFP Hotline · 911', eta: '4 min' },
+  { id: 'INC-2026-083', loc: 'Tandang Sora Ave., QC', addr: '456 Tandang Sora Ave.', sev: 'Moderate', status: 'enroute',   rep: 'Today 07:15 AM', units: 1, alarm: '1st Alarm', structure: 'Commercial',          casualties: 'None',        reporter: '911 Call',          eta: '9 min' },
+  { id: 'INC-2026-081', loc: 'Batasan Hills, QC',     addr: '78 Batasan Rd.',        sev: 'Minor',    status: 'contained', rep: 'Today 05:30 AM', units: 3, alarm: '1st Alarm', structure: 'Residential',         casualties: 'None',        reporter: 'SMS Report',        eta: 'On scene' },
 ]
 
 const SEV_ORDER  = { Critical: 0, Moderate: 1, Minor: 2 }
@@ -43,6 +35,7 @@ export default function IncidentsPage() {
   const [sortCol, setSortCol]           = useState('id')
   const [sortDir, setSortDir]           = useState(-1)
   const [selectedId, setSelectedId]     = useState(null)
+  const [showLogModal, setShowLogModal] = useState(false)
 
   const stats = useMemo(() => ({
     active:    INCIDENTS.filter(i => i.status === 'active').length,
@@ -98,7 +91,7 @@ export default function IncidentsPage() {
             Incidents
             <span>↳ {INCIDENTS.length} TOTAL</span>
           </div>
-          <button className="inc-btn-log">+ Log Incident</button>
+          <button className="inc-btn-log" onClick={() => setShowLogModal(true)}>+ Log Incident</button>
         </div>
 
         {/* STAT CARDS */}
@@ -286,6 +279,16 @@ export default function IncidentsPage() {
           </div>
         )}
       </div>
+
+      {showLogModal && (
+        <LogIncidentModal
+          onClose={() => setShowLogModal(false)}
+          onSubmit={data => {
+            console.log('Log incident:', data)
+            setShowLogModal(false)
+          }}
+        />
+      )}
 
     </div>
   )

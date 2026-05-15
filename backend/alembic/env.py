@@ -14,6 +14,7 @@ from database import Base
 from models import (  # noqa: F401 — import side-effects register all tables with Base.metadata
     Users,
     Admin,
+    Station,
     Personnel,
     Device,
     LocationLog,
@@ -21,7 +22,6 @@ from models import (  # noqa: F401 — import side-effects register all tables w
     ResponseTeamMember,
     Truck,
     TruckLog,
-    PurokBoundary,
     FireIncident,
     Route,
     HeatmapData,

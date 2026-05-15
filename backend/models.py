@@ -56,9 +56,11 @@ class Personnel(Base):
     per_contact     = Column(String(50))
     per_rank        = Column(String(100))
     per_designation = Column(String(100))
-    user_id         = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    user_id         = Column(Integer, ForeignKey("users.user_id"),   nullable=False)
+    station_id      = Column(Integer, ForeignKey("stations.station_id"), nullable=True)
 
     user             = relationship("Users",              back_populates="personnel")
+    station          = relationship("Station",            back_populates="personnel")
     devices          = relationship("Device",             back_populates="personnel")
     team_memberships = relationship("ResponseTeamMember", back_populates="personnel")
 
@@ -99,11 +101,13 @@ class ResponseTeam(Base):
     team_id         = Column(Integer, primary_key=True, autoincrement=True)
     team_name       = Column(String(150))
     team_status     = Column(String(50))
+    station_id      = Column(Integer, ForeignKey("stations.station_id"), nullable=True)
     team_created_at = Column(DateTime(timezone=True), default=_now)
     team_updated_at = Column(DateTime(timezone=True), default=_now, onupdate=_now)
 
-    members   = relationship("ResponseTeamMember", back_populates="team")
-    dispatches = relationship("DispatchRecord",    back_populates="team")
+    station    = relationship("Station",            back_populates="response_teams")
+    members    = relationship("ResponseTeamMember", back_populates="team")
+    dispatches = relationship("DispatchRecord",     back_populates="team")
 
 
 class ResponseTeamMember(Base):
@@ -132,8 +136,10 @@ class Truck(Base):
     truck_latitude     = Column(Float)
     truck_longitude    = Column(Float)
     truck_last_updated = Column(DateTime(timezone=True))
+    station_id         = Column(Integer, ForeignKey("stations.station_id"), nullable=True)
 
-    truck_logs      = relationship("TruckLog",      back_populates="truck")
+    station         = relationship("Station",      back_populates="trucks")
+    truck_logs      = relationship("TruckLog",     back_populates="truck")
     dispatch_trucks = relationship("DispatchTruck", back_populates="truck")
 
 
@@ -150,18 +156,29 @@ class TruckLog(Base):
 
 
 # ---------------------------------------------------------------------------
-# Geographic reference
+# Stations
 # ---------------------------------------------------------------------------
 
-class PurokBoundary(Base):
-    """Purok (sub-barangay) polygon boundaries for incident location tagging."""
-    __tablename__ = "purok_boundaries"
+class Station(Base):
+    __tablename__ = "stations"
 
-    purok_id      = Column(Integer, primary_key=True, autoincrement=True)
-    purok_name    = Column(String(150))
-    purok_geojson = Column(Text)    # GeoJSON polygon
+    station_id         = Column(Integer, primary_key=True, autoincrement=True)
+    station_name       = Column(String(150), unique=True, nullable=False)
+    station_type       = Column(String(10), nullable=False, default="main")  # "main" | "sub"
+    parent_station_id  = Column(Integer, ForeignKey("stations.station_id"), nullable=True)
+    station_address    = Column(String(255))
+    station_barangay   = Column(String(150))
+    station_latitude   = Column(Float)
+    station_longitude  = Column(Float)
+    station_contact    = Column(String(50))
+    station_status     = Column(String(50))   # "operational" | "inactive"
+    created_at         = Column(DateTime(timezone=True), default=_now)
+    updated_at         = Column(DateTime(timezone=True), default=_now, onupdate=_now)
 
-    fire_incidents = relationship("FireIncident", back_populates="purok")
+    parent         = relationship("Station", remote_side="Station.station_id", foreign_keys=[parent_station_id])
+    personnel      = relationship("Personnel",    back_populates="station")
+    trucks         = relationship("Truck",        back_populates="station")
+    response_teams = relationship("ResponseTeam", back_populates="station")
 
 
 # ---------------------------------------------------------------------------
@@ -172,8 +189,7 @@ class FireIncident(Base):
     __tablename__ = "fire_incidents"
 
     fire_id                = Column(Integer, primary_key=True, autoincrement=True)
-    confirmed_user_id      = Column(Integer, ForeignKey("users.user_id"),             nullable=True)
-    purok_id               = Column(Integer, ForeignKey("purok_boundaries.purok_id"), nullable=True)
+    confirmed_user_id      = Column(Integer, ForeignKey("users.user_id"), nullable=True)
     fire_reporter_contact  = Column(String(50))
     fire_location_source   = Column(String(100))   # "gps" | "manual" | "report"
     fire_latitude          = Column(Float, nullable=False)
@@ -183,7 +199,6 @@ class FireIncident(Base):
     fire_incident_datetime = Column(DateTime(timezone=True), default=_now)
 
     confirmed_by  = relationship("Users",          back_populates="confirmed_incidents")
-    purok         = relationship("PurokBoundary",  back_populates="fire_incidents")
     routes        = relationship("Route",          back_populates="fire_incident")
     heatmap_data  = relationship("HeatmapData",    back_populates="fire_incident")
     dispatches    = relationship("DispatchRecord", back_populates="fire_incident")

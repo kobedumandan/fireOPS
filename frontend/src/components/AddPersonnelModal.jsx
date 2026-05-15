@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import AppModal from './AppModal'
+import visibilityOn  from '../assets/svg_icons/visibility_on.svg'
+import visibilityOff from '../assets/svg_icons/visibility_off.svg'
 
 const RANKS = [
   'Fire Officer I',
@@ -31,6 +33,7 @@ export default function AddPersonnelModal({ onClose, onSubmit }) {
 
   function handleSubmit(e) {
     e.preventDefault()
+
     if (!form.per_firstname.trim() || !form.per_lastname.trim()) {
       setError('First and last name are required.')
       return
@@ -39,10 +42,28 @@ export default function AddPersonnelModal({ onClose, onSubmit }) {
       setError('Please select a rank.')
       return
     }
+
+    if (form.per_contact.trim()) {
+      if (/[a-zA-Z]/.test(form.per_contact)) {
+        setError('Contact number must not contain letters.')
+        return
+      }
+      const digits = form.per_contact.replace(/[\s\-]/g, '')
+      if (!/^(\+639\d{9}|09\d{9}|(\+63|0)\d{1,2}\d{7,8})$/.test(digits)) {
+        setError('Contact number must be a valid Philippine phone number (e.g. +63-917-000-0000 or 09170000000).')
+        return
+      }
+    }
+
     if (!form.user_email.trim()) {
       setError('Email address is required.')
       return
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.user_email.trim())) {
+      setError('Email address is not valid.')
+      return
+    }
+
     if (form.user_password.length < 8) {
       setError('Password must be at least 8 characters.')
       return
@@ -144,7 +165,7 @@ export default function AddPersonnelModal({ onClose, onSubmit }) {
                     onChange={e => set('user_password', e.target.value)}
                   />
                   <button type="button" className="apm-eye" onClick={() => setShowPwd(v => !v)}>
-                    {showPwd ? '🙈' : '👁'}
+                    <img src={showPwd ? visibilityOff : visibilityOn} alt="" />
                   </button>
                 </div>
               </div>
@@ -158,7 +179,7 @@ export default function AddPersonnelModal({ onClose, onSubmit }) {
                     onChange={e => set('confirm_password', e.target.value)}
                   />
                   <button type="button" className="apm-eye" onClick={() => setShowConf(v => !v)}>
-                    {showConf ? '🙈' : '👁'}
+                    <img src={showConf ? visibilityOff : visibilityOn} alt="" />
                   </button>
                 </div>
               </div>

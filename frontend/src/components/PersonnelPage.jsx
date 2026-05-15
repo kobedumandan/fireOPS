@@ -1,23 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import '../styles/PersonnelPage.css'
 import AddPersonnelModal from './AddPersonnelModal'
-
-const PERSONNEL = [
-  { id: 'FU-001', name: 'Juan Dela Cruz',    initials: 'JD', rank: 'Fire Officer II',     status: 'dispatched', station: 'Station 1', incident: 'INC-2026-084', iot: 'active',  battery: 82, phone: '+63-917-111-0001', joined: 'Jan 2020' },
-  { id: 'FU-002', name: 'Maria Reyes',       initials: 'MR', rank: 'Fire Officer I',      status: 'dispatched', station: 'Station 1', incident: 'INC-2026-084', iot: 'active',  battery: 67, phone: '+63-917-111-0002', joined: 'Mar 2021' },
-  { id: 'FU-003', name: 'Antonio Bautista',  initials: 'AB', rank: 'Senior Fire Officer',  status: 'onscene',    station: 'Station 2', incident: 'INC-2026-083', iot: 'active',  battery: 45, phone: '+63-917-111-0003', joined: 'Jun 2018' },
-  { id: 'FU-004', name: 'Karen Santos',      initials: 'KS', rank: 'Fire Officer III',    status: 'dispatched', station: 'Station 1', incident: 'INC-2026-081', iot: 'sms',     battery: 91, phone: '+63-917-111-0004', joined: 'Sep 2019' },
-  { id: 'FU-005', name: 'Ramon Lim',         initials: 'RL', rank: 'Fire Officer I',      status: 'standby',    station: 'Station 2', incident: '—',            iot: 'active',  battery: 88, phone: '+63-917-111-0005', joined: 'Feb 2022' },
-  { id: 'FU-006', name: 'Fe Torres',         initials: 'FT', rank: 'Fire Officer II',     status: 'standby',    station: 'Station 1', incident: '—',            iot: 'active',  battery: 95, phone: '+63-917-111-0006', joined: 'Nov 2021' },
-  { id: 'FU-007', name: 'Benito Villanueva', initials: 'BV', rank: 'Fire Inspector',      status: 'onscene',    station: 'Station 3', incident: 'INC-2026-083', iot: 'active',  battery: 33, phone: '+63-917-111-0007', joined: 'Apr 2017' },
-  { id: 'FU-008', name: 'Corazon Mendoza',   initials: 'CM', rank: 'Fire Officer I',      status: 'standby',    station: 'Station 2', incident: '—',            iot: 'sms',     battery: 72, phone: '+63-917-111-0008', joined: 'Jul 2023' },
-  { id: 'FU-009', name: 'Danilo Cruz',       initials: 'DC', rank: 'Fire Officer III',    status: 'standby',    station: 'Station 3', incident: '—',            iot: 'active',  battery: 60, phone: '+63-917-111-0009', joined: 'May 2020' },
-  { id: 'FU-010', name: 'Elvira Garcia',     initials: 'EG', rank: 'Senior Fire Officer',  status: 'standby',   station: 'Station 1', incident: '—',            iot: 'active',  battery: 78, phone: '+63-917-111-0010', joined: 'Aug 2016' },
-  { id: 'FU-011', name: 'Fernando Pascual',  initials: 'FP', rank: 'Fire Officer II',     status: 'standby',    station: 'Station 2', incident: '—',            iot: 'offline', battery: 0,  phone: '+63-917-111-0011', joined: 'Oct 2022' },
-  { id: 'FU-012', name: 'Gloria Navarro',    initials: 'GN', rank: 'Fire Officer I',      status: 'offduty',    station: 'Station 3', incident: '—',            iot: 'offline', battery: 0,  phone: '+63-917-111-0012', joined: 'Jan 2023' },
-  { id: 'FU-013', name: 'Hernando Aquino',   initials: 'HA', rank: 'Fire Officer III',    status: 'offduty',    station: 'Station 1', incident: '—',            iot: 'offline', battery: 0,  phone: '+63-917-111-0013', joined: 'Mar 2019' },
-  { id: 'FU-014', name: 'Imelda Soriano',    initials: 'IS', rank: 'Fire Inspector',      status: 'offduty',    station: 'Station 2', incident: '—',            iot: 'offline', battery: 0,  phone: '+63-917-111-0014', joined: 'Nov 2020' },
-]
+import { fetchPersonnel } from '../api'
 
 const STATUS_TABS = ['all', 'dispatched', 'onscene', 'standby', 'offduty']
 const TAB_LABELS  = { all: 'All', dispatched: 'Dispatched', onscene: 'On Scene', standby: 'Standby', offduty: 'Off Duty' }
@@ -62,6 +46,9 @@ function BatteryBar({ pct }) {
 }
 
 export default function PersonnelPage() {
+  const [personnel, setPersonnel]       = useState([])
+  const [loading, setLoading]           = useState(true)
+  const [error, setError]               = useState(null)
   const [activeStatus, setActiveStatus] = useState('all')
   const [search, setSearch]             = useState('')
   const [stationFilter, setStationFilter] = useState('')
@@ -72,17 +59,23 @@ export default function PersonnelPage() {
   const [view, setView]                 = useState('list')
   const [showAddModal, setShowAddModal] = useState(false)
 
+  useEffect(() => {
+    fetchPersonnel()
+      .then(data => { setPersonnel(data); setLoading(false) })
+      .catch(err  => { setError(err.message); setLoading(false) })
+  }, [])
+
   const stats = useMemo(() => ({
-    dispatched: PERSONNEL.filter(p => p.status === 'dispatched').length,
-    onscene:    PERSONNEL.filter(p => p.status === 'onscene').length,
-    standby:    PERSONNEL.filter(p => p.status === 'standby').length,
-    offduty:    PERSONNEL.filter(p => p.status === 'offduty').length,
-    iot:        PERSONNEL.filter(p => p.iot === 'active').length,
-  }), [])
+    dispatched: personnel.filter(p => p.status === 'dispatched').length,
+    onscene:    personnel.filter(p => p.status === 'onscene').length,
+    standby:    personnel.filter(p => p.status === 'standby').length,
+    offduty:    personnel.filter(p => p.status === 'offduty').length,
+    iot:        personnel.filter(p => p.iot === 'active').length,
+  }), [personnel])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    let rows = PERSONNEL.filter(p => {
+    let rows = personnel.filter(p => {
       const mq  = !q             || p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q) || p.rank.toLowerCase().includes(q)
       const ms  = !stationFilter || p.station === stationFilter
       const mr  = !rankFilter    || p.rank    === rankFilter
@@ -103,7 +96,7 @@ export default function PersonnelPage() {
     })
 
     return rows
-  }, [search, stationFilter, rankFilter, activeStatus, sortCol, sortDir])
+  }, [personnel, search, stationFilter, rankFilter, activeStatus, sortCol, sortDir])
 
   function handleSort(col) {
     if (sortCol === col) setSortDir(d => d * -1)
@@ -119,7 +112,10 @@ export default function PersonnelPage() {
     setSelectedId(prev => prev === id ? null : id)
   }
 
-  const selected = PERSONNEL.find(p => p.id === selectedId)
+  const selected = personnel.find(p => p.id === selectedId)
+
+  if (loading) return <div className="per-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontFamily: 'var(--font-condensed)', letterSpacing: 2, fontSize: 13 }}>LOADING PERSONNEL…</div>
+  if (error)   return <div className="per-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-fire)',  fontFamily: 'var(--font-condensed)', letterSpacing: 2, fontSize: 13 }}>ERROR: {error}</div>
 
   return (
     <>
@@ -130,7 +126,7 @@ export default function PersonnelPage() {
         <div className="per-title-row">
           <div className="per-title">
             Personnel
-            <span>↳ {PERSONNEL.length} TOTAL</span>
+            <span>↳ {personnel.length} TOTAL</span>
           </div>
           <div className="per-header-actions">
             <button className="per-btn-secondary">⬇ Export</button>

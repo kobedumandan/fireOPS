@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import '../styles/SettingsPage.css'
+import AppModal from './AppModal'
 import iconAccount       from '../assets/settings_page_icons/account_settings.svg'
 import iconSecurity      from '../assets/settings_page_icons/security_settings.svg'
 import iconSession       from '../assets/settings_page_icons/session_settings.svg'
@@ -354,13 +355,13 @@ function SectionAbout() {
       <div className="settings-block">
         <div className="block-header"><div className="block-title">FireGIS Platform</div></div>
         {[
-          { label: 'System Name',   value: 'FireGIS Command System',         badge: null,           cls: '' },
+          { label: 'System Name',   value: 'FireOPS Administrator Dashboard',         badge: null,           cls: '' },
           { label: 'Version',       value: 'v1.0.0-beta',                   badge: 'vb-green',     cls: '' },
           { label: 'GNN Model',     value: 'GNN-RL v2.1 · Online',          badge: null,           cls: 'highlight' },
           { label: 'Database',      value: 'PostgreSQL + PostGIS',           badge: null,           cls: '' },
-          { label: 'Backend',       value: 'FastAPI · Python 3.11',          badge: null,           cls: '' },
-          { label: 'Organization',  value: 'Bureau of Fire Protection – QC', badge: null,          cls: '' },
-          { label: 'Copyright',     value: '© 2026 FireGIS · All rights reserved.', badge: null,   cls: '' },
+          { label: 'Backend',       value: 'FastAPI · Python 3.12',          badge: null,           cls: '' },
+          { label: 'Organization',  value: 'Bureau of Fire Protection – Panabo City', badge: null,          cls: '' },
+          { label: 'Copyright',     value: '© 2026 FireOPS · All rights reserved.', badge: null,   cls: '' },
         ].map(row => (
           <div className="block-row" key={row.label}>
             <div className="row-left"><div className="row-label">{row.label}</div></div>
@@ -381,12 +382,13 @@ function SectionAbout() {
 
 export default function SettingsPage({ user, theme, onThemeToggle, onLogout }) {
   const [activeId, setActiveId] = useState('profile')
+  const [confirmLogout, setConfirmLogout] = useState(false)
 
   function renderContent() {
     switch (activeId) {
       case 'profile':       return <SectionProfile user={user} />
       case 'security':      return <SectionSecurity user={user} />
-      case 'session':       return <SectionSession onLogout={onLogout} />
+      case 'session':       return <SectionSession onLogout={() => setConfirmLogout(true)} />
       case 'appearance':    return <SectionAppearance theme={theme} onThemeToggle={onThemeToggle} />
       case 'notifications': return <SectionNotifications />
       case 'display':       return <SectionMapDisplay />
@@ -417,7 +419,7 @@ export default function SettingsPage({ user, theme, onThemeToggle, onLogout }) {
             </div>
           ))}
 
-          <div className="settings-sidebar-item logout" onClick={onLogout}>
+          <div className="settings-sidebar-item logout" onClick={() => setConfirmLogout(true)}>
             <img className="sidebar-item-icon" src={iconLogout} alt="" />
             Sign Out
           </div>
@@ -427,6 +429,26 @@ export default function SettingsPage({ user, theme, onThemeToggle, onLogout }) {
           {renderContent()}
         </div>
       </div>
+
+      {confirmLogout && (
+        <AppModal
+          eyebrow="SESSION"
+          title="Sign Out"
+          onClose={() => setConfirmLogout(false)}
+          width={400}
+        >
+          <div className="apm-body" style={{ paddingBottom: 18 }}>
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              You are about to end your current session. Any unsaved changes will be lost.
+              Are you sure you want to sign out?
+            </p>
+          </div>
+          <div className="apm-actions">
+            <button className="apm-btn-cancel" onClick={() => setConfirmLogout(false)}>Cancel</button>
+            <button className="apm-btn-submit" onClick={onLogout}>Sign Out</button>
+          </div>
+        </AppModal>
+      )}
     </div>
   )
 }

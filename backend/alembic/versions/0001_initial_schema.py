@@ -5,9 +5,9 @@ Revises:
 Create Date: 2026-05-09
 
 Creates all tables from the FireGIS ERD:
-  users, admin, personnel, devices, location_logs,
+  users, admin, stations, personnel, devices, location_logs,
   response_teams, response_team_members,
-  truck, truck_logs, purok_boundaries,
+  truck, truck_logs,
   fire_incidents, routes, heatmap_data,
   dispatch_records, dispatch_trucks
 """
@@ -45,12 +45,20 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.user_id"], name="fk_admin_user"),
     )
 
-    # --------------------------------------------------------- purok_boundaries
+    # --------------------------------------------------------------- stations
     op.create_table(
-        "purok_boundaries",
-        sa.Column("purok_id",      sa.Integer(),    primary_key=True, autoincrement=True),
-        sa.Column("purok_name",    sa.String(150),  nullable=True),
-        sa.Column("purok_geojson", sa.Text(),       nullable=True),
+        "stations",
+        sa.Column("station_id",       sa.Integer(),             primary_key=True, autoincrement=True),
+        sa.Column("station_name",     sa.String(150),           nullable=False),
+        sa.Column("station_address",  sa.String(255),           nullable=True),
+        sa.Column("station_barangay", sa.String(150),           nullable=True),
+        sa.Column("station_latitude",  sa.Float(),              nullable=True),
+        sa.Column("station_longitude", sa.Float(),              nullable=True),
+        sa.Column("station_contact",  sa.String(50),            nullable=True),
+        sa.Column("station_status",   sa.String(50),            nullable=True),
+        sa.Column("created_at",       sa.DateTime(timezone=True), nullable=True),
+        sa.Column("updated_at",       sa.DateTime(timezone=True), nullable=True),
+        sa.UniqueConstraint("station_name", name="uq_stations_name"),
     )
 
     # --------------------------------------------------------------- personnel
@@ -63,7 +71,9 @@ def upgrade() -> None:
         sa.Column("per_rank",        sa.String(100), nullable=True),
         sa.Column("per_designation", sa.String(100), nullable=True),
         sa.Column("user_id",         sa.Integer(),   nullable=False),
-        sa.ForeignKeyConstraint(["user_id"], ["users.user_id"], name="fk_personnel_user"),
+        sa.Column("station_id",      sa.Integer(),   nullable=True),
+        sa.ForeignKeyConstraint(["user_id"],    ["users.user_id"],        name="fk_personnel_user"),
+        sa.ForeignKeyConstraint(["station_id"], ["stations.station_id"],  name="fk_personnel_station"),
     )
 
     # ----------------------------------------------------------------- devices
@@ -96,8 +106,10 @@ def upgrade() -> None:
         sa.Column("team_id",         sa.Integer(),             primary_key=True, autoincrement=True),
         sa.Column("team_name",       sa.String(150),           nullable=True),
         sa.Column("team_status",     sa.String(50),            nullable=True),
+        sa.Column("station_id",      sa.Integer(),             nullable=True),
         sa.Column("team_created_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("team_updated_at", sa.DateTime(timezone=True), nullable=True),
+        sa.ForeignKeyConstraint(["station_id"], ["stations.station_id"], name="fk_teams_station"),
     )
 
     # -------------------------------------------------- response_team_members
@@ -121,7 +133,9 @@ def upgrade() -> None:
         sa.Column("truck_latitude",      sa.Float(),               nullable=True),
         sa.Column("truck_longitude",     sa.Float(),               nullable=True),
         sa.Column("truck_last_updated",  sa.DateTime(timezone=True), nullable=True),
+        sa.Column("station_id",          sa.Integer(),             nullable=True),
         sa.UniqueConstraint("truck_platenum", name="uq_truck_platenum"),
+        sa.ForeignKeyConstraint(["station_id"], ["stations.station_id"], name="fk_truck_station"),
     )
 
     # --------------------------------------------------------------- truck_logs
@@ -140,7 +154,6 @@ def upgrade() -> None:
         "fire_incidents",
         sa.Column("fire_id",                sa.Integer(),             primary_key=True, autoincrement=True),
         sa.Column("confirmed_user_id",      sa.Integer(),             nullable=True),
-        sa.Column("purok_id",               sa.Integer(),             nullable=True),
         sa.Column("fire_reporter_contact",  sa.String(50),            nullable=True),
         sa.Column("fire_location_source",   sa.String(100),           nullable=True),
         sa.Column("fire_latitude",          sa.Float(),               nullable=False),
@@ -148,8 +161,7 @@ def upgrade() -> None:
         sa.Column("fire_severity",          sa.String(50),            nullable=True),
         sa.Column("fire_status",            sa.String(50),            nullable=True),
         sa.Column("fire_incident_datetime", sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(["confirmed_user_id"], ["users.user_id"],             name="fk_fi_user"),
-        sa.ForeignKeyConstraint(["purok_id"],          ["purok_boundaries.purok_id"], name="fk_fi_purok"),
+        sa.ForeignKeyConstraint(["confirmed_user_id"], ["users.user_id"], name="fk_fi_user"),
     )
 
     # ------------------------------------------------------------------ routes
@@ -223,6 +235,6 @@ def downgrade() -> None:
     op.drop_table("location_logs")
     op.drop_table("devices")
     op.drop_table("personnel")
-    op.drop_table("purok_boundaries")
+    op.drop_table("stations")
     op.drop_table("admin")
     op.drop_table("users")
