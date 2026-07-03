@@ -1,0 +1,192 @@
+.minimize_icon {
+  fill: var(--text-primary);
+  width: 16px;
+  height: 16px;
+}
+.maximize_icon {
+  fill: var(--text-primary);
+  width: 16px;
+  height: 16px;
+}
+
+.map-actions-section-header {
+  color: var(--text-secondary);
+  padding-left: 6px;
+  font-size: 11px;
+}
+
+.map-actions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  padding: 8.9px 0;
+}
+
+.map-actions-collapse-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  width: 23px;
+  height: 23px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.map-actions-collapse-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.map-actions-float-btn {
+  position: absolute;
+  bottom: 9.8px;
+  left: 9.8px;
+  z-index: 500;
+  max-width: fit-content;
+  height: 23px;
+  padding: 0 7px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 11px;
+  line-height: 1;
+  gap: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.map-actions-float-btn:hover {
+  background: var(--bg-hover);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.map-actions-panel {
+  position: absolute;
+  bottom: 9.8px;
+  left: 9.8px;
+  z-index: 500;
+  width: 220px;
+  padding: 0 11.8px 12px;
+  background: var(--page-default-base);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.map-actions-icon {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+.map-actions-log-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5.8px 0 1.8px;
+  background: var(--accent-fire);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-family: var(--font-condensed);
+  font-size: 9.8px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.map-actions-log-btn:hover {
+  background: #ff6633;
+  box-shadow: 0 0 20px rgba(255, 77, 26, 0.4);
+}
+
+.map-actions-picking {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5.8px 0 1.8px;
+  background: var(--accent-amber-dim);
+  /* border: 1px solid rgba(255, 176, 32, 0.35); */
+  border-radius: 4px;
+  color: var(--accent-amber);
+  font-family: var(--font-condensed);
+  font-size: 9.8px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+}
+
+.map-actions-picking-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-amber);
+  box-shadow: 0 0 8px var(--accent-amber);
+  animation: blink 0.8s ease-in-out infinite;
+  transform: translateY(-1.5px);
+  flex-shrink: 0;
+}
+
+.map-actions-req-btn {
+  position: relative;
+  display: flex;
+  align-items: flex;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5.8px 0 1.8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: var(--font-condensed);
+  font-size: 9.8px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.map-actions-req-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.map-actions-req-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.map-actions-reporter-badge {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-family: var(--font-span);
+  font-size: 8.8px;
+  font-weight: 500;
+  padding: 2px 2px;
+  border-radius: 3.8px;
+  min-width: 16px;
+  text-align: center;
+}

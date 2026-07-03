@@ -18,6 +18,7 @@ from models import (  # noqa: F401 — import side-effects register all tables w
     Personnel,
     Device,
     LocationLog,
+    CurrentLocation,
     ResponseTeam,
     ResponseTeamMember,
     Truck,
@@ -27,6 +28,7 @@ from models import (  # noqa: F401 — import side-effects register all tables w
     HeatmapData,
     DispatchRecord,
     DispatchTruck,
+    TokenBlacklist,
 )
 
 config = context.config

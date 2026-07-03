@@ -185,3 +185,111 @@ def load_qgis_graph_gpkg(
     nodes_gdf = load_nodes(gpkg_path, layer=nodes_layer)
     edges_gdf = load_edges(gpkg_path, layer=edges_layer)
     return build_graph(nodes_gdf, edges_gdf)
+
+
+# ── Public API — raw road LineStrings (no pre-built node/edge tables) ────────
+
+_SPEED_DEFAULTS = {
+    "motorway": 80, "trunk": 60, "primary": 50, "secondary": 40,
+    "tertiary": 35, "unclassified": 30, "residential": 25,
+    "service": 20, "road": 30, "trunk_link": 40, "primary_link": 40,
+    "secondary_link": 35, "tertiary_link": 30, "living_street": 15,
+    "pedestrian": 10, "construction": 10,
+}
+
+
+def load_roads_gpkg(
+    gpkg_path: str | Path,
+    layer: Optional[str] = None,
+) -> RoadNetworkGraph:
+    """
+    Build a RoadNetworkGraph from a GeoPackage of raw road LineStrings.
+
+    Nodes are created at every unique coordinate endpoint of the road
+    segments.  Shared endpoints become graph intersections, giving a
+    topologically connected network without needing pre-built node_id /
+    u / v columns.
+
+        graph = load_roads_gpkg("data/roads_panabo.gpkg")
+    """
+    _require_geopandas()
+    import pandas as pd
+
+    kwargs = {"layer": layer} if layer else {}
+    gdf = gpd.read_file(gpkg_path, **kwargs)
+    if gdf.crs and gdf.crs.to_epsg() != Config.COORD_SRID:
+        gdf = gdf.to_crs(epsg=Config.COORD_SRID)
+
+    SNAP_DECIMALS = 6  # ~0.11 m precision at the equator
+
+    coord_to_id: dict[tuple[float, float], int] = {}
+    next_id = 0
+    rng = RoadNetworkGraph()
+
+    def _get_or_create_node(lon: float, lat: float) -> int:
+        nonlocal next_id
+        key = (round(lon, SNAP_DECIMALS), round(lat, SNAP_DECIMALS))
+        if key in coord_to_id:
+            return coord_to_id[key]
+        nid = next_id
+        next_id += 1
+        coord_to_id[key] = nid
+        rng.add_node(node_id=nid, lat=key[1], lon=key[0])
+        return nid
+
+    def _safe(val):
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return ""
+        return str(val)
+
+    for _, row in gdf.iterrows():
+        geom = row.geometry
+        if geom is None or geom.geom_type != "LineString":
+            continue
+
+        coords = list(geom.coords)
+        if len(coords) < 2:
+            continue
+
+        highway = _safe(row.get("highway"))
+        speed = _SPEED_DEFAULTS.get(highway, 30)
+        maxspeed = _safe(row.get("maxspeed"))
+        if maxspeed:
+            try:
+                speed = int(maxspeed)
+            except ValueError:
+                pass
+
+        road_name = _safe(row.get("name"))
+        lanes = 1
+        lanes_raw = row.get("lanes")
+        if lanes_raw is not None:
+            try:
+                lanes = int(lanes_raw)
+            except (ValueError, TypeError):
+                pass
+
+        prev_nid = _get_or_create_node(coords[0][0], coords[0][1])
+        # Update speed_limit on the start node
+        rng._node_features[prev_nid][5] = float(speed)
+
+        for lon, lat, *_ in coords[1:]:
+            cur_nid = _get_or_create_node(lon, lat)
+            rng._node_features[cur_nid][5] = float(speed)
+            if prev_nid != cur_nid:
+                rng.add_edge(
+                    u=prev_nid,
+                    v=cur_nid,
+                    road_name=road_name,
+                    lanes=lanes,
+                    bidirectional=True,
+                )
+            prev_nid = cur_nid
+
+    logger.info(
+        "Roads GPKG graph built: %d nodes, %d edges (from %d LineStrings)",
+        rng.G.number_of_nodes(),
+        rng.G.number_of_edges(),
+        len(gdf),
+    )
+    return rng

@@ -184,3 +184,26 @@
 }
 
 .nim-btn-submit:hover { background: #ff6633; box-shadow: 0 0 16px rgba(255,77,26,0.4); }
+
+.nim-btn-cancel:disabled,
+.nim-btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.nim-error {
+  font-size: 11px;
+  color: var(--accent-fire);
+  background: rgba(255, 77, 26, 0.08);
+  border: 1px solid rgba(255, 77, 26, 0.25);
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+.nim-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary, #c7c7c7);
+  cursor: pointer;
+  user-select: none;
+}
+.nim-checkbox input { accent-color: var(--accent-fire, #ff4d1a); cursor: pointer; }

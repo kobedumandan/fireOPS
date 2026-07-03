@@ -20,7 +20,7 @@ from typing import List, Tuple, Optional, Dict, Any
 # Each node (road intersection) carries these features:
 #   [latitude, longitude, is_fire_station, is_incident_site,
 #    avg_congestion, speed_limit_kmh, elevation_m]
-NODE_FEATURE_DIM = 7
+NODE_FEATURE_DIM = 8
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -62,10 +62,11 @@ class RoadNetworkGraph:
         congestion: float = 0.0,
         speed_limit: float = 40.0,
         elevation: float = 0.0,
+        road_type: float = 0.0,
         **attrs,
     ):
         features = [lat, lon, float(is_station), float(is_incident),
-                    congestion, speed_limit, elevation]
+                    congestion, speed_limit, elevation, road_type]
         self._node_features[node_id] = features
         self.G.add_node(node_id, lat=lat, lon=lon, **attrs)
 
@@ -145,6 +146,57 @@ class RoadNetworkGraph:
             if d <= radius_km:
                 results.append((n, d))
         return sorted(results, key=lambda x: x[1])
+
+    def nearest_edge(
+        self, lat: float, lon: float, radius_km: float = 0.5
+    ) -> Optional[Tuple[int, int, float, float, float]]:
+        """
+        Snap (lat, lon) to the nearest road *segment* by perpendicular projection.
+
+        Unlike :meth:`nodes_near`, which only measures straight-line distance to
+        intersection vertices, this projects the point onto each edge segment.
+        That keeps the snap on the road the point actually lies on instead of
+        jumping to a closer intersection that belongs to a parallel road.
+
+        Returns ``(u, v, proj_lat, proj_lon, perp_km)`` for the closest edge —
+        ``(u, v)`` are its endpoints and ``(proj_lat, proj_lon)`` is the foot of
+        the perpendicular along that segment — or ``None`` if no edge lies
+        within ``radius_km``. Projection is done in a local planar frame
+        (metres), accurate at city scale.
+        """
+        D2R = np.pi / 180.0
+        cos0 = np.cos(lat * D2R)
+        R = 6_371_000.0  # earth radius, metres
+
+        def to_xy(la: float, lo: float) -> Tuple[float, float]:
+            return lo * D2R * cos0 * R, la * D2R * R
+
+        px, py = to_xy(lat, lon)
+        best: Optional[Tuple[int, int, float, float, float]] = None
+        best_d = float("inf")
+
+        for u, v in self.G.edges():
+            a, b = self.G.nodes[u], self.G.nodes[v]
+            ax, ay = to_xy(a["lat"], a["lon"])
+            bx, by = to_xy(b["lat"], b["lon"])
+            dx, dy = bx - ax, by - ay
+            seg_len2 = dx * dx + dy * dy
+            if seg_len2 == 0.0:
+                continue
+            t = ((px - ax) * dx + (py - ay) * dy) / seg_len2
+            t = max(0.0, min(1.0, t))
+            ex = px - (ax + dx * t)
+            ey = py - (ay + dy * t)
+            d = (ex * ex + ey * ey) ** 0.5
+            if d < best_d:
+                best_d = d
+                proj_lat = a["lat"] + (b["lat"] - a["lat"]) * t
+                proj_lon = a["lon"] + (b["lon"] - a["lon"]) * t
+                best = (u, v, proj_lat, proj_lon, d / 1000.0)
+
+        if best is None or best[4] > radius_km:
+            return None
+        return best
 
     # ── Statistics ────────────────────────────────────────────────────────────
 

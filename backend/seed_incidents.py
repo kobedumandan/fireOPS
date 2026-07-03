@@ -1,5 +1,11 @@
 """
-Seeder: 200 resolved fire incidents + heatmap_data rows for Panabo City.
+Seeder: 200 closed fire incidents + heatmap_data rows for Panabo City.
+
+Every incident is guaranteed to fall **inside an actual Panabo barangay
+polygon** (sampled from data/panabo_barangays.geojson), so no point can land
+outside the city boundary. Incident dates range 2020-01-01 → today, severity is
+one of Minor / Moderate / Critical, and every incident has status "closed" with
+a Panabo City street address.
 
 Usage (from backend/ with venv active):
     python seed_incidents.py [--clear]
@@ -8,40 +14,22 @@ Usage (from backend/ with venv active):
 """
 
 import argparse
+import json
 import random
 import sys
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
+from shapely.geometry import shape, Point
+
 from database import SessionLocal
 from models import FireIncident, HeatmapData
 
-# ── Panabo City barangays with approximate centre coords ─────────────────────
-BARANGAYS = [
-    ("Poblacion",            7.3047, 125.6846),
-    ("Sto. Niño",            7.2980, 125.6780),
-    ("San Francisco",        7.2990, 125.6720),
-    ("New Visayas",          7.2870, 125.6680),
-    ("Cagangohan",           7.3120, 125.7020),
-    ("San Vicente",          7.3200, 125.7080),
-    ("Datu Abdul Dadia",     7.3250, 125.7120),
-    ("Gredu",                7.3300, 125.7150),
-    ("Kakar",                7.3350, 125.7200),
-    ("Buenavista",           7.3400, 125.7250),
-    ("Little Panay",         7.2750, 125.6580),
-    ("Salvacion",            7.2700, 125.6520),
-    ("Cacao",                7.2650, 125.6450),
-    ("Tibungol",             7.2800, 125.6630),
-    ("J.P. Laurel",          7.2880, 125.6740),
-    ("A.O. Floirendo",       7.3450, 125.7280),
-    ("Datu Balong",          7.3500, 125.7320),
-    ("Magdum",               7.2600, 125.6400),
-    ("Tuganay",              7.3550, 125.7380),
-    ("Consolacion",          7.2550, 125.6350),
-]
+GEOJSON_PATH = Path(__file__).parent / "data" / "panabo_barangays.geojson"
 
 STREET_NAMES = [
     "Rizal St.", "Quezon Blvd.", "Mabini St.", "Luna St.", "Bonifacio St.",
@@ -56,36 +44,62 @@ REPORTERS = [
     "+63947", "+63948", "+63949", "+63956", "+63957", "+63961", "+63998",
 ]
 
-# (fire_severity_str, weight_min, weight_max)
+# Severity → (weight_min, weight_max, density_min, density_max, alarm_level)
 # Weights map to BFP alarm levels for KDE heatmap rendering:
-#   1st alarm (low)       →  1 – 2
-#   3rd–5th alarm (mod.)  →  5 – 8
-#   Taskforce α–δ (high)  → 15 – 25
-#   General alarm (crit.) → 50
+#   Minor    (1st alarm)         →  1 – 2
+#   Moderate (2nd–3rd alarm)     →  5 – 8
+#   Critical (taskforce/general) → 15 – 50
 SEVERITY_MAP = {
-    1: ("low",      1.0,  2.0),
-    2: ("moderate", 5.0,  8.0),
-    3: ("high",    15.0, 25.0),
-    4: ("critical",50.0, 50.0),
+    "Minor":    (1.0,  2.0,  0.10, 0.50, "1st Alarm"),
+    "Moderate": (5.0,  8.0,  0.50, 1.50, "3rd Alarm"),
+    "Critical": (15.0, 50.0, 1.50, 5.00, "General Alarm"),
 }
+SEVERITIES = ["Minor", "Moderate", "Critical"]
+SEVERITY_WEIGHTS = [45, 35, 20]
 
-DENSITY_RANGE = {
-    1: (0.10, 0.50),
-    2: (0.50, 1.50),
-    3: (1.50, 3.00),
-    4: (3.00, 5.00),
-}
+
+def load_barangays():
+    """Return [(brgy_name, shapely_geometry), ...] for all Panabo barangays."""
+    if not GEOJSON_PATH.exists():
+        sys.exit(f"GeoJSON not found: {GEOJSON_PATH}")
+    with GEOJSON_PATH.open(encoding="utf-8") as f:
+        fc = json.load(f)
+
+    out = []
+    for feat in fc.get("features", []):
+        name = (feat.get("properties") or {}).get("adm4_en")
+        geom = feat.get("geometry")
+        if not name or not geom:
+            continue
+        poly = shape(geom)
+        if poly.is_valid and poly.area > 0:
+            out.append((name, poly))
+    if not out:
+        sys.exit("No usable barangay polygons in GeoJSON")
+    return out
+
+
+def random_point_in(rng: random.Random, geom):
+    """Rejection-sample a (lat, lon) point that lies inside `geom`."""
+    minx, miny, maxx, maxy = geom.bounds
+    for _ in range(2000):
+        p = Point(rng.uniform(minx, maxx), rng.uniform(miny, maxy))
+        if geom.contains(p):
+            return round(p.y, 6), round(p.x, 6)  # lat, lon
+    # Degenerate fallback: guaranteed-inside representative point
+    c = geom.representative_point()
+    return round(c.y, 6), round(c.x, 6)
 
 
 def random_dt(rng: random.Random) -> datetime:
-    """Random datetime between 2000-01-01 and today (UTC)."""
-    start = datetime(2000, 1, 1, tzinfo=timezone.utc)
-    end   = datetime(2026, 5, 14, tzinfo=timezone.utc)
+    """Random datetime between 2020-01-01 and now (UTC)."""
+    start = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    end   = datetime.now(timezone.utc)
     delta = end - start
     return start + timedelta(seconds=rng.randint(0, int(delta.total_seconds())))
 
 
-def jitter(rng: random.Random, centre: float, spread: float = 0.004) -> float:
+def jitter(rng: random.Random, centre: float, spread: float = 0.001) -> float:
     return round(centre + rng.uniform(-spread, spread), 6)
 
 
@@ -95,30 +109,32 @@ def random_phone(rng: random.Random) -> str:
     return f"{prefix}{suffix}"
 
 
-def build_rows(rng: random.Random, n: int = 200):
-    incidents  = []
-    heatmaps   = []
+def build_rows(rng: random.Random, barangays, n: int = 200):
+    incidents = []
 
     for _ in range(n):
-        brgy_name, blat, blon = rng.choice(BARANGAYS)
-        street    = rng.choice(STREET_NAMES)
-        sev_num   = rng.choices([1, 2, 3, 4], weights=[30, 35, 25, 10])[0]
-        sev_str, w_min, w_max = SEVERITY_MAP[sev_num]
-        d_min, d_max          = DENSITY_RANGE[sev_num]
+        brgy_name, geom = rng.choice(barangays)
+        lat, lon = random_point_in(rng, geom)
+
+        sev_str = rng.choices(SEVERITIES, weights=SEVERITY_WEIGHTS)[0]
+        w_min, w_max, d_min, d_max, alarm = SEVERITY_MAP[sev_str]
         weight = round(rng.uniform(w_min, w_max), 3)
 
-        lat = jitter(rng, blat)
-        lon = jitter(rng, blon)
+        street = rng.choice(STREET_NAMES)
+        address = f"{street}, Brgy. {brgy_name}, Panabo City, Davao del Norte"
         inc_dt = random_dt(rng)
 
         incident = FireIncident(
             confirmed_user_id     = None,
             fire_reporter_contact = random_phone(rng),
             fire_location_source  = rng.choice(LOCATION_SOURCES),
+            fire_location_name    = brgy_name,
+            fire_address          = address,
             fire_latitude         = lat,
             fire_longitude        = lon,
             fire_severity         = sev_str,
-            fire_status           = "resolved",
+            fire_status           = "closed",
+            fire_alarm_level      = alarm,
             fire_incident_datetime= inc_dt,
         )
         incidents.append((incident, weight, d_min, d_max, inc_dt))
@@ -128,6 +144,7 @@ def build_rows(rng: random.Random, n: int = 200):
 
 def seed(clear: bool = False):
     rng = random.Random(42)
+    barangays = load_barangays()
     db  = SessionLocal()
     try:
         if clear:
@@ -136,7 +153,7 @@ def seed(clear: bool = False):
             db.commit()
             print(f"[~] Cleared {deleted_f} fire_incidents and {deleted_h} heatmap_data rows.")
 
-        rows = build_rows(rng, 200)
+        rows = build_rows(rng, barangays, 200)
 
         for incident, weight, d_min, d_max, inc_dt in rows:
             db.add(incident)

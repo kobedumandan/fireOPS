@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import '../styles/AppModal.css'
 
 export default function AppModal({ eyebrow, title, onClose, children, width = 520 }) {
@@ -8,7 +9,7 @@ export default function AppModal({ eyebrow, title, onClose, children, width = 52
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  return (
+  return createPortal(
     <div className="apm-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
       <div className="apm-panel" style={{ width }}>
         <div className="apm-header">
@@ -20,6 +21,7 @@ export default function AppModal({ eyebrow, title, onClose, children, width = 52
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

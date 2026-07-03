@@ -21,13 +21,12 @@ export default function ReporterPage({ token }) {
         setCoords({ lat, lng, accuracy })
 
         try {
-          // ── Backend integration point ──────────────────────────────────────
-          // await fetch(`/api/report-sessions/${token}/location`, {
-          //   method: 'POST',
-          //   headers: { 'Content-Type': 'application/json' },
-          //   body: JSON.stringify({ lat, lng, accuracy }),
-          // })
-          // ──────────────────────────────────────────────────────────────────
+          const res = await fetch(`http://localhost:8000/api/report-sessions/${token}/location`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat, lng, accuracy }),
+          })
+          if (!res.ok) throw new Error(`Server responded ${res.status}`)
           setPhase('success')
         } catch {
           setPhase('error')

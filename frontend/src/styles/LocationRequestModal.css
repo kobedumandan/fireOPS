@@ -53,42 +53,46 @@
 }
 
 .lrm-desc {
-  font-size: 12px;
+  font-size: 10.8px;
   color: var(--text-secondary);
   line-height: 1.6;
-  margin: 0;
+  margin-bottom: 8px;
 }
 
 .lrm-token-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 10px;
+  margin-bottom: 15px;
 }
 
 .lrm-token-label {
   font-family: var(--font-condensed);
   font-size: 9px;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: -0.1px;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
 .lrm-token {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--accent-blue);
-  background: var(--accent-blue-dim);
-  border: 1px solid rgba(30,144,255,0.25);
-  border-radius: 3px;
-  padding: 2px 8px;
+  font-family: var(--font-span);
+  font-size: 10.8px;
+  font-weight: 600;
+  color: var(--accent-amber);
+  background: var(--accent-amber-dim);
+  letter-spacing: -0.2px;
+  /* border: 1px solid rgba(30,144,255,0.25); */
+  border-radius: 12px;
+  padding: 2px 7px;
 }
 
 .lrm-block {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-bottom: 15px;
 }
 
 .lrm-block-label {
@@ -104,8 +108,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-bright);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
   border-radius: 4px;
   padding: 6px 8px 6px 12px;
 }
@@ -122,52 +126,82 @@
 
 .lrm-copy-btn {
   flex-shrink: 0;
-  padding: 4px 12px;
-  background: var(--accent-blue-dim);
-  border: 1px solid rgba(30,144,255,0.3);
+  padding: 4.8px 10px 0.8px;
+  background: transparent;
+  border: 1px solid var(--border-dim);
   border-radius: 3px;
-  color: var(--accent-blue);
+  color: var(--text-secondary);
   font-family: var(--font-condensed);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  font-size: 9.8px;
+  font-weight: 500;
+  /* letter-spacing: 0.5px; */
   cursor: pointer;
   transition: all 0.15s;
 }
 
-.lrm-copy-btn:hover { background: rgba(30,144,255,0.2); }
-.lrm-copy-btn.lrm-copied { background: var(--accent-green-dim); border-color: rgba(0,230,118,0.3); color: var(--accent-green); }
+.lrm-copy-btn:hover { background: var(--bg-hover); }
+.lrm-copy-btn.lrm-copied { background: var(--bg-hover); color: var(--text-primary); }
 
 .lrm-sms-text {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   font-size: 11px;
   color: var(--text-secondary);
-  background: var(--bg-card);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 10px 12px;
   line-height: 1.5;
 }
 
-.lrm-sms-copy-btn { align-self: flex-start; }
+.lrm-sms-copy-btn { align-self: flex-end; }
+
+.lrm-phone-input {
+  flex: 1;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-condensed);
+  font-size: 10.8px;
+  letter-spacing: 0.4px;
+  padding: 3.5px 0 1px;
+}
+
+.lrm-phone-input::placeholder { color: var(--text-secondary); }
+
+.lrm-copy-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.lrm-send-status {
+  font-family: var(--font-condensed);
+  font-size: 9.8px;
+  font-weight: 400;
+  letter-spacing: 0.1px;
+  color: var(--text-secondary);
+  padding: 2px 2px 0; 
+}
+
+.lrm-send-status.lrm-send-error { color: var(--accent-red, #ff5a4d); }
 
 .lrm-status {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 12px;
-  border-radius: 4px;
+  padding: 12px 12px 9px;
+  border-radius: 5px;
   font-family: var(--font-condensed);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
+  font-size: 9.8px;
+  font-weight: 500;
+  /* letter-spacing: 0.5px; */
 }
 
-.lrm-status-awaiting { background: var(--accent-amber-dim); color: var(--accent-amber); border: 1px solid rgba(255,176,32,0.25); }
-.lrm-status-received  { background: var(--accent-green-dim); color: var(--accent-green); border: 1px solid rgba(0,230,118,0.25); }
+.lrm-status-awaiting { background: var(--accent-amber-dim); color: var(--accent-amber);  }
+.lrm-status-received  { background: var(--accent-green-dim); color: var(--accent-green); }
 
 .lrm-status-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }

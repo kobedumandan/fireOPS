@@ -1,83 +1,83 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import "../styles/StationsPage.css";
-import { fetchStations, createStation } from "../api";
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import {
-  PANABO_CENTER,
-  PANABO_ZOOM,
-  TILE_OPTIONS,
-  withinPanabo,
-} from "../data/mapConfig";
+import { fetchStations, createStation, deleteStation, fetchPersonnel, fetchTeams, fetchTrucks } from "../api";
+import AddStationModal from "./AddStationModal";
+import EditStationModal from "./EditStationModal";
+import ConfirmModal from "./ConfirmModal";
 
-// Fix default marker icons broken by bundlers
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
-
-function PickerMap({ lat, lng, onChange, onBoundsError }) {
-  const [tileId, setTileId] = useState("satellite");
-  const tile = TILE_OPTIONS.find((t) => t.id === tileId);
-
-  function ClickHandler() {
-    useMapEvents({
-      click(e) {
-        const { lat: la, lng: lo } = e.latlng;
-        if (!withinPanabo(la, lo)) {
-          onBoundsError(
-            "Selected point is outside Panabo City. Please pick a location within the city boundary."
-          );
-          return;
-        }
-        onBoundsError(null);
-        onChange(la, lo);
-      },
-    });
-    return null;
-  }
-
+function ExportIcon() {
   return (
-    <div className="asm-map-wrap">
-      <MapContainer
-        center={lat && lng ? [lat, lng] : PANABO_CENTER}
-        zoom={PANABO_ZOOM + 1}
-        style={{
-          width: "100%",
-          height: "260px",
-          borderRadius: "6px",
-          cursor: "crosshair",
-        }}
-        scrollWheelZoom
-        zoomControl
-      >
-        {tile.layers.map((l, i) => (
-          <TileLayer key={`${tileId}-${i}`} {...l} />
-        ))}
-        <ClickHandler />
-        {lat && lng && <Marker position={[lat, lng]} />}
-      </MapContainer>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="meta-icon"
+      fill="currentColor"
+    >
+      <path d="m648-140 112-112v92h40v-160H640v40h92L620-168l28 28Zm-448 20q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h560q33 0 56.5 23.5T840-760v268q-19-9-39-15.5t-41-9.5v-243H200v560h242q3 22 9.5 42t15.5 38H200Zm0-120v40-560 243-3 280Zm80-40h163q3-21 9.5-41t14.5-39H280v80Zm0-160h244q32-30 71.5-50t84.5-27v-3H280v80Zm0-160h400v-80H280v80ZM720-40q-83 0-141.5-58.5T520-240q0-83 58.5-141.5T720-440q83 0 141.5 58.5T920-240q0 83-58.5 141.5T720-40Z" />
+    </svg>
+  );
+}
 
-      {/* Tile switcher — mirrors MapArea style */}
-      <div className="asm-tile-switcher">
-        {TILE_OPTIONS.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            className={`asm-tile-btn${tileId === opt.id ? " active" : ""}`}
-            onClick={() => setTileId(opt.id)}
-            title={opt.label}
-          >
-            <img src={opt.thumb} alt={opt.label} draggable={false} />
-            <span>{opt.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
+function AddIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="meta-icon"
+      fill="currentColor"
+    >
+      <path d="M440-120v-320H120v-80h320v-320h80v320h320v80H520v320h-80Z" />
+    </svg>
+  );
+}
+
+function FireTruckIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="sta-truck-svg"
+      fill="currentColor"
+    >
+      <path d="M195-155q-35-35-35-85h-40q-33 0-56.5-23.5T40-320v-200h440v-160q0-33 23.5-56.5T560-760h80v-40q0-17 11.5-28.5T680-840h40q17 0 28.5 11.5T760-800v40h22q26 0 47 15t29 40l58 172q2 6 3 12.5t1 13.5v267H800q0 50-35 85t-85 35q-50 0-85-35t-35-85H400q0 50-35 85t-85 35q-50 0-85-35Zm113.5-56.5Q320-223 320-240t-11.5-28.5Q297-280 280-280t-28.5 11.5Q240-257 240-240t11.5 28.5Q263-200 280-200t28.5-11.5Zm400 0Q720-223 720-240t-11.5-28.5Q697-280 680-280t-28.5 11.5Q640-257 640-240t11.5 28.5Q663-200 680-200t28.5-11.5ZM120-440v120h71q17-19 40-29.5t49-10.5q26 0 49 10.5t40 29.5h111v-120H120Zm440 120h31q17-19 40-29.5t49-10.5q26 0 49 10.5t40 29.5h71v-120H560v120Zm0-200h276l-54-160H560v160ZM40-560v-60h40v-80H40v-60h400v60h-40v80h40v60H40Zm100-60h70v-80h-70v80Zm130 0h70v-80h-70v80Zm210 180H120h360Zm80 0h280-280Z" />
+    </svg>
+  );
+}
+
+function UnfoldIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="unfold_icon"
+      fill="currentColor"
+    >
+      <path d="M480-120 300-300l58-58 122 122 122-122 58 58-180 180ZM358-598l-58-58 180-180 180 180-58 58-122-122-122 122Z" />
+    </svg>
+  );
+}
+function RemoveIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="action_icons"
+      fill="currentColor"
+    >
+      <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z" />
+    </svg>
+  );
+}
+function EditIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="action_icons"
+      fill="currentColor"
+    >
+      <path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z" />
+    </svg>
   );
 }
 
@@ -98,7 +98,8 @@ function dbToStation(s) {
     units: 0,
     activeUnits: 0,
     contact: s.station_contact || "—",
-    commander: "—",
+    commanderId: s.station_commander_id || null,
+    commander: s.commander_name || "—",
     established: s.created_at
       ? new Date(s.created_at).getFullYear().toString()
       : "—",
@@ -108,262 +109,20 @@ function dbToStation(s) {
     incident: "—",
     subs: [],
     personnelList: [],
+    teamsList: [],
+    trucksList: [],
   };
-}
-
-const EMPTY_FORM = {
-  station_name: "",
-  station_type: "main",
-  parent_station_id: "",
-  station_address: "",
-  station_barangay: "",
-  station_latitude: "",
-  station_longitude: "",
-  station_contact: "",
-  station_status: "operational",
-};
-
-function validateForm(form) {
-  const required = [
-    "station_name",
-    "station_address",
-    "station_barangay",
-    "station_latitude",
-    "station_longitude",
-    "station_contact",
-  ];
-  for (const key of required) {
-    if (!form[key].toString().trim()) return "All fields are required.";
-  }
-  if (form.station_type === "sub" && !form.parent_station_id) {
-    return "A sub-station must have a parent (main) station selected.";
-  }
-
-  if (!form.station_latitude || !form.station_longitude)
-    return "Please pick a location on the map.";
-
-  // Philippine phone: +63XXXXXXXXXX or 09XXXXXXXXX, digits/hyphens/spaces only
-  const digits = form.station_contact.replace(/[\s\-]/g, "");
-  if (/[a-zA-Z]/.test(form.station_contact))
-    return "Contact number must not contain letters.";
-  if (
-    !/^(\+639\d{9}|09\d{9}|(\+63|0)\d{1,2}[\s\-]?\d{3,4}[\s\-]?\d{4})$/.test(
-      digits.replace(/\-/g, "")
-    )
-  ) {
-    return "Contact number must be a valid Philippine phone number (e.g. +63-917-000-0000 or 09170000000).";
-  }
-
-  return null;
-}
-
-function AddStationModal({ onClose, onAdd, stations }) {
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [error, setError] = useState(null);
-  const [mapError, setMapError] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  function set(field, value) {
-    setError(null);
-    setForm((prev) => ({ ...prev, [field]: value }));
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    const err = validateForm(form);
-    if (err) {
-      setError(err);
-      return;
-    }
-    setSaving(true);
-    try {
-      await onAdd({
-        ...form,
-        station_latitude: parseFloat(form.station_latitude),
-        station_longitude: parseFloat(form.station_longitude),
-        parent_station_id:
-          form.station_type === "sub" && form.parent_station_id
-            ? parseInt(form.parent_station_id, 10)
-            : null,
-      });
-      onClose();
-    } catch (ex) {
-      setError(ex.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div
-      className="asm-overlay"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="asm-panel">
-        <div className="asm-header">
-          <div>
-            <div className="asm-eyebrow">BFP · STATIONS</div>
-            <div className="asm-title">Add New Station</div>
-          </div>
-          <button className="asm-close" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-
-        <form className="asm-form" onSubmit={handleSubmit}>
-          <div className="apm-section-label">Station Information</div>
-
-          <div className="asm-field">
-            <label>
-              Station Name <span className="asm-required">*</span>
-            </label>
-            <input
-              required
-              placeholder="e.g. Station 4 – Cubao"
-              value={form.station_name}
-              onChange={(e) => set("station_name", e.target.value)}
-            />
-          </div>
-
-          <div className="asm-row">
-            <div className="asm-field">
-              <label>
-                Station Type <span className="asm-required">*</span>
-              </label>
-              <select
-                value={form.station_type}
-                onChange={(e) => {
-                  set("station_type", e.target.value);
-                  if (e.target.value === "main") set("parent_station_id", "");
-                }}
-              >
-                <option value="main">Main Station</option>
-                <option value="sub">Sub-Station</option>
-              </select>
-            </div>
-            <div className="asm-field">
-              <label>
-                Parent Station{" "}
-                {form.station_type === "sub" && (
-                  <span className="asm-required">*</span>
-                )}
-              </label>
-              <select
-                value={form.parent_station_id}
-                onChange={(e) => set("parent_station_id", e.target.value)}
-                disabled={form.station_type === "main"}
-              >
-                <option value="">— Select main station —</option>
-                {stations
-                  .filter((s) => s.type === "main")
-                  .map((s) => (
-                    <option key={s.id} value={s.id.replace("STA-", "")}>
-                      {s.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="asm-row">
-            <div className="asm-field">
-              <label>Address</label>
-              <input
-                placeholder="Street, City"
-                value={form.station_address}
-                onChange={(e) => set("station_address", e.target.value)}
-              />
-            </div>
-            <div className="asm-field">
-              <label>Barangay</label>
-              <input
-                placeholder="Barangay name"
-                value={form.station_barangay}
-                onChange={(e) => set("station_barangay", e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="asm-row">
-            <div className="asm-field">
-              <label>Contact Number</label>
-              <input
-                placeholder="+63-2-8123-0000"
-                value={form.station_contact}
-                onChange={(e) => set("station_contact", e.target.value)}
-              />
-            </div>
-            <div className="asm-field">
-              <label>Status</label>
-              <select
-                value={form.station_status}
-                onChange={(e) => set("station_status", e.target.value)}
-              >
-                <option value="operational">Operational</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="asm-map-section">
-            <div className="apm-section-label">Station Location</div>
-            <PickerMap
-              lat={form.station_latitude}
-              lng={form.station_longitude}
-              onChange={(lat, lng) => {
-                set("station_latitude", lat);
-                set("station_longitude", lng);
-              }}
-              onBoundsError={setMapError}
-            />
-            {mapError ? (
-              <div className="asm-error">{mapError}</div>
-            ) : (
-              <div className="asm-coords-display">
-                {form.station_latitude && form.station_longitude ? (
-                  <>
-                    Lat{" "}
-                    <strong>{Number(form.station_latitude).toFixed(6)}</strong>{" "}
-                    &nbsp; Lng{" "}
-                    <strong>{Number(form.station_longitude).toFixed(6)}</strong>
-                  </>
-                ) : (
-                  "No location selected — click the map to set one"
-                )}
-              </div>
-            )}
-          </div>
-
-          {error && <div className="asm-error">{error}</div>}
-
-          <div className="asm-actions">
-            <button
-              type="button"
-              className="asm-btn-cancel"
-              onClick={onClose}
-              disabled={saving}
-            >
-              Cancel
-            </button>
-            <button type="submit" className="asm-btn-submit" disabled={saving}>
-              {saving ? "Saving…" : "+ Add Station"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
 }
 
 const TABS = ["all", "main", "sub"];
 const TAB_LABELS = {
-  all: "All Stations",
+  all: "All",
   main: "Main Stations",
-  sub: "Sub-Stations",
+  sub: "Substations",
 };
 
 const P_STATUS_MAP = {
-  dispatched: { cls: "sta-hb-fire", label: "Dispatched" },
+  dispatched: { cls: "sta-hb-amber", label: "Dispatched" },
   onscene: { cls: "sta-hb-amber", label: "On Scene" },
   standby: { cls: "sta-hb-blue", label: "Standby" },
   offduty: { cls: "sta-hb-muted", label: "Off Duty" },
@@ -382,19 +141,11 @@ function PStatusPill({ status }) {
     cls: "sta-hb-muted",
     label: status,
   };
-  return <span className={`sta-hbadge ${cls}`}>{label}</span>;
-}
-
-function CapBar({ used, capacity }) {
-  const pct = capacity > 0 ? Math.round((used / capacity) * 100) : 0;
-  const cls = pct >= 80 ? "cap-fire" : pct >= 50 ? "cap-amber" : "cap-green";
   return (
-    <div className="sta-cap-wrap">
-      <div className="sta-cap-bar">
-        <div className={`sta-cap-fill ${cls}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="sta-cap-pct">{pct}%</span>
-    </div>
+    <span className={`sta-hbadge ${cls}`}>
+      {status === "dispatched" && <span className="sta-blink-dot" />}
+      {label}
+    </span>
   );
 }
 
@@ -412,7 +163,9 @@ function StationListItem({ s, stations, selected, onSelect }) {
       <div className="sta-item-top">
         <div className="sta-item-name-wrap">
           <div className={isMain ? "sta-icon-main" : "sta-icon-sub"}>
-            {isMain ? "🏠" : "🏡"}
+            <span className="material-symbols-outlined">
+              {isMain ? "apartment" : "location_on"}
+            </span>
           </div>
           <div>
             <div className="sta-item-name">{s.name}</div>
@@ -426,7 +179,7 @@ function StationListItem({ s, stations, selected, onSelect }) {
         </span>
       </div>
       <div className="sta-item-meta">
-        <div className="sta-meta-chip">
+        {/* <div className="sta-meta-chip">
           <div
             className={`sta-meta-dot ${
               s.activeUnits > 0 ? "md-fire" : isMain ? "md-green" : "md-muted"
@@ -439,22 +192,26 @@ function StationListItem({ s, stations, selected, onSelect }) {
         <div className="sta-meta-chip">
           <div className="sta-meta-dot md-amber" />
           {s.units} units
-        </div>
+        </div> */}
         <div className="sta-meta-chip">
-          <div className="sta-meta-dot md-muted" />
+          {/* <div className="sta-meta-dot md-muted" /> */}
           {s.district}
         </div>
       </div>
-      {parent && <div className="sta-item-parent">▲ Under {parent.name}</div>}
+      <div className="sta-item-parent" style={{ visibility: parent ? 'visible' : 'hidden' }}>
+        {parent ? `↑ Under ${parent.name}` : '↑'}
+      </div>
     </div>
   );
 }
 
-function StationDetail({ s, stations, onSelectStation }) {
+function StationDetail({ s, stations, onSelectStation, onEdit, onDelete }) {
   if (!s) {
     return (
       <div className="sta-no-selection">
-        <div className="sta-no-sel-icon">🏠</div>
+        <div className="sta-no-sel-icon">
+          <span className="material-symbols-outlined">apartment</span>
+        </div>
         <div className="sta-no-sel-text">Select a station to view details</div>
       </div>
     );
@@ -477,7 +234,9 @@ function StationDetail({ s, stations, onSelectStation }) {
             <div
               className={isMain ? "sta-hero-icon-main" : "sta-hero-icon-sub"}
             >
-              {isMain ? "🏠" : "🏡"}
+              <span className="material-symbols-outlined">
+                {isMain ? "apartment" : "location_on"}
+              </span>
             </div>
             <div>
               <div
@@ -503,11 +262,11 @@ function StationDetail({ s, stations, onSelectStation }) {
             {s.incident !== "—" && (
               <span className="sta-hbadge sta-hb-fire">{s.incident}</span>
             )}
-            <span
+            {/* <span
               className={`sta-hbadge ${isMain ? "sta-hb-gold" : "sta-hb-blue"}`}
             >
               {isMain ? "Command" : "Satellite"}
-            </span>
+            </span> */}
           </div>
         </div>
 
@@ -523,11 +282,9 @@ function StationDetail({ s, stations, onSelectStation }) {
             <div className="sta-ds-sub">{s.activeUnits} DEPLOYED</div>
           </div>
           <div className="sta-detail-stat">
-            <div className="sta-ds-label">Capacity</div>
-            <div className="sta-ds-value">
-              {s.capUsed}/{s.capacity}
-            </div>
-            <CapBar used={s.capUsed} capacity={s.capacity} />
+            <div className="sta-ds-label">Fire Trucks</div>
+            <div className="sta-ds-value">{s.trucksList.length}</div>
+            <div className="sta-ds-sub">{s.activeUnits} DEPLOYED</div>
           </div>
           <div className="sta-detail-stat">
             <div className="sta-ds-label">
@@ -626,6 +383,78 @@ function StationDetail({ s, stations, onSelectStation }) {
         </div>
       )}
 
+      {/* Teams */}
+      {s.teamsList.length > 0 && (
+        <div className="sta-info-section">
+          <div className="sta-info-title">Response Teams</div>
+          <div className="sta-teams-list">
+            {s.teamsList.map((t) => (
+              <div key={t.team_id} className="sta-team-row">
+                <div className="sta-team-icon">
+                  <span className="material-symbols-outlined">flag</span>
+                </div>
+                <div className="sta-team-info">
+                  <div className="sta-team-name">{t.name}</div>
+                  <div className="sta-team-code">{t.code || "—"}</div>
+                </div>
+                <div className="sta-team-meta">
+                  <div className="sta-team-chip">
+                    <span className="sta-team-chip-val">{t.members}</span>
+                    <span className="sta-team-chip-label">Members</span>
+                  </div>
+                  <div className="sta-team-chip">
+                    <span className={`sta-hbadge ${
+                      t.status === "dispatched"   ? "sta-hb-amber" :
+                      t.status === "standby"  ? "sta-hb-blue"  :
+                      t.status === "inactive" ? "sta-hb-muted"  : "sta-hb-muted"
+                    }`}>
+                      {t.status === "dispatched" && (
+                        <span className="sta-blink-dot" />
+                      )}
+                      {t.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Trucks */}
+      {s.trucksList.length > 0 && (
+        <div className="sta-info-section">
+          <div className="sta-info-title">Fire Trucks</div>
+          <div className="sta-teams-list">
+            {s.trucksList.map((t) => {
+              const chipCls =
+                t.status === "available"   ? "sta-hb-green" :
+                t.status === "dispatched"  ? "sta-hb-amber" :
+                t.status === "maintenance" ? "sta-hb-muted" :
+                                             "sta-hb-muted";
+              return (
+                <div key={t.truck_id} className="sta-team-row">
+                  <div className="sta-team-icon">
+                  <span className="material-symbols-outlined">fire_truck</span>
+                  </div>
+                  <div className="sta-team-info">
+                    <div className="sta-team-name">{t.plate}</div>
+                  </div>
+                  <div className="sta-team-meta">
+                    <span className={`sta-hbadge ${chipCls}`}>
+                      {t.status === "dispatched" && (
+                        <span className="sta-blink-dot" />
+                      )}
+                      {t.status}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Personnel */}
       {s.personnelList.length > 0 && (
         <div className="sta-info-section">
@@ -636,10 +465,10 @@ function StationDetail({ s, stations, onSelectStation }) {
                 <div
                   className={`sta-p-av ${
                     p.status === "dispatched"
-                      ? "pav-fire"
+                      ? "pav-amber"
                       : p.status === "onscene"
                       ? "pav-amber"
-                      : "pav-blue"
+                      : "pav-normal"
                   }`}
                 >
                   {p.initials}
@@ -657,12 +486,15 @@ function StationDetail({ s, stations, onSelectStation }) {
 
       {/* Actions */}
       <div className="sta-detail-actions">
-        <button className="sta-btn-dispatch">
-          ▶ Dispatch From This Station
+        {/* <button className="sta-btn-dispatch">Dispatch From This Station</button> */}
+        <button className="sta-btn-sec">View on Map</button>
+        <button className="sta-btn-sec">Incident History</button>
+        <button className="sta-btn-sec action_btn" onClick={onEdit}>
+          <EditIcon />
         </button>
-        <button className="sta-btn-sec">⊙ View on Map</button>
-        <button className="sta-btn-sec">✎ Edit Station</button>
-        <button className="sta-btn-sec">↻ Incident History</button>
+        <button className="sta-btn-sec action_btn" onClick={onDelete}>
+          <RemoveIcon />
+        </button>
       </div>
     </div>
   );
@@ -677,13 +509,16 @@ export default function StationsPage() {
   const [districtFilter, setDistrictFilter] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [deleting, setDeleting] = useState(null);
 
   const loadStations = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
     try {
-      const data = await fetchStations();
+      const [data, personnel, teams, trucks] = await Promise.all([fetchStations(), fetchPersonnel(), fetchTeams(), fetchTrucks()]);
       const mapped = data.map(dbToStation);
+
       // populate subs arrays from parent references
       mapped.forEach((s) => {
         if (s.type === "sub" && s.parent) {
@@ -691,6 +526,64 @@ export default function StationsPage() {
           if (parentStation) parentStation.subs.push(s.id);
         }
       });
+
+      // populate teamsList from fetched teams
+      teams.forEach((t) => {
+        if (!t.station_id) return;
+        const station = mapped.find((s) => {
+          const rawId = parseInt(s.id.replace("STA-", ""), 10);
+          return rawId === t.station_id;
+        });
+        if (station) {
+          station.teamsList.push({
+            team_id:    t.team_id,
+            name:       t.team_name,
+            code:       t.team_code,
+            status:     t.team_status,
+            members:    t.member_count,
+          });
+        }
+      });
+
+      // populate trucksList from fetched trucks
+      trucks.forEach((t) => {
+        if (!t.station_id) return;
+        const station = mapped.find((s) => {
+          const rawId = parseInt(s.id.replace("STA-", ""), 10);
+          return rawId === t.station_id;
+        });
+        if (station) {
+          station.trucksList.push({
+            truck_id: t.truck_id,
+            plate:    t.truck_platenum,
+            status:   t.truck_status,
+          });
+          station.units = station.trucksList.length;
+          if (t.truck_status === "dispatched") station.activeUnits += 1;
+        }
+      });
+
+      // populate personnelList and personnel count from fetched personnel
+      personnel.forEach((p) => {
+        if (!p.station_id) return;
+        const station = mapped.find((s) => {
+          const rawId = parseInt(s.id.replace("STA-", ""), 10);
+          return rawId === p.station_id;
+        });
+        if (station) {
+          const first = (p.name || "").split(" ")[0] || "";
+          const last  = (p.name || "").split(" ").slice(1).join(" ");
+          station.personnelList.push({
+            per_id:   p.per_id,
+            name:     p.name,
+            initials: ((first[0] || "") + (last[0] || "")).toUpperCase() || "??",
+            rank:     p.rank,
+            status:   p.status,
+          });
+          station.personnel = station.personnelList.length;
+        }
+      });
+
       setStations(mapped);
       if (!selectedId && mapped.length > 0) setSelectedId(mapped[0].id);
     } catch (ex) {
@@ -740,6 +633,13 @@ export default function StationsPage() {
     setSelectedId(id);
   }
 
+  async function confirmDelete() {
+    const stationId = parseInt(deleting.id.replace("STA-", ""), 10);
+    await deleteStation(stationId);
+    if (selectedId === deleting.id) setSelectedId(null);
+    await loadStations();
+  }
+
   return (
     <div className="sta-page">
       {/* PAGE HEADER */}
@@ -747,49 +647,90 @@ export default function StationsPage() {
         <div className="sta-title-row">
           <div className="sta-title">
             Stations
-            <span>↳ {stations.length} TOTAL</span>
+            <UnfoldIcon />
           </div>
           <div className="sta-header-actions">
-            <button className="sta-btn-secondary">⬇ Export</button>
+            <button className="sta-btn-secondary">
+              <ExportIcon />
+              Export
+            </button>
             <button
               className="sta-btn-primary"
               onClick={() => setShowAddModal(true)}
             >
-              + Add Station
+              <AddIcon />
+              Add Station
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* BODY */}
+      <div className="sta-body">
+        <div className="sta-section-row">
+          <div className="sta-section-label">Overview</div>
+          <div className="sta-status-tabs">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                className={`sta-status-tab${activeTab === t ? " active" : ""}`}
+                onClick={() => setActiveTab(t)}
+              >
+                {TAB_LABELS[t]}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* STAT CARDS — 3 cards: Main, Sub, Personnel */}
         <div className="sta-stat-row">
-          <div className="sta-stat-card gold">
-            <div className="sta-stat-label">Main Stations</div>
-            <div className="sta-stat-value">{stats.main}</div>
-            <div className="sta-stat-sub">COMMAND HUBS</div>
-          </div>
-          <div className="sta-stat-card blue">
-            <div className="sta-stat-label">Sub-Stations</div>
-            <div className="sta-stat-value">{stats.sub}</div>
-            <div className="sta-stat-sub">SATELLITE UNITS</div>
-          </div>
-          <div className="sta-stat-card amber">
-            <div className="sta-stat-label">Total Personnel</div>
-            <div className="sta-stat-value">{stats.personnel}</div>
-            <div className="sta-stat-sub">ACROSS ALL STATIONS</div>
-          </div>
-        </div>
-
-        {/* STATUS TABS */}
-        <div className="sta-status-tabs">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              className={`sta-status-tab${activeTab === t ? " active" : ""}`}
-              onClick={() => setActiveTab(t)}
-            >
-              {TAB_LABELS[t]}
-            </button>
-          ))}
+          {loading ? (
+            ['amber', 'blue', 'purple'].map(cls => (
+              <div key={cls} className={`sta-stat-card ${cls}`}>
+                <div className="sta-stat-content" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div className="sta-skel" style={{ width: 80, height: 10 }} />
+                  <div className="sta-skel" style={{ width: 50, height: 26 }} />
+                  <div className="sta-skel" style={{ width: 100, height: 8 }} />
+                </div>
+                <div className="sta-stat-icon">
+                  <div className="sta-skel" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+                </div>
+              </div>
+            ))
+          ) : (
+            <>
+              <div className="sta-stat-card amber">
+                <div className="sta-stat-content">
+                  <div className="sta-stat-label">Main Stations</div>
+                  <div className="sta-stat-value">{stats.main}</div>
+                  <div className="sta-stat-sub">Command Hubs</div>
+                </div>
+                <div className="sta-stat-icon">
+                  <span className="material-symbols-outlined">apartment</span>
+                </div>
+              </div>
+              <div className="sta-stat-card blue">
+                <div className="sta-stat-content">
+                  <div className="sta-stat-label">Sub-Stations</div>
+                  <div className="sta-stat-value">{stats.sub}</div>
+                  <div className="sta-stat-sub">Satellite Units</div>
+                </div>
+                <div className="sta-stat-icon">
+                  <span className="material-symbols-outlined">location_on</span>
+                </div>
+              </div>
+              <div className="sta-stat-card purple">
+                <div className="sta-stat-content">
+                  <div className="sta-stat-label">Total Personnel</div>
+                  <div className="sta-stat-value">{stats.personnel}</div>
+                  <div className="sta-stat-sub">Across All Stations</div>
+                </div>
+                <div className="sta-stat-icon">
+                  <span className="material-symbols-outlined">groups</span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -813,18 +754,8 @@ export default function StationsPage() {
           <option value="District 1">District 1</option>
           <option value="District 2">District 2</option>
         </select>
-        <div className="sta-legend">
-          <div className="sta-legend-item">
-            <div className="sta-legend-line ll-gold" />
-            Main station
-          </div>
-          <div className="sta-legend-item">
-            <div className="sta-legend-line ll-blue" />
-            Sub-station
-          </div>
-        </div>
         <span className="sta-result-count">
-          SHOWING {filtered.length} STATION{filtered.length !== 1 ? "S" : ""}
+          Showing {filtered.length} Station{filtered.length !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -833,7 +764,28 @@ export default function StationsPage() {
         {/* LEFT: Station List */}
         <div className="sta-list">
           {loading ? (
-            <div className="sta-list-empty">Loading stations…</div>
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className={`sta-item ${i % 3 === 0 ? 'sta-item-sub' : 'sta-item-main'}`} style={{ cursor: 'default' }}>
+                <div className="sta-item-top">
+                  <div className="sta-item-name-wrap">
+                    <div className="sta-skel" style={{ width: 30, height: 30, borderRadius: 4, flexShrink: 0 }} />
+                    <div>
+                      <div className="sta-skel" style={{ width: 130, height: 13, marginBottom: 5 }} />
+                      <div className="sta-skel" style={{ width: 60, height: 9 }} />
+                    </div>
+                  </div>
+                  <div className="sta-skel" style={{ width: 30, height: 16, borderRadius: 2 }} />
+                </div>
+                <div className="sta-item-meta">
+                  <div className="sta-skel" style={{ width: 80, height: 10 }} />
+                  <div className="sta-skel" style={{ width: 55, height: 10 }} />
+                  <div className="sta-skel" style={{ width: 65, height: 10 }} />
+                </div>
+                <div className="sta-item-parent">
+                  <div className="sta-skel" style={{ width: 100, height: 9 }} />
+                </div>
+              </div>
+            ))
           ) : fetchError ? (
             <div className="sta-list-empty" style={{ color: "var(--fire)" }}>
               {fetchError}
@@ -859,6 +811,8 @@ export default function StationsPage() {
             s={selected}
             stations={stations}
             onSelectStation={handleSelectStation}
+            onEdit={() => setShowEditModal(true)}
+            onDelete={() => setDeleting(selected)}
           />
         </div>
       </div>
@@ -868,6 +822,33 @@ export default function StationsPage() {
           onClose={() => setShowAddModal(false)}
           onAdd={handleAddStation}
           stations={stations}
+        />
+      )}
+
+      {showEditModal && selected && (
+        <EditStationModal
+          station={selected}
+          stations={stations}
+          onClose={() => setShowEditModal(false)}
+          onSaved={loadStations}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmModal
+          eyebrow="DELETE STATION"
+          title={`Delete ${deleting.name}?`}
+          message={
+            <>
+              This will permanently remove station{" "}
+              <strong>{deleting.name}</strong>. Personnel, trucks, or teams
+              assigned to it must be reassigned first. This action cannot be
+              undone.
+            </>
+          }
+          confirmLabel="Delete Station"
+          onConfirm={confirmDelete}
+          onClose={() => setDeleting(null)}
         />
       )}
     </div>

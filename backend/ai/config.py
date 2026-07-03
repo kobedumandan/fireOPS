@@ -25,6 +25,19 @@ class Config:
     OSM_GRAPHML     = CACHE_DIR / "panabo_graph.graphml"
 
     # ── Model checkpoints ─────────────────────────────────────────────────────
+    GRAPHSAGE_MODEL_PATH = BASE_DIR / "ai" / "models" / "gnn_final_graphsage.pt"
+    # Trained GAT constraint-prediction model (GAT manual threshold, 0.45).
+    # Checkpoint dict: {model_state_dict, selected_threshold, metrics, ...}.
+    # Stored as the model artifact; routing consumes the precomputed per-road
+    # constraint types from PREDICTED_CONSTRAINTS_PATH (mapped to multipliers via
+    # CONSTRAINT_STYLE_PATH) rather than running this model live (it expects
+    # 73 features + classification/regression heads).
+    GAT_MODEL_PATH       = BASE_DIR / "ai" / "models" / "best_gat_manual_threshold_model.pt"
+    # Precomputed GAT constraint predictions (one feature per road segment,
+    # carrying display_constraint_type, map_* style fields and routing_multiplier).
+    PREDICTED_CONSTRAINTS_PATH = BASE_DIR / "data" / "best_model_predicted_constraints.geojson"
+    CONSTRAINT_STYLE_PATH      = BASE_DIR / "data" / "constraint_style_config.json"
+    EDGE_WEIGHTS_PATH    = BASE_DIR / "data" / "edge_weights.json"
     GNN_MODEL_PATH  = CHECKPOINT_DIR / "gnn_model.pt"
     PPO_MODEL_PATH  = str(CHECKPOINT_DIR / "ppo_dispatch")
     DQN_MODEL_PATH  = str(CHECKPOINT_DIR / "dqn_dispatch")
@@ -38,10 +51,10 @@ class Config:
     SUMO_STEP_LEN   = 1.0  # seconds per simulation step
 
     # ── GNN hyperparameters ───────────────────────────────────────────────────
-    GNN_TYPE            = os.getenv("GNN_TYPE", "gat")      # 'gat' | 'pmgcn'
-    NODE_FEATURE_DIM    = 7
+    GNN_TYPE            = os.getenv("GNN_TYPE", "graphsage")  # 'graphsage' | 'gat' | 'pmgcn'
+    NODE_FEATURE_DIM    = 8   # must match graph_builder.NODE_FEATURE_DIM
     GNN_HIDDEN          = 64
-    GNN_OUT             = 16
+    GNN_OUT             = 1   # scalar routing score per node
 
     # ── RL / Gymnasium environment ────────────────────────────────────────────
     ENV_ID              = "DispatchRouting-v0"

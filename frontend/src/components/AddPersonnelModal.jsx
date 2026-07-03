@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AppModal from './AppModal'
 import visibilityOn  from '../assets/svg_icons/visibility_on.svg'
 import visibilityOff from '../assets/svg_icons/visibility_off.svg'
+import { fetchStations } from '../api'
 
 const RANKS = [
   'Fire Officer I',
@@ -11,6 +12,18 @@ const RANKS = [
   'Fire Inspector',
 ]
 
+const DESIGNATIONS = [
+  'Station Commander',
+  'Deputy Station Commander',
+  'Chief of Operations',
+  'Administrative Officer',
+  'Suppression Personnel',
+  'Driver / Operator',
+  'Rescue Personnel',
+  'Investigation Officer',
+  'Training Officer',
+]
+
 export default function AddPersonnelModal({ onClose, onSubmit }) {
   const [form, setForm] = useState({
     per_firstname:    '',
@@ -18,6 +31,7 @@ export default function AddPersonnelModal({ onClose, onSubmit }) {
     per_contact:      '',
     per_rank:         '',
     per_designation:  '',
+    station_id:       '',
     user_email:       '',
     user_password:    '',
     confirm_password: '',
@@ -25,6 +39,11 @@ export default function AddPersonnelModal({ onClose, onSubmit }) {
   const [error, setError]       = useState('')
   const [showPwd, setShowPwd]   = useState(false)
   const [showConf, setShowConf] = useState(false)
+  const [stations, setStations] = useState([])
+
+  useEffect(() => {
+    fetchStations().then(setStations).catch(() => {})
+  }, [])
 
   function set(field, val) {
     setForm(f => ({ ...f, [field]: val }))
@@ -78,6 +97,7 @@ export default function AddPersonnelModal({ onClose, onSubmit }) {
       per_contact:     form.per_contact.trim(),
       per_rank:        form.per_rank,
       per_designation: form.per_designation.trim(),
+      station_id:      form.station_id || null,
       user_email:      form.user_email.trim(),
       user_password:   form.user_password,
       user_role:       'personnel',
@@ -134,12 +154,21 @@ export default function AddPersonnelModal({ onClose, onSubmit }) {
               </div>
               <div className="apm-field">
                 <label>Designation</label>
-                <input
-                  placeholder="e.g. Station Commander"
-                  value={form.per_designation}
-                  onChange={e => set('per_designation', e.target.value)}
-                />
+                <select value={form.per_designation} onChange={e => set('per_designation', e.target.value)}>
+                  <option value="">Select designation...</option>
+                  {DESIGNATIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
               </div>
+            </div>
+
+            <div className="apm-field">
+              <label>Assigned Station</label>
+              <select value={form.station_id} onChange={e => set('station_id', e.target.value)}>
+                <option value="">Select station...</option>
+                {stations.map(s => (
+                  <option key={s.station_id} value={s.station_id}>{s.station_name}</option>
+                ))}
+              </select>
             </div>
 
             <div className="apm-section-label">Account Credentials</div>

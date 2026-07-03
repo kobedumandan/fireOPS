@@ -48,7 +48,8 @@ export const TILE_OPTIONS = [
       {
         url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
         attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
-        maxZoom: 23,
+        maxZoom: 19,
+        maxNativeZoom: 17,
       },
     ],
   },

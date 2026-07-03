@@ -1,0 +1,86 @@
+{
+    "normal": {
+        "color": "#B0BEC5",
+        "weight": 2,
+        "opacity": 0.35,
+        "routing_multiplier": 1.0,
+        "label": "Normal road"
+    },
+    "traffic_school": {
+        "color": "#FFE082",
+        "weight": 4,
+        "opacity": 0.95,
+        "routing_multiplier": 1.45,
+        "label": "School traffic"
+    },
+    "traffic_school_peak": {
+        "color": "#FFE082",
+        "weight": 4,
+        "opacity": 0.95,
+        "routing_multiplier": 1.45,
+        "label": "School traffic peak"
+    },
+    "traffic_general": {
+        "color": "#FFD54F",
+        "weight": 4,
+        "opacity": 0.95,
+        "routing_multiplier": 1.35,
+        "label": "General traffic"
+    },
+    "traffic_highway": {
+        "color": "#FFC107",
+        "weight": 4,
+        "opacity": 0.95,
+        "routing_multiplier": 1.25,
+        "label": "Highway traffic"
+    },
+    "traffic_market": {
+        "color": "#FF9800",
+        "weight": 5,
+        "opacity": 0.95,
+        "routing_multiplier": 1.55,
+        "label": "Public market traffic"
+    },
+    "traffic_pnm": {
+        "color": "#FB8C00",
+        "weight": 5,
+        "opacity": 0.95,
+        "routing_multiplier": 1.6,
+        "label": "PNM / night-market nearby traffic"
+    },
+    "traffic_nightmarket": {
+        "color": "#E65100",
+        "weight": 5,
+        "opacity": 0.95,
+        "routing_multiplier": 1.75,
+        "label": "Night-market area"
+    },
+    "narrow_road_slight": {
+        "color": "#EF5350",
+        "weight": 4,
+        "opacity": 0.9,
+        "routing_multiplier": 1.25,
+        "label": "Slight narrow road"
+    },
+    "narrow_road": {
+        "color": "#E53935",
+        "weight": 5,
+        "opacity": 0.95,
+        "routing_multiplier": 1.45,
+        "label": "Narrow road"
+    },
+    "narrow_road_severe": {
+        "color": "#B71C1C",
+        "weight": 6,
+        "opacity": 0.98,
+        "routing_multiplier": 1.8,
+        "label": "Severe narrow road"
+    },
+    "construction": {
+        "color": "#6A1B9A",
+        "weight": 6,
+        "opacity": 0.98,
+        "routing_multiplier": 3.0,
+        "label": "Road construction"
+    }
+}

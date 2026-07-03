@@ -60,7 +60,15 @@ def download_road_network(
         G = ox.load_graphml(cache_path)
     else:
         logger.info("Downloading OSM road network for '%s' …", place)
-        G = ox.graph_from_place(place, network_type=network_type)
+        G = ox.graph_from_place(
+            place,
+            network_type=network_type,
+            retain_all=True,
+            custom_filter=(
+                '["highway"~"motorway|trunk|primary|secondary|tertiary'
+                '|unclassified|residential|service|road"]'
+            ),
+        )
         G = ox.add_edge_speeds(G)
         G = ox.add_edge_travel_times(G)
         ox.save_graphml(G, cache_path)
@@ -106,7 +114,7 @@ def osm_to_road_network(
             u=u,
             v=v,
             road_name=data.get("name", ""),
-            lanes=int(data.get("lanes", 1)),
+            lanes=int(data["lanes"][0] if isinstance(data.get("lanes"), list) else data.get("lanes", 1)),
             travel_time=data.get("travel_time", None),
             bidirectional=False,  # OSMnx already encodes direction
         )

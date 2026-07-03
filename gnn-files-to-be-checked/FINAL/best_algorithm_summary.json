@@ -1,0 +1,14 @@
+{
+    "best_model": "GAT",
+    "selection_score_column": "Emergency Routing Score (%)",
+    "threshold": 0.28000000000000014,
+    "quality_score_percent": 79.02624629359434,
+    "emergency_routing_score_percent": 81.31938720899753,
+    "f1_percent": 78.63695937090432,
+    "recall_percent": 92.3076923076923,
+    "precision_percent": 68.4931506849315,
+    "folder": "/content/drive/MyDrive/bfp_capstone_newrc/outputs/FINAL_BEST_GAT_quality_79_03_emergency_81_32",
+    "recommended_system_style_field": "display_constraint_type",
+    "recommended_color_field": "map_color",
+    "recommended_routing_field": "routing_multiplier"
+}
