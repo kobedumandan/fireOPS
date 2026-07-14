@@ -2222,6 +2222,20 @@ class IncidentCreate(BaseModel):
     reporter_token:      str | None = None
 
 
+def _barangay_id_for_point(db: Session, lat: float, lon: float) -> int | None:
+    """Return the brgy_id whose boundary polygon contains (lat, lon), else None."""
+    return db.execute(
+        text(
+            """
+            SELECT brgy_id FROM barangay_boundaries
+            WHERE ST_Contains(brgy_polygon, ST_SetSRID(ST_MakePoint(:lon, :lat), 4326))
+            LIMIT 1
+            """
+        ),
+        {"lat": lat, "lon": lon},
+    ).scalar()
+
+
 @app.post("/api/incidents", status_code=201)
 async def create_incident(
     body: IncidentCreate,
@@ -2244,6 +2258,7 @@ async def create_incident(
         fire_location_source=body.fire_location_source,
         fire_remarks=body.fire_remarks,
         confirmed_user_id=_auth.user_id,
+        brgy_id=_barangay_id_for_point(db, body.fire_latitude, body.fire_longitude),
     )
     db.add(incident)
     db.commit()
