@@ -366,6 +366,19 @@ export async function fetchGnnConstraints() {
   return data
 }
 
+// ── Metrics summary (real dashboard aggregates) ─────────────────────────────
+export async function fetchMetricsSummary(period = '1m') {
+  const key = `metrics-summary-${period}`
+  const cached = _cacheGet(key)
+  if (cached) return cached
+
+  const res = await apiFetch(`/api/metrics/summary?period=${period}`)
+  if (!res.ok) throw new Error(`Failed to fetch metrics summary (${res.status})`)
+  const data = await res.json()
+  _cacheSet(key, data)
+  return data
+}
+
 // ── Response Coverage (reachability isochrones) ─────────────────────────────
 export async function fetchCoverageIsochrones() {
   const cached = _cacheGet('coverage-isochrones')

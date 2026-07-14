@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "../styles/MetricsPage.css";
-import { fetchIncidents, fetchBarangays } from "../api";
+import { fetchMetricsSummary, fetchBarangays } from "../api";
 
 const PANABO_CENTER = [7.3086, 125.6847];
 
@@ -15,31 +15,44 @@ function readCssVar(name, fallback) {
   return v || fallback;
 }
 
-// 4-bucket choropleth scale. Low → High: blue, green, amber, fire.
-const OCCURRENCE_BUCKETS = [
-  { max: 25, varName: "--accent-blue", fallback: "#3b82f6", label: "0–25" },
-  { max: 100, varName: "--accent-green", fallback: "#22c55e", label: "26–100" },
-  { max: 300, varName: "--accent-amber", fallback: "#f59e0b", label: "101–300" },
-  { max: Infinity, varName: "--accent-fire", fallback: "#ef4444", label: "300+" },
+// 4-tier choropleth colour scale (low → high): blue, green, amber, fire.
+const BUCKET_COLOR_VARS = [
+  { varName: "--accent-blue", fallback: "#3b82f6" },
+  { varName: "--accent-green", fallback: "#22c55e" },
+  { varName: "--accent-amber", fallback: "#f59e0b" },
+  { varName: "--accent-fire", fallback: "#ef4444" },
 ];
 
-function bucketIndex(value) {
-  for (let i = 0; i < OCCURRENCE_BUCKETS.length; i++) {
-    if (value <= OCCURRENCE_BUCKETS[i].max) return i;
-  }
-  return OCCURRENCE_BUCKETS.length - 1;
+// Build 4 count buckets scaled to the data. Real per-barangay counts are far
+// smaller than the old example values, so thresholds must adapt to the max.
+function buildBuckets(maxCount) {
+  const m = Math.max(maxCount, 4);
+  const t1 = Math.max(1, Math.round(m * 0.25));
+  const t2 = Math.max(t1 + 1, Math.round(m * 0.5));
+  const t3 = Math.max(t2 + 1, Math.round(m * 0.75));
+  return [
+    { max: t1, label: `0–${t1}` },
+    { max: t2, label: `${t1 + 1}–${t2}` },
+    { max: t3, label: `${t2 + 1}–${t3}` },
+    { max: Infinity, label: `${t3 + 1}+` },
+  ];
 }
 
-// Deterministic pseudo-random so example data is stable across renders.
-function seededCount(seed) {
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 16777619);
+function bucketIndexFor(value, buckets) {
+  for (let i = 0; i < buckets.length; i++) {
+    if (value <= buckets[i].max) return i;
   }
-  const norm = ((h >>> 0) % 1000) / 1000; // 0..1
-  // Skew distribution so most barangays are low, a few are high.
-  return Math.round(Math.pow(norm, 2) * 480) + 1;
+  return buckets.length - 1;
+}
+
+// Turn a percent delta from the API into a KpiCard trend, or undefined when
+// there's no baseline to compare against.
+function trendOf(delta) {
+  if (delta == null || !Number.isFinite(delta)) return undefined;
+  return {
+    dir: delta >= 0 ? "up" : "down",
+    text: `${Math.abs(delta)}% vs last period`,
+  };
 }
 
 const PERIODS = [
@@ -324,11 +337,11 @@ function BarangayBar({ name, value, max, color }) {
 
 export default function MetricsPage() {
   const [period, setPeriod] = useState("1y");
-  const [rows, setRows] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [barangays, setBarangays] = useState(null);
   const bucketColors = useMemo(
-    () => OCCURRENCE_BUCKETS.map((b) => readCssVar(b.varName, b.fallback)),
+    () => BUCKET_COLOR_VARS.map((b) => readCssVar(b.varName, b.fallback)),
     []
   );
 
@@ -346,26 +359,14 @@ export default function MetricsPage() {
     }
   }, [barangayBounds]);
 
-  // Example occurrence counts per barangay, keyed by name. Stable across renders.
-  const exampleCounts = useMemo(() => {
-    if (!barangays?.features) return {};
-    const out = {};
-    barangays.features.forEach((f) => {
-      const name = f.properties?.brgy_name ?? "";
-      out[name] = seededCount(name);
-    });
-    return out;
-  }, [barangays]);
+  // Real per-barangay incident counts (keyed by brgy_name) from the summary.
+  const byBarangay = useMemo(() => summary?.by_barangay ?? {}, [summary]);
 
   useEffect(() => {
     setLoading(true);
-    fetchIncidents({
-      page: 1,
-      pageSize: 500,
-      period: period === "all" ? undefined : period,
-    })
+    fetchMetricsSummary(period)
       .then((data) => {
-        setRows(data.items ?? data.rows ?? data ?? []);
+        setSummary(data);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -377,73 +378,43 @@ export default function MetricsPage() {
       .catch(() => setBarangays(null));
   }, []);
 
-  const stats = useMemo(() => {
-    const total = rows.length;
-    const sev = { Critical: 0, Moderate: 0, Minor: 0 };
-    const byBarangay = {};
-    let etaSum = 0,
-      etaCount = 0;
-    let contained = 0;
-    rows.forEach((r) => {
-      const s = r.fire_severity ?? r.severity;
-      if (s && sev[s] != null) sev[s] += 1;
-      const b =
-        r.fire_barangay ?? r.barangay ?? r.fire_location_name ?? "Unknown";
-      byBarangay[b] = (byBarangay[b] || 0) + 1;
-      const eta = r.response_time_minutes ?? r.eta_minutes;
-      if (typeof eta === "number") {
-        etaSum += eta;
-        etaCount += 1;
-      }
-      if (r.fire_status === "contained" || r.fire_status === "closed")
-        contained += 1;
-    });
-    const avgEta = etaCount ? (etaSum / etaCount).toFixed(1) : "—";
-    const baranggayList = Object.entries(byBarangay)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([name, value]) => ({ name, value }));
-    return { total, sev, avgEta, contained, baranggayList };
-  }, [rows]);
+  const severity = summary?.severity ?? { Critical: 0, Moderate: 0, Minor: 0 };
+  const total = summary?.total ?? 0;
+  const contained = summary?.contained ?? 0;
+  const deltas = summary?.deltas ?? {};
+  const avgResponse = summary?.avg_response_minutes;
 
   const donutData = [
-    {
-      label: "Critical",
-      value: stats.sev.Critical || 1,
-      color: SEVERITY_COLORS.Critical,
-    },
-    {
-      label: "Moderate",
-      value: stats.sev.Moderate || 1,
-      color: SEVERITY_COLORS.Moderate,
-    },
-    {
-      label: "Minor",
-      value: stats.sev.Minor || 1,
-      color: SEVERITY_COLORS.Minor,
-    },
+    { label: "Critical", value: severity.Critical || 0, color: SEVERITY_COLORS.Critical },
+    { label: "Moderate", value: severity.Moderate || 0, color: SEVERITY_COLORS.Moderate },
+    { label: "Minor", value: severity.Minor || 0, color: SEVERITY_COLORS.Minor },
   ];
   const donutTotal = donutData.reduce((a, b) => a + b.value, 0);
+  // A zero-total donut renders nothing — fall back to equal slices for the ring.
+  const donutChartData =
+    donutTotal > 0 ? donutData : donutData.map((d) => ({ ...d, value: 1 }));
+  const donutChartTotal = donutTotal > 0 ? donutTotal : donutChartData.length;
 
-  // Response-time line: 12 monthly points, rendered with smooth bezier path.
-  const monthNames = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-  ];
-  const linePoints = [
-    4.8, 5.1, 4.6, 4.2, 4.9, 5.3, 5.0, 4.4, 4.1, 4.5, 4.7, 4.3,
-  ];
+  // Incidents-per-month over the last 12 months (real). Replaces the former
+  // hardcoded response-time line until response times are captured.
+  const monthNames = (summary?.monthly ?? []).map((p) => p.month);
+  const linePoints = (summary?.monthly ?? []).map((p) => p.count);
+
+  const buckets = useMemo(
+    () => buildBuckets(Math.max(0, ...Object.values(byBarangay))),
+    [byBarangay]
+  );
 
   const topBarangays = useMemo(() => {
-    return Object.entries(exampleCounts)
+    return Object.entries(byBarangay)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
       .map(([name, value]) => ({
         name,
         value,
-        color: bucketColors[bucketIndex(value)],
+        color: bucketColors[bucketIndexFor(value, buckets)],
       }));
-  }, [exampleCounts, bucketColors]);
+  }, [byBarangay, buckets, bucketColors]);
   const maxBar = Math.max(...topBarangays.map((b) => b.value), 1);
 
   return (
@@ -488,30 +459,29 @@ export default function MetricsPage() {
           <KpiCard
             icon={<PhoneIcon />}
             label="Calls Responded"
-            value={loading ? "…" : stats.total.toLocaleString()}
-            trend={{ dir: "up", text: "6.7% vs last period" }}
+            value={loading ? "…" : total.toLocaleString()}
+            trend={trendOf(deltas.total)}
             accent="fire"
           />
           <KpiCard
             icon={<ClockIcon />}
             label="Average Response Time"
-            value={stats.avgEta}
-            sub="min"
-            trend={{ dir: "down", text: "12.1% vs last period" }}
+            value={avgResponse != null ? avgResponse : "—"}
+            sub={avgResponse != null ? "min" : "not yet tracked"}
             accent="fire"
           />
           <KpiCard
             icon={<AlertIcon />}
             label="Critical Incidents"
-            value={loading ? "…" : (stats.sev.Critical ?? 0).toLocaleString()}
-            trend={{ dir: "up", text: "3.2% vs last period" }}
+            value={loading ? "…" : (severity.Critical ?? 0).toLocaleString()}
+            trend={trendOf(deltas.critical)}
             accent="fire"
           />
           <KpiCard
             icon={<MapIcon />}
             label="Contained / Closed"
-            value={loading ? "…" : stats.contained.toLocaleString()}
-            trend={{ dir: "up", text: "8.5% vs last period" }}
+            value={loading ? "…" : contained.toLocaleString()}
+            trend={trendOf(deltas.contained)}
             accent="fire"
           />
         </div>
@@ -525,7 +495,7 @@ export default function MetricsPage() {
               </div>
             </div>
             <div className="m-donut-wrap">
-              <DonutChart data={donutData} total={donutTotal} />
+              <DonutChart data={donutChartData} total={donutChartTotal} />
               <div className="m-legend-table">
                 <div className="m-legend-thead">
                   <span>Type</span>
@@ -533,7 +503,9 @@ export default function MetricsPage() {
                   <span>Cases</span>
                 </div>
                 {donutData.map((d) => {
-                  const pct = ((d.value / donutTotal) * 100).toFixed(1);
+                  const pct = donutTotal
+                    ? ((d.value / donutTotal) * 100).toFixed(1)
+                    : "0.0";
                   return (
                     <div key={d.label} className="m-legend-row">
                       <span className="m-legend-name">
@@ -554,7 +526,7 @@ export default function MetricsPage() {
 
           <div className="m-card m-card-line">
             <div className="m-card-head">
-              <div className="m-card-title">Response Time (min)</div>
+              <div className="m-card-title">Incidents per Month</div>
               <div className="m-card-sub">Last 12 months</div>
             </div>
             <LineChart points={linePoints} labels={monthNames} />
@@ -592,8 +564,8 @@ export default function MetricsPage() {
                         data={barangays}
                         style={(feature) => {
                           const name = feature.properties?.brgy_name ?? "";
-                          const count = exampleCounts[name] ?? 0;
-                          const color = bucketColors[bucketIndex(count)];
+                          const count = byBarangay[name] ?? 0;
+                          const color = bucketColors[bucketIndexFor(count, buckets)];
                           return {
                             color,
                             weight: 1,
@@ -607,7 +579,7 @@ export default function MetricsPage() {
                   </MapContainer>
                 </div>
                 <div className="m-brgy-legend">
-                  {OCCURRENCE_BUCKETS.map((b, i) => (
+                  {buckets.map((b, i) => (
                     <div key={b.label} className="m-brgy-legend-item">
                       <span
                         className="m-brgy-legend-swatch"
