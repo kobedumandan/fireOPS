@@ -40,6 +40,18 @@ function UnfoldIcon() {
     </svg>
   );
 }
+function ExportIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="plan-btn-icon"
+      fill="currentColor"
+    >
+      <path d="M480-320 280-520l56-58 104 104v-286h80v286l104-104 56 58-200 200ZM240-160q-33 0-56.5-23.5T160-240v-120h80v120h480v-120h80v120q0 33-23.5 56.5T720-160H240Z" />
+    </svg>
+  );
+}
 function StationsKpiIcon() {
   return (
     <svg viewBox="0 -960 960 960" fill="currentColor" className="plan-kpi-icon-svg">
@@ -69,14 +81,15 @@ function AlertKpiIcon() {
   );
 }
 
-function PlanKpi({ icon, label, value, accent = "blue", valueClass = "" }) {
+function PlanKpi({ icon, label, value, sub, accent = "blue" }) {
   return (
     <div className="plan-kpi">
       <div className="plan-kpi-head">
         <div className="plan-kpi-label">{label}</div>
         <div className={`plan-kpi-icon plan-kpi-icon-${accent}`}>{icon}</div>
       </div>
-      <div className={`plan-kpi-value ${valueClass}`}>{value}</div>
+      <div className={`plan-kpi-value plan-kpi-value-${accent}`}>{value}</div>
+      {sub && <div className="plan-kpi-sub">{sub}</div>}
     </div>
   );
 }
@@ -216,6 +229,16 @@ export default function PlanningPage() {
             Planning
             <UnfoldIcon />
           </div>
+          <div className="plan-header-actions">
+            <button
+              className="plan-export-btn"
+              onClick={exportCsv}
+              disabled={!gaps?.length}
+            >
+              <ExportIcon />
+              Export CSV
+            </button>
+          </div>
         </div>
       </div>
 
@@ -227,27 +250,29 @@ export default function PlanningPage() {
             icon={<StationsKpiIcon />}
             label="Stations analysed"
             value={loading ? "…" : meta.sources ?? "—"}
+            sub="Coverage sources"
             accent="blue"
           />
           <PlanKpi
             icon={<TargetKpiIcon />}
             label={`Avg. coverage ≤${minutes} min`}
             value={summary ? `${summary.avg}%` : "…"}
+            sub="Across all barangays"
             accent="amber"
           />
           <PlanKpi
             icon={<CheckKpiIcon />}
             label="Well-covered barangays"
             value={summary ? `${summary.covered}/${summary.n}` : "…"}
+            sub="≥ 80% reachable in time"
             accent="green"
-            valueClass="plan-kpi-good"
           />
           <PlanKpi
             icon={<AlertKpiIcon />}
             label="Coverage gaps"
             value={summary ? summary.gapCount : "…"}
+            sub="< 40% reachable — priority"
             accent="fire"
-            valueClass="plan-kpi-bad"
           />
         </div>
 
@@ -296,25 +321,16 @@ export default function PlanningPage() {
           <div className="plan-card plan-gaps-card">
             <div className="plan-card-head">
               <div className="plan-card-title">Coverage Gaps</div>
-              <div className="plan-controls">
-                <div className="plan-minutes">
-                  {MINUTE_OPTIONS.map((m) => (
-                    <button
-                      key={m}
-                      className={`plan-min-btn${minutes === m ? " active" : ""}`}
-                      onClick={() => setMinutes(m)}
-                    >
-                      {m}m
-                    </button>
-                  ))}
-                </div>
-                <button
-                  className="plan-export-btn"
-                  onClick={exportCsv}
-                  disabled={!gaps?.length}
-                >
-                  Export CSV
-                </button>
+              <div className="plan-minutes">
+                {MINUTE_OPTIONS.map((m) => (
+                  <button
+                    key={m}
+                    className={`plan-min-btn${minutes === m ? " active" : ""}`}
+                    onClick={() => setMinutes(m)}
+                  >
+                    {m}m
+                  </button>
+                ))}
               </div>
             </div>
             <div className="plan-gaps-sub">
