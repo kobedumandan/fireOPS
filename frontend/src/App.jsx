@@ -15,6 +15,7 @@ import StationsPage from './components/StationsPage'
 import TeamsPage from './components/TeamsPage'
 import TrucksPage from './components/TrucksPage'
 import MetricsPage from './components/MetricsPage'
+import PlanningPage from './components/PlanningPage'
 import SettingsPage from './components/SettingsPage'
 import LoginPage from './components/LoginPage'
 import { fetchActiveIncidents, fetchPersonnel, fetchStations, fetchDispatches, selectRoute, fetchPersonnelLocations, fullReroute, createIncident, fetchReporterSessions } from './api'
@@ -565,6 +566,8 @@ export default function App() {
         />
       ) : activeNav === 'Metrics' ? (
         <MetricsPage />
+      ) : activeNav === 'Planning' ? (
+        <PlanningPage />
       ) : activeNav === 'Incidents' ? (
         <IncidentsPage />
       ) : activeNav === 'Personnel' ? (

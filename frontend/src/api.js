@@ -366,6 +366,30 @@ export async function fetchGnnConstraints() {
   return data
 }
 
+// ── Response Coverage (reachability isochrones) ─────────────────────────────
+export async function fetchCoverageIsochrones() {
+  const cached = _cacheGet('coverage-isochrones')
+  if (cached) return cached
+
+  const res = await apiFetch('/api/coverage/isochrones')
+  if (!res.ok) throw new Error(`Failed to fetch coverage isochrones (${res.status})`)
+  const data = await res.json()
+  _cacheSet('coverage-isochrones', data)
+  return data
+}
+
+export async function fetchCoverageGaps(minutes = 5) {
+  const key = `coverage-gaps-${minutes}`
+  const cached = _cacheGet(key)
+  if (cached) return cached
+
+  const res = await apiFetch(`/api/coverage/gaps?minutes=${minutes}`)
+  if (!res.ok) throw new Error(`Failed to fetch coverage gaps (${res.status})`)
+  const data = await res.json()
+  _cacheSet(key, data)
+  return data
+}
+
 export async function deleteObstruction(id) {
   const res = await apiFetch(`/api/obstructions/${id}`, { method: 'DELETE' })
   if (!res.ok) {

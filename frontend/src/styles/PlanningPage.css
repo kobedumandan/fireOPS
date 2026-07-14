@@ -1,0 +1,398 @@
+.plan-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--page-default-base);
+}
+
+/* ── Page topbar / header (mirrors .inc-header / .inc-title) ──────────────── */
+.plan-header {
+  background: transparent;
+  border-bottom: 1px solid var(--border-dim);
+  padding: 19px 20px 12px;
+  flex-shrink: 0;
+}
+
+.plan-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.plan-title {
+  font-family: var(--font-condensed);
+  font-size: 14.8px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.plan-unfold-icon {
+  width: 16.8px;
+  height: 16.8px;
+}
+
+/* ── Body ─────────────────────────────────────────────────────────────────
+   Fills the viewport below the header and never scrolls itself — the map and
+   the gaps table each scroll inside their own card. */
+.plan-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 20px;
+  overflow: hidden;
+}
+
+.plan-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+/* ── KPI row (mirrors .m-kpi) ─────────────────────────────────────────────── */
+.plan-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10.8px;
+  flex-shrink: 0;
+}
+
+.plan-kpi {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-dim);
+  border-radius: 10px;
+  padding: 11px 11px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plan-kpi-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.plan-kpi-label {
+  font-family: var(--font-condensed);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.plan-kpi-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.plan-kpi-icon-svg {
+  width: 16px;
+  height: 16px;
+}
+
+.plan-kpi-icon-blue {
+  background: var(--accent-blue-dim);
+  color: var(--accent-blue);
+}
+.plan-kpi-icon-amber {
+  background: var(--accent-amber-dim);
+  color: var(--accent-amber);
+}
+.plan-kpi-icon-green {
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+}
+.plan-kpi-icon-fire {
+  background: var(--bg-hover);
+  color: var(--accent-fire);
+}
+
+.plan-kpi-value {
+  font-family: var(--font-condensed);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  line-height: 1;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-kpi-good {
+  color: var(--accent-green);
+}
+.plan-kpi-bad {
+  color: var(--accent-fire);
+}
+
+/* ── Map + gaps grid: fills remaining height ─────────────────────────────── */
+.plan-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
+
+.plan-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-dim);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.plan-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-dim);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.plan-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ── Map ───────────────────────────────────────────────────────────────── */
+.plan-map-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.plan-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.plan-legend-swatch {
+  width: 16px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.plan-map-wrap {
+  flex: 1;
+  min-height: 260px;
+  position: relative;
+}
+
+.plan-map {
+  height: 100%;
+  width: 100%;
+  background: #0b0f14;
+}
+
+.plan-map-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+/* ── Gaps table ────────────────────────────────────────────────────────── */
+.plan-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.plan-minutes {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.plan-min-btn {
+  border: 1px solid var(--border-dim);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.plan-min-btn.active {
+  background: var(--accent-fire);
+  border-color: var(--accent-fire);
+  color: #fff;
+}
+
+.plan-export-btn {
+  border: 1px solid var(--border-dim);
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.plan-export-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.plan-gaps-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 16px 16px 10px;
+  flex-shrink: 0;
+}
+
+/* The scroll area: takes remaining card height, scrolls on the y-axis.
+   No top padding — otherwise the sticky header sticks below the padding edge
+   and rows peek over it while scrolling. */
+.plan-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+}
+
+.plan-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+/* Header styled like the Incidents table: tiny condensed uppercase labels,
+   active column in fire-orange, hover dims. */
+.plan-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-panel);
+  text-align: left;
+  font-family: var(--font-condensed);
+  font-size: 7.8px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  padding: 9px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+  /* Reliable divider that stays put while scrolling (border-bottom drops out
+     with border-collapse: collapse on sticky headers). */
+  box-shadow: inset 0 -1px 0 var(--border-dim);
+}
+
+.plan-table thead th:hover {
+  color: var(--text-secondary);
+}
+
+.plan-table thead th.sort-active {
+  color: var(--accent-fire);
+}
+
+.plan-sort-arrow {
+  margin-left: 4px;
+  opacity: 0.5;
+}
+
+.plan-table thead th.sort-active .plan-sort-arrow {
+  opacity: 1;
+}
+
+.plan-table tbody td {
+  padding: 7px 10px;
+  border-top: 1px solid var(--border-dim);
+  color: var(--text-primary);
+}
+
+.plan-td-name {
+  white-space: nowrap;
+}
+
+.plan-td-pct {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 130px;
+}
+
+.plan-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+
+.plan-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.plan-pct-num {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  min-width: 38px;
+  text-align: right;
+}
+
+.plan-status {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.plan-empty {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 24px 10px;
+}
+
+/* ── Narrow screens: stack the grid and let the body scroll ─────────────── */
+@media (max-width: 1100px) {
+  .plan-kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .plan-body {
+    overflow-y: auto;
+  }
+  .plan-grid {
+    flex: none;
+    grid-template-columns: 1fr;
+  }
+  .plan-map-wrap {
+    height: 400px;
+    flex: none;
+  }
+  .plan-gaps-card {
+    max-height: 70vh;
+  }
+}

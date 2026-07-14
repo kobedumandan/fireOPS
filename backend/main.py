@@ -32,6 +32,7 @@ from models import (
 from ai import GeoAIRoutingEngine, Config
 from auto_dispatch import select_best_team
 from routing_setup import build_routing_engine
+from coverage_engine import compute_coverage
 import routing_pool
 
 JWT_SECRET      = os.getenv("JWT_SECRET", "change-me")
@@ -316,6 +317,7 @@ def graph_summary():
 
 _gnn_constraints_cache: dict | None = None
 _constraint_style_cache: dict | None = None
+_coverage_cache: dict | None = None
 
 # Properties carried through to the frontend per predicted-constraint feature.
 _CONSTRAINT_PROP_KEYS = (
@@ -483,10 +485,6 @@ def gnn_constraints(db: Session = Depends(get_db)):
             "legend": legend,
         },
     }
-    _gnn_constraints_cache = result
-    return result
-
-
 # ── Custom GNN constraints (user-drawn) ──────────────────────────────────────
 
 VALID_CONSTRAINT_TYPES = ("narrow_road", "traffic_area")
@@ -652,6 +650,87 @@ def nearest_station(lat: float, lon: float):
         raise HTTPException(status_code=404, detail="No station node found near that location.")
     node_data = routing_engine.graph.G.nodes[node_id]
     return {"node_id": node_id, "lat": node_data["lat"], "lon": node_data["lon"]}
+
+
+# ── Response coverage (reachability isochrones) ──────────────────────────────
+# Planning-mode coverage: how quickly a truck can reach each area from the fire
+# stations, over the same constraint-aware road costs the router uses. The
+# computation is a whole-graph multi-source Dijkstra + polygon build, so it is
+# computed once and cached (stations don't move); ?refresh=1 recomputes.
+
+_BARANGAYS_GEOJSON_PATH = Config.PREDICTED_CONSTRAINTS_PATH.parent / "panabo_barangays.geojson"
+
+
+def _station_source_nodes(db: Session) -> list[int]:
+    """Snap every station with coordinates to its nearest graph node."""
+    nodes: list[int] = []
+    for s in db.query(Station).all():
+        if s.station_latitude is None or s.station_longitude is None:
+            continue
+        near = routing_engine.graph.nodes_near(
+            float(s.station_latitude), float(s.station_longitude), radius_km=2.0
+        )
+        if near:
+            nodes.append(near[0][0])
+    return nodes
+
+
+def _compute_or_get_coverage(db: Session, refresh: bool = False) -> dict:
+    """Return the cached coverage result, computing (and caching) it if needed."""
+    global _coverage_cache
+    if _coverage_cache is not None and not refresh:
+        return _coverage_cache
+
+    if routing_engine is None:
+        raise HTTPException(status_code=503, detail="Routing engine not loaded.")
+
+    sources = _station_source_nodes(db)
+    if not sources:
+        raise HTTPException(
+            status_code=404,
+            detail="No stations with coordinates to compute coverage from.",
+        )
+
+    barangays = None
+    if _BARANGAYS_GEOJSON_PATH.exists():
+        with open(_BARANGAYS_GEOJSON_PATH, encoding="utf-8") as f:
+            barangays = json.load(f)
+
+    edge_costs, _ = routing_engine._compute_edge_costs()
+    result = compute_coverage(routing_engine.graph, edge_costs, sources, barangays)
+    if result is None:
+        raise HTTPException(status_code=500, detail="Coverage computation produced no data.")
+
+    _coverage_cache = result
+    return result
+
+
+@app.get("/api/coverage/isochrones")
+def coverage_isochrones(
+    refresh: bool = False,
+    db: Session = Depends(get_db),
+    _auth: Users = Depends(get_current_user),
+):
+    """GeoJSON reachability bands (nested <=3 / <=5 / <=8 min) from the stations."""
+    data = _compute_or_get_coverage(db, refresh)
+    return {"isochrones": data["isochrones"], "meta": data["meta"]}
+
+
+@app.get("/api/coverage/gaps")
+def coverage_gaps(
+    minutes: int = 5,
+    refresh: bool = False,
+    db: Session = Depends(get_db),
+    _auth: Users = Depends(get_current_user),
+):
+    """Per-barangay coverage % within `minutes`, worst-covered first."""
+    data = _compute_or_get_coverage(db, refresh)
+    gaps_by_min = data["gaps_by_min"]
+    rows = gaps_by_min.get(minutes)
+    if rows is None:
+        # Requested band wasn't computed — fall back to the widest available.
+        rows = gaps_by_min[max(gaps_by_min)] if gaps_by_min else []
+    return {"minutes": minutes, "gaps": rows, "meta": data["meta"]}
 
 
 @app.get("/api/personnel")
