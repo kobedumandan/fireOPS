@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, Fragment } from "react";
+import { useState, useEffect, useMemo, useRef, memo, Fragment } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -457,34 +457,75 @@ const NORMAL_ROAD_COLOR = "#B0BEC5"; // dim grey — unconstrained roads
 // Render every predicted-constraint feature using its own baked-in style
 // (map_color / map_weight / map_opacity). Normal roads are drawn first as a
 // faint backdrop so the constrained roads read on top.
-function GnnConstraintsLayer({ data }) {
-  const features = data?.constraints?.features;
-  if (!features?.length) return null;
+const GnnConstraintsLayer = memo(function GnnConstraintsLayer({ data }) {
+  // One shared canvas surface for the whole layer. Leaflet's default SVG
+  // renderer creates a <path> DOM node per feature; at ~3.6k features that is
+  // what makes pan/zoom stutter. Scoped to this layer via pathOptions so every
+  // other vector layer keeps its SVG rendering (and its CSS styling).
+  const renderer = useMemo(() => L.canvas({ padding: 0.5 }), []);
 
-  const ordered = [...features].sort((a, b) => {
-    const an = a.properties?.display_constraint_type === "normal" ? 0 : 1;
-    const bn = b.properties?.display_constraint_type === "normal" ? 0 : 1;
-    return an - bn;
-  });
+  // Sorting and projecting ~3.6k features is far too expensive to redo on every
+  // parent render, and MapArea re-renders on every drawing/dispatch/picking
+  // state change. Keyed on `data`, which only changes on refetch.
+  const ordered = useMemo(() => {
+    const features = data?.constraints?.features;
+    if (!features?.length) return [];
+    return [...features]
+      .sort((a, b) => {
+        const an = a.properties?.display_constraint_type === "normal" ? 0 : 1;
+        const bn = b.properties?.display_constraint_type === "normal" ? 0 : 1;
+        return an - bn;
+      })
+      .map((f, i) => {
+        const props = f.properties || {};
+        return {
+          key: `gc-${props.road_id ?? i}-${i}`,
+          props,
+          isNormal: props.display_constraint_type === "normal",
+          positions: f.geometry.coordinates.map(([lon, lat]) => [lat, lon]),
+        };
+      });
+  }, [data]);
+
+  if (!ordered.length) return null;
 
   return (
     <>
-      {ordered.map((f, i) => {
-        const props = f.properties || {};
-        const positions = f.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+      {ordered.map(({ key, props, isNormal, positions }) => {
         const color = props.map_color || NORMAL_ROAD_COLOR;
         const weight = props.map_weight || 2;
         const opacity = props.map_opacity ?? 0.85;
+
+        // The ~1.9k unconstrained roads are a faint backdrop over a basemap
+        // that already draws them. Their tooltip would only ever read
+        // "normal · Avoidance ×1", so skip the tooltip and the hit-testing.
+        if (isNormal) {
+          return (
+            <Polyline
+              key={key}
+              positions={positions}
+              pathOptions={{
+                color,
+                weight,
+                opacity,
+                renderer,
+                interactive: false,
+              }}
+            />
+          );
+        }
+
         const confidence =
           props.hover_confidence_text ||
           (props.final_display_confidence_pct != null
             ? `Confidence ${props.final_display_confidence_pct.toFixed(0)}%`
             : null);
+
         return (
           <Polyline
-            key={`gc-${props.road_id ?? i}-${i}`}
+            key={key}
             positions={positions}
-            pathOptions={{ color, weight, opacity }}
+            pathOptions={{ color, weight, opacity, renderer }}
           >
             <Tooltip sticky className="leaflet-dark-tooltip">
               <div className="tooltip-id" style={{ color }}>
@@ -506,7 +547,7 @@ function GnnConstraintsLayer({ data }) {
       })}
     </>
   );
-}
+});
 
 // Legend driven by the server-built meta.legend (already sorted, and covering
 // the GAT-only prediction buckets the style config doesn't define). Normal
