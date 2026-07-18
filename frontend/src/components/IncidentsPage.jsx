@@ -3,12 +3,9 @@ import "../styles/IncidentsPage.css";
 import LogIncidentModal from "./LogIncidentModal";
 import EditIncidentModal from "./EditIncidentModal";
 import ConfirmModal from "./ConfirmModal";
-import {
-  fetchIncidents,
-  createIncident,
-  deleteIncident,
-  fetchIncidentReport,
-} from "../api";
+import IncidentDetailsPage from "./IncidentDetailsPage";
+import { SeverityBadge, StatusPill, formatReported } from "./incidentUi";
+import { fetchIncidents, createIncident, deleteIncident } from "../api";
 
 function ExportIcon() {
   return (
@@ -35,18 +32,6 @@ function AddIcon() {
   );
 }
 
-function FireGeneralIcon({ className }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 -960 960 960"
-      className={className}
-      fill="currentColor"
-    >
-      <path d="M240-400q0 52 21 98.5t60 81.5q-1-5-1-9v-9q0-32 12-60t35-51l113-111 113 111q23 23 35 51t12 60v9q0 4-1 9 39-35 60-81.5t21-98.5q0-50-18.5-94.5T648-574q-20 13-42 19.5t-45 6.5q-62 0-107.5-41T401-690q-39 33-69 68.5t-50.5 72Q261-513 250.5-475T240-400Zm240 52-57 56q-11 11-17 25t-6 29q0 32 23.5 55t56.5 23q33 0 56.5-23t23.5-55q0-16-6-29.5T537-292l-57-56Zm0-492v132q0 34 23.5 57t57.5 23q18 0 33.5-7.5T622-658l18-22q74 42 117 117t43 163q0 134-93 227T480-80q-134 0-227-93t-93-227q0-129 86.5-245T480-840Z" />
-    </svg>
-  );
-}
 function UnfoldIcon() {
   return (
     <svg
@@ -59,31 +44,6 @@ function UnfoldIcon() {
     </svg>
   );
 }
-function RemoveIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 -960 960 960"
-      className="action_icons"
-      fill="currentColor"
-    >
-      <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z" />
-    </svg>
-  );
-}
-function EditIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 -960 960 960"
-      className="action_icons"
-      fill="currentColor"
-    >
-      <path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z" />
-    </svg>
-  );
-}
-
 const STATUS_TABS = ["all", "pending", "dispatched", "contained", "closed"];
 const PAGE_SIZE = 15;
 const PERIODS = [
@@ -92,49 +52,6 @@ const PERIODS = [
   { key: "month", label: "This Month" },
   { key: "year", label: "This Year" },
 ];
-
-function SeverityBadge({ sev }) {
-  const cls =
-    sev === "Critical"
-      ? "badge-critical"
-      : sev === "Moderate"
-      ? "badge-moderate"
-      : "inc-badge-minor";
-  return (
-    <span className={`inc-badge ${cls}`}>
-      <FireGeneralIcon className={"sev-icon"} />
-      {sev}
-    </span>
-  );
-}
-
-function StatusPill({ status }) {
-  const map = {
-    pending: ["sp-pending", "Pending"],
-    dispatched: ["sp-dispatched", "Dispatched"],
-    contained: ["sp-contained", "Contained"],
-    closed: ["sp-closed", "Closed"],
-  };
-  const [cls, label] = map[status] || ["sp-closed", status];
-  return <span className={`status-pill ${cls}`}>{label}</span>;
-}
-
-function formatReported(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  const now = new Date();
-  const isToday = d.toDateString() === now.toDateString();
-  const time = d.toLocaleTimeString("en-PH", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  if (isToday) return `Today ${time}`;
-  return (
-    d.toLocaleDateString("en-PH", { month: "short", day: "numeric" }) +
-    " " +
-    time
-  );
-}
 
 export default function IncidentsPage() {
   const [incidents, setIncidents] = useState([]);
@@ -149,9 +66,9 @@ export default function IncidentsPage() {
   const [error, setError] = useState(null);
 
   const [selectedId, setSelectedId] = useState(null);
-  const [report, setReport] = useState(null);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportError, setReportError] = useState(null);
+  // When set, the full-page incident details view replaces the list. Holds the
+  // incident itself so the view survives a list refetch that drops the row.
+  const [detailsIncident, setDetailsIncident] = useState(null);
   const [showLogModal, setShowLogModal] = useState(false);
   const [editingIncident, setEditingIncident] = useState(null);
   const [deletingIncident, setDeletingIncident] = useState(null);
@@ -279,6 +196,9 @@ export default function IncidentsPage() {
     setIncidents((prev) =>
       prev.map((i) => (i.fire_id === updated.fire_id ? updated : i))
     );
+    setDetailsIncident((prev) =>
+      prev && prev.fire_id === updated.fire_id ? updated : prev
+    );
     setEditingIncident(null);
   }
 
@@ -288,37 +208,80 @@ export default function IncidentsPage() {
     setIncidents((prev) => prev.filter((i) => i.fire_id !== target.fire_id));
     setTotal((t) => Math.max(0, t - 1));
     if (selectedId === target.id) setSelectedId(null);
+    // The record is gone — fall back to the list if we were viewing it.
+    if (detailsIncident?.fire_id === target.fire_id) setDetailsIncident(null);
   }
 
-  const selected = incidents.find((i) => i.id === selectedId) ?? null;
+  function openDetails(inc) {
+    setSelectedId(inc.id);
+    setDetailsIncident(inc);
+  }
 
-  // Load the after-action report (narrative + photos) when a closed incident is
-  // selected. Other statuses don't have a report, so we skip the fetch.
-  useEffect(() => {
-    if (!selected || selected.status !== "closed") {
-      setReport(null);
-      setReportError(null);
-      setReportLoading(false);
-      return;
-    }
-    let cancelled = false;
-    setReportLoading(true);
-    setReportError(null);
-    setReport(null);
-    fetchIncidentReport(selected.fire_id)
-      .then((r) => {
-        if (!cancelled) setReport(r);
-      })
-      .catch((e) => {
-        if (!cancelled) setReportError(e.message);
-      })
-      .finally(() => {
-        if (!cancelled) setReportLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selected?.fire_id, selected?.status]);
+  // Prefer the live row (edits land in `incidents` first) but fall back to the
+  // snapshot so the page never blanks out mid-refetch.
+  const detailsView = detailsIncident
+    ? incidents.find((i) => i.fire_id === detailsIncident.fire_id) ??
+      detailsIncident
+    : null;
+
+  // Modals live above both the list and the details view, so render them once
+  // from a shared helper reused by each return branch.
+  function renderModals() {
+    return (
+      <>
+        {showLogModal && (
+          <LogIncidentModal
+            onClose={() => setShowLogModal(false)}
+            onSubmit={handleLogSubmit}
+          />
+        )}
+        {editingIncident && (
+          <EditIncidentModal
+            incident={editingIncident}
+            onClose={() => setEditingIncident(null)}
+            onSubmit={handleEditSubmit}
+          />
+        )}
+        {deletingIncident && (
+          <ConfirmModal
+            eyebrow="DELETE INCIDENT"
+            title={`Delete incident ${deletingIncident.id}?`}
+            message={
+              <>
+                This will permanently remove incident{" "}
+                <strong>{deletingIncident.id}</strong>
+                {deletingIncident.loc ? (
+                  <>
+                    {" "}
+                    at <strong>{deletingIncident.loc}</strong>
+                  </>
+                ) : null}
+                , along with its dispatch records and routes. This action cannot
+                be undone.
+              </>
+            }
+            confirmLabel="Delete Incident"
+            onConfirm={confirmDelete}
+            onClose={() => setDeletingIncident(null)}
+          />
+        )}
+      </>
+    );
+  }
+
+  if (detailsView) {
+    return (
+      <>
+        <IncidentDetailsPage
+          incident={detailsView}
+          onBack={() => setDetailsIncident(null)}
+          onEdit={setEditingIncident}
+          onDelete={setDeletingIncident}
+        />
+        {renderModals()}
+      </>
+    );
+  }
 
   return (
     <div className="inc-page">
@@ -602,9 +565,7 @@ export default function IncidentsPage() {
                       <tr
                         key={inc.id}
                         className={selectedId === inc.id ? "selected" : ""}
-                        onClick={() =>
-                          setSelectedId(inc.id === selectedId ? null : inc.id)
-                        }
+                        onClick={() => openDetails(inc)}
                       >
                         <td>
                           <div className="inc-row-id">{inc.id}</div>
@@ -636,7 +597,7 @@ export default function IncidentsPage() {
                               className="inc-btn-view"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedId(inc.id);
+                                openDetails(inc);
                               }}
                             >
                               View
@@ -707,262 +668,9 @@ export default function IncidentsPage() {
             </div>
           )}
         </div>
-
-        {/* DETAILS PANEL */}
-        <div className="inc-details">
-          {selected ? (
-            <div className="inc-details-inner">
-              <div className="inc-details-top">
-                <div>
-                  <div className="inc-details-id">
-                    {selected.id} · {selected.status.toUpperCase()}
-                  </div>
-                  <div className="inc-details-title">{selected.loc}</div>
-                  <div className="inc-details-chips">
-                    <SeverityBadge sev={selected.sev} />
-                    <StatusPill status={selected.status} />
-                    {/* <span
-                      className="inc-badge"
-                      style={{
-                        background: "var(--accent-blue-dim)",
-                        color: "var(--accent-blue)",
-                        border: "1px solid rgba(30,144,255,0.3)",
-                      }}
-                    >
-                      {selected.alarm}
-                    </span> */}
-                  </div>
-                </div>
-                {/* <button
-                  className="inc-details-close"
-                  onClick={() => setSelectedId(null)}
-                >
-                  ✕
-                </button> */}
-              </div>
-
-              <div className="inc-details-actions">
-                {selected.status !== "contained" &&
-                  selected.status !== "closed" && (
-                    <button className="inc-btn-dispatch-sm">
-                      Dispatch Unit
-                    </button>
-                  )}
-                {selected.status !== "closed" && (
-                  <button className="inc-btn-sec-sm">View on Map</button>
-                )}
-                <button
-                  className="inc-btn-sec-sm action_btn"
-                  onClick={() => setEditingIncident(selected)}
-                >
-                  <EditIcon />
-                </button>
-                {/* <button className="inc-btn-sec-sm">Export</button> */}
-                <button
-                  className="inc-btn-sec-sm action_btn"
-                  onClick={() => setDeletingIncident(selected)}
-                >
-                  <RemoveIcon />
-                </button>
-              </div>
-
-              <div className="inc-details-section-title">Incident Details</div>
-              <div className="inc-details-grid">
-                {[
-                  { label: "Address", value: selected.addr || "—" },
-                  { label: "Structure", value: selected.structure || "—" },
-                  { label: "Reported via", value: selected.reporter || "—" },
-                  {
-                    label: "Casualties",
-                    value: selected.casualties || "—",
-                    highlight:
-                      selected.casualties !== "None" &&
-                      selected.casualties !== "—" &&
-                      selected.casualties,
-                  },
-                  {
-                    label: "Units assigned",
-                    value: `${selected.units} unit${
-                      selected.units !== 1 ? "s" : ""
-                    }`,
-                  },
-                  {
-                    label: "Coordinates",
-                    value: `${selected.latitude?.toFixed(
-                      5
-                    )}, ${selected.longitude?.toFixed(5)}`,
-                  },
-                  {
-                    label: "Reported at",
-                    value: formatReported(selected.reported_at),
-                  },
-                  { label: "Alarm level", value: selected.alarm || "—" },
-                ].map(({ label, value, highlight }) => (
-                  <div key={label} className="inc-details-field">
-                    <div className="inc-details-label">{label}</div>
-                    <div
-                      className="inc-details-value"
-                      style={
-                        highlight ? { color: "var(--accent-amber)" } : undefined
-                      }
-                    >
-                      {value}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {selected.status === "closed" && (
-                <div className="inc-details-report">
-                  <div className="inc-details-section-title">
-                    Incident Report
-                  </div>
-
-                  {reportLoading ? (
-                    <div className="inc-details-report-body">
-                      Loading report…
-                    </div>
-                  ) : reportError ? (
-                    <div
-                      className="inc-details-report-body"
-                      style={{ color: "var(--accent-fire)" }}
-                    >
-                      Failed to load report: {reportError}
-                    </div>
-                  ) : !report ? (
-                    <div className="inc-details-report-body">
-                      No report filed for this incident.
-                    </div>
-                  ) : (
-                    <>
-                      {(report.author || report.submitted_at) && (
-                        <div className="inc-report-meta">
-                          {report.author && (
-                            <span>
-                              Filed by{" "}
-                              {report.author_rank
-                                ? `${report.author_rank} `
-                                : ""}
-                              {report.author}
-                            </span>
-                          )}
-                          {report.submitted_at && (
-                            <span>{formatReported(report.submitted_at)}</span>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="inc-details-grid">
-                        {[
-                          { label: "Cause", value: report.cause || "—" },
-                          {
-                            label: "Casualties",
-                            value: report.casualties || "—",
-                          },
-                          {
-                            label: "Damage estimate",
-                            value: report.damage_estimate || "—",
-                          },
-                        ].map(({ label, value }) => (
-                          <div key={label} className="inc-details-field">
-                            <div className="inc-details-label">{label}</div>
-                            <div className="inc-details-value inc-report">{value}</div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="inc-details-field">
-                        <div className="inc-details-label">Narrative</div>
-                        <div className="inc-details-report-body">
-                          {report.narrative}
-                        </div>
-                      </div>
-
-                      {report.recommendations && (
-                        <div className="inc-details-field">
-                          <div className="inc-details-label">
-                            Recommendations
-                          </div>
-                          <div className="inc-details-report-body">
-                            {report.recommendations}
-                          </div>
-                        </div>
-                      )}
-
-                      {report.photos?.length > 0 && (
-                        <div className="inc-details-field">
-                          <div className="inc-details-label">
-                            Scene photos ({report.photos.length})
-                          </div>
-                          <div className="inc-report-photos">
-                            {report.photos.map((url, i) => (
-                              <a
-                                key={url}
-                                href={url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inc-report-photo"
-                              >
-                                <img
-                                  src={url}
-                                  alt={`Scene photo ${i + 1}`}
-                                  loading="lazy"
-                                />
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="inc-details-empty">
-              <FireGeneralIcon className={"sev-icon-normal"} />
-              Select an incident to view details
-            </div>
-          )}
-        </div>
       </div>
 
-      {showLogModal && (
-        <LogIncidentModal
-          onClose={() => setShowLogModal(false)}
-          onSubmit={handleLogSubmit}
-        />
-      )}
-      {editingIncident && (
-        <EditIncidentModal
-          incident={editingIncident}
-          onClose={() => setEditingIncident(null)}
-          onSubmit={handleEditSubmit}
-        />
-      )}
-      {deletingIncident && (
-        <ConfirmModal
-          eyebrow="DELETE INCIDENT"
-          title={`Delete incident ${deletingIncident.id}?`}
-          message={
-            <>
-              This will permanently remove incident{" "}
-              <strong>{deletingIncident.id}</strong>
-              {deletingIncident.loc ? (
-                <>
-                  {" "}
-                  at <strong>{deletingIncident.loc}</strong>
-                </>
-              ) : null}
-              , along with its dispatch records and routes. This action cannot
-              be undone.
-            </>
-          }
-          confirmLabel="Delete Incident"
-          onConfirm={confirmDelete}
-          onClose={() => setDeletingIncident(null)}
-        />
-      )}
+      {renderModals()}
     </div>
   );
 }
