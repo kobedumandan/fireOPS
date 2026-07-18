@@ -81,15 +81,28 @@ function AlertKpiIcon() {
   );
 }
 
-function PlanKpi({ icon, label, value, sub, accent = "blue" }) {
+function PlanKpi({ icon, label, value, sub, accent = "blue", loading = false }) {
   return (
     <div className="plan-kpi">
       <div className="plan-kpi-head">
         <div className="plan-kpi-label">{label}</div>
-        <div className={`plan-kpi-icon plan-kpi-icon-${accent}`}>{icon}</div>
+        {loading ? (
+          <span className="plan-sk plan-sk-circle" style={{ width: 32, height: 32 }} />
+        ) : (
+          <div className={`plan-kpi-icon plan-kpi-icon-${accent}`}>{icon}</div>
+        )}
       </div>
-      <div className={`plan-kpi-value plan-kpi-value-${accent}`}>{value}</div>
-      {sub && <div className="plan-kpi-sub">{sub}</div>}
+      {loading ? (
+        <>
+          <span className="plan-sk" style={{ width: 74, height: 24, marginTop: 2 }} />
+          <span className="plan-sk" style={{ width: 112, height: 9 }} />
+        </>
+      ) : (
+        <>
+          <div className={`plan-kpi-value plan-kpi-value-${accent}`}>{value}</div>
+          {sub && <div className="plan-kpi-sub">{sub}</div>}
+        </>
+      )}
     </div>
   );
 }
@@ -155,11 +168,15 @@ export default function PlanningPage() {
   }, []);
 
   useEffect(() => {
+    // Blank the rows back to the skeleton while the new band is fetched.
+    setGaps(null);
     fetchCoverageGaps(minutes)
       .then((r) => setGaps(r?.gaps || []))
       .catch(() => setGaps([]));
   }, [minutes]);
 
+  // `gaps` is null until the first (or a refetched) band resolves.
+  const gapsLoading = gaps === null;
   const meta = iso?.meta || {};
   const features = useMemo(() => iso?.isochrones?.features || [], [iso]);
   const bands = useMemo(
@@ -249,30 +266,34 @@ export default function PlanningPage() {
           <PlanKpi
             icon={<StationsKpiIcon />}
             label="Stations analysed"
-            value={loading ? "…" : meta.sources ?? "—"}
+            value={meta.sources ?? "—"}
             sub="Coverage sources"
             accent="blue"
+            loading={loading}
           />
           <PlanKpi
             icon={<TargetKpiIcon />}
             label={`Avg. coverage ≤${minutes} min`}
-            value={summary ? `${summary.avg}%` : "…"}
+            value={summary ? `${summary.avg}%` : "—"}
             sub="Across all barangays"
             accent="amber"
+            loading={gapsLoading}
           />
           <PlanKpi
             icon={<CheckKpiIcon />}
             label="Well-covered barangays"
-            value={summary ? `${summary.covered}/${summary.n}` : "…"}
+            value={summary ? `${summary.covered}/${summary.n}` : "—"}
             sub="≥ 80% reachable in time"
             accent="green"
+            loading={gapsLoading}
           />
           <PlanKpi
             icon={<AlertKpiIcon />}
             label="Coverage gaps"
-            value={summary ? summary.gapCount : "…"}
+            value={summary ? summary.gapCount : "—"}
             sub="< 40% reachable — priority"
             accent="fire"
+            loading={gapsLoading}
           />
         </div>
 
@@ -295,7 +316,10 @@ export default function PlanningPage() {
             </div>
             <div className="plan-map-wrap">
               {loading ? (
-                <div className="plan-map-loading">Computing coverage…</div>
+                <div className="plan-map-loading">
+                  <span className="plan-spinner" />
+                  <span className="plan-map-loading-text">Computing coverage…</span>
+                </div>
               ) : (
                 <MapContainer
                   center={PANABO_CENTER}
@@ -361,32 +385,59 @@ export default function PlanningPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(sortedGaps || []).map((g) => (
-                    <tr key={g.barangay}>
-                      <td className="plan-td-name">{g.barangay}</td>
-                      <td className="plan-td-pct">
-                        <div className="plan-bar">
-                          <div
-                            className="plan-bar-fill"
-                            style={{
-                              width: `${g.covered_pct}%`,
-                              background: STATUS_COLOR[g.status],
-                            }}
-                          />
-                        </div>
-                        <span className="plan-pct-num">{g.covered_pct}%</span>
-                      </td>
-                      <td>
-                        <span
-                          className="plan-status"
-                          style={{ color: STATUS_COLOR[g.status] }}
-                        >
-                          ● {STATUS_LABEL[g.status] || g.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                  {gaps && gaps.length === 0 && (
+                  {gapsLoading
+                    ? Array.from({ length: 9 }).map((_, i) => (
+                        <tr key={`sk-${i}`}>
+                          <td className="plan-td-name">
+                            <span
+                              className="plan-sk"
+                              style={{ width: 88, height: 11 }}
+                            />
+                          </td>
+                          <td className="plan-td-pct">
+                            <span
+                              className="plan-sk"
+                              style={{ flex: 1, height: 6, borderRadius: 3 }}
+                            />
+                            <span
+                              className="plan-sk"
+                              style={{ width: 30, height: 11 }}
+                            />
+                          </td>
+                          <td>
+                            <span
+                              className="plan-sk"
+                              style={{ width: 58, height: 11 }}
+                            />
+                          </td>
+                        </tr>
+                      ))
+                    : (sortedGaps || []).map((g) => (
+                        <tr key={g.barangay}>
+                          <td className="plan-td-name">{g.barangay}</td>
+                          <td className="plan-td-pct">
+                            <div className="plan-bar">
+                              <div
+                                className="plan-bar-fill"
+                                style={{
+                                  width: `${g.covered_pct}%`,
+                                  background: STATUS_COLOR[g.status],
+                                }}
+                              />
+                            </div>
+                            <span className="plan-pct-num">{g.covered_pct}%</span>
+                          </td>
+                          <td>
+                            <span
+                              className="plan-status"
+                              style={{ color: STATUS_COLOR[g.status] }}
+                            >
+                              ● {STATUS_LABEL[g.status] || g.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                  {!gapsLoading && gaps && gaps.length === 0 && (
                     <tr>
                       <td colSpan={3} className="plan-empty">
                         No barangay coverage data available.
