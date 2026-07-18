@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import "./IncidentDetailsPage.css";
 import DetailsLayout, {
   DetailsSection,
   DetailsGrid,
@@ -31,6 +32,8 @@ export default function IncidentDetailsPage({
   const [report, setReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState(null);
+  // Index of the scene photo shown in the in-app viewer; null = viewer closed.
+  const [photoIndex, setPhotoIndex] = useState(null);
 
   // Load the after-action report (narrative + photos) for a closed incident.
   // Other statuses don't have a report, so we skip the fetch.
@@ -59,6 +62,26 @@ export default function IncidentDetailsPage({
       cancelled = true;
     };
   }, [incident?.fire_id, incident?.status]);
+
+  const photos = report?.photos ?? [];
+
+  const closeViewer = () => setPhotoIndex(null);
+  const showPrevPhoto = () =>
+    setPhotoIndex((i) => (i - 1 + photos.length) % photos.length);
+  const showNextPhoto = () =>
+    setPhotoIndex((i) => (i + 1) % photos.length);
+
+  // Keyboard controls while the viewer is open: Esc closes, arrows navigate.
+  useEffect(() => {
+    if (photoIndex === null) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") closeViewer();
+      else if (e.key === "ArrowLeft") showPrevPhoto();
+      else if (e.key === "ArrowRight") showNextPhoto();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [photoIndex, photos.length]);
 
   if (!incident) return null;
 
@@ -90,9 +113,6 @@ export default function IncidentDetailsPage({
 
   const actions = (
     <>
-      {incident.status !== "contained" && incident.status !== "closed" && (
-        <button className="inc-btn-dispatch-sm">Dispatch Unit</button>
-      )}
       {incident.status !== "closed" && (
         <button className="inc-btn-sec-sm">View on Map</button>
       )}
@@ -112,20 +132,22 @@ export default function IncidentDetailsPage({
   );
 
   return (
-    <DetailsLayout
-      onBack={onBack}
-      backLabel="Incidents"
-      eyebrow={`${incident.id} · ${incident.status.toUpperCase()}`}
-      title={incident.loc}
-      chips={
-        <>
-          <SeverityBadge sev={incident.sev} />
-          <StatusPill status={incident.status} />
-        </>
-      }
-      actions={actions}
-    >
+    <DetailsLayout onBack={onBack} backLabel="Incidents">
       <DetailsSection title="Incident Details">
+        <div className="idp-head">
+          <div className="idp-head-info">
+            <div className="dl-eyebrow">
+              {incident.id} · {incident.status.toUpperCase()}
+            </div>
+            <div className="dl-title">{incident.loc}</div>
+            <div className="dl-chips">
+              <SeverityBadge sev={incident.sev} />
+              <StatusPill status={incident.status} />
+            </div>
+          </div>
+          <div className="dl-actions">{actions}</div>
+        </div>
+
         <DetailsGrid>
           {fields.map(({ label, value, highlight }) => (
             <DetailsField
@@ -190,23 +212,22 @@ export default function IncidentDetailsPage({
                 </DetailsField>
               )}
 
-              {report.photos?.length > 0 && (
-                <DetailsField label={`Scene photos (${report.photos.length})`}>
-                  <div className="dl-photo-grid">
-                    {report.photos.map((url, i) => (
-                      <a
+              {photos.length > 0 && (
+                <DetailsField label={`Scene photos (${photos.length})`}>
+                  <div className="idp-photo-grid">
+                    {photos.map((url, i) => (
+                      <button
                         key={url}
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="dl-photo"
+                        type="button"
+                        className="idp-photo"
+                        onClick={() => setPhotoIndex(i)}
                       >
                         <img
                           src={url}
                           alt={`Scene photo ${i + 1}`}
                           loading="lazy"
                         />
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </DetailsField>
@@ -214,6 +235,62 @@ export default function IncidentDetailsPage({
             </>
           )}
         </DetailsSection>
+      )}
+
+      {photoIndex !== null && photos[photoIndex] && (
+        <div
+          className="idp-viewer"
+          onClick={closeViewer}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            className="idp-viewer-close"
+            onClick={closeViewer}
+            aria-label="Close viewer"
+          >
+            ✕
+          </button>
+
+          {photos.length > 1 && (
+            <button
+              className="idp-viewer-nav prev"
+              onClick={(e) => {
+                e.stopPropagation();
+                showPrevPhoto();
+              }}
+              aria-label="Previous photo"
+            >
+              ‹
+            </button>
+          )}
+
+          <img
+            className="idp-viewer-img"
+            src={photos[photoIndex]}
+            alt={`Scene photo ${photoIndex + 1}`}
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {photos.length > 1 && (
+            <button
+              className="idp-viewer-nav next"
+              onClick={(e) => {
+                e.stopPropagation();
+                showNextPhoto();
+              }}
+              aria-label="Next photo"
+            >
+              ›
+            </button>
+          )}
+
+          {photos.length > 1 && (
+            <div className="idp-viewer-count">
+              {photoIndex + 1} / {photos.length}
+            </div>
+          )}
+        </div>
       )}
     </DetailsLayout>
   );

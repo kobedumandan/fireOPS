@@ -28,7 +28,7 @@ function BackIcon() {
  *   onBack    – when set, renders the back button
  *   backLabel – back button text (default "Back")
  *   aside     – optional node pinned in a right column beside the body
- *   wide      – skip the readable max-width cap on the content column
+ *   wide      – skip the readable max-width cap so content spans full width
  */
 export default function DetailsLayout({
   eyebrow,
@@ -41,36 +41,44 @@ export default function DetailsLayout({
   wide = false,
   children,
 }) {
+  const containerCls = `dl-container${wide ? " wide" : ""}`;
+
   return (
     <div className="dl-page">
       <div className="dl-header">
-        {onBack && (
-          <button className="dl-back" onClick={onBack}>
-            <BackIcon />
-            {backLabel}
-          </button>
-        )}
-        <div className="dl-header-main">
-          <div className="dl-heading">
-            {eyebrow && <div className="dl-eyebrow">{eyebrow}</div>}
-            {title && <div className="dl-title">{title}</div>}
-            {chips && <div className="dl-chips">{chips}</div>}
-          </div>
-          {actions && <div className="dl-actions">{actions}</div>}
+        <div className={containerCls}>
+          {onBack && (
+            <button className="dl-back" onClick={onBack}>
+              <BackIcon />
+              {backLabel}
+            </button>
+          )}
+          {(eyebrow || title || chips || actions) && (
+            <div className="dl-header-main">
+              <div className="dl-heading">
+                {eyebrow && <div className="dl-eyebrow">{eyebrow}</div>}
+                {title && <div className="dl-title">{title}</div>}
+                {chips && <div className="dl-chips">{chips}</div>}
+              </div>
+              {actions && <div className="dl-actions">{actions}</div>}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="dl-body">
-        <div className={`dl-layout${aside ? " has-aside" : ""}`}>
-          <div className={`dl-content${wide ? " wide" : ""}`}>{children}</div>
-          {aside && <div className="dl-aside">{aside}</div>}
+        <div className={containerCls}>
+          <div className={`dl-layout${aside ? " has-aside" : ""}`}>
+            <div className="dl-content">{children}</div>
+            {aside && <div className="dl-aside">{aside}</div>}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-/** A titled block within the details body. */
+/** A titled block within the details body — label sits above the card. */
 export function DetailsSection({ title, actions, children }) {
   return (
     <section className="dl-section">
@@ -80,7 +88,7 @@ export function DetailsSection({ title, actions, children }) {
           {actions && <div className="dl-section-actions">{actions}</div>}
         </div>
       )}
-      <div className="dl-section-body">{children}</div>
+      <div className="dl-section-card">{children}</div>
     </section>
   );
 }

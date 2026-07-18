@@ -11,19 +11,30 @@
 /* ── Header ──────────────────────────────────────────────────────────────── */
 .dl-header {
   background: transparent;
-  border-bottom: 1px solid var(--border-dim);
-  padding: 14px 20px 14px;
+  padding: 14px 20px 0;
   flex-shrink: 0;
+}
+
+/* Centered, width-capped column shared by the header and body so both align.
+   `wide` opts out of the cap for full-bleed pages. */
+.dl-container {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.dl-container.wide {
+  max-width: none;
 }
 
 .dl-back {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 9px 2px;
+  padding: 4px 6px 2px 2px;
   margin-bottom: 10px;
   background: transparent;
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 5px;
   color: var(--text-secondary);
   font-family: var(--font-condensed);
@@ -47,11 +58,16 @@
   margin-bottom: 2px;
 }
 
+/* Heading + actions sit in a card, a touch lighter than the page base. */
 .dl-header-main {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  padding: 16px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+  border-radius: 14px;
 }
 
 .dl-heading {
@@ -95,7 +111,7 @@
   flex: 1;
   overflow-y: auto;
   min-height: 0;
-  padding: 20px;
+  padding: 28px 20px 24px;
 
   scrollbar-width: thin;
   scrollbar-color: var(--border-dim) transparent;
@@ -133,19 +149,15 @@
   flex-direction: column;
   gap: 16px;
   width: 100%;
-  max-width: 1000px;
-}
-
-.dl-content.wide {
-  max-width: none;
+  min-width: 0;
 }
 
 /* ── Sections ────────────────────────────────────────────────────────────── */
+/* A section is a label sitting above its own card. */
 .dl-section {
-  background: var(--bg-panel);
-  border: 1px solid var(--border-dim);
-  border-radius: 14px;
-  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .dl-section-head {
@@ -153,16 +165,14 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 8px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--border-dim);
+  padding: 0 4px;
 }
 
 .dl-section-title {
   font-family: var(--font-condensed);
-  font-size: 9.8px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: -0.2px;
+  letter-spacing: 0.2px;
   text-transform: uppercase;
   color: var(--text-secondary);
 }
@@ -173,10 +183,14 @@
   gap: 6px;
 }
 
-.dl-section-body {
+.dl-section-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-dim);
+  border-radius: 14px;
+  padding: 16px 18px 18px;
 }
 
 /* ── Fields ──────────────────────────────────────────────────────────────── */
@@ -231,33 +245,6 @@
 }
 .dl-prose.danger {
   color: var(--accent-fire);
-}
-
-/* ── Photo gallery ───────────────────────────────────────────────────────── */
-.dl-photo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-}
-
-.dl-photo {
-  display: block;
-  border-radius: 6px;
-  overflow: hidden;
-  border: 1px solid var(--border-dim);
-  aspect-ratio: 4 / 3;
-  transition: border-color 0.15s;
-}
-
-.dl-photo:hover {
-  border-color: var(--accent-fire);
-}
-
-.dl-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 /* ── Meta row ────────────────────────────────────────────────────────────── */
