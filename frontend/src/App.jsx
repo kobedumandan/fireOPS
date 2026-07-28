@@ -47,7 +47,11 @@ export default function App() {
   const [activeNav, setActiveNav]                 = useState('Command')
   const [showSettings, setShowSettings]           = useState(false)
   const [selectedIncident, setSelectedIncident]   = useState(null)
-  const [theme, setTheme]                         = useState('dark')
+  // Persisted: without this the dashboard snapped back to dark on every
+  // reload, so picking Light in Settings never survived a refresh.
+  const [theme, setTheme]                         = useState(
+    () => localStorage.getItem('fireops-theme') || 'dark'
+  )
   const [leftCollapsed, setLeftCollapsed]         = useState(false)
   // Start collapsed; the Incident View only auto-opens once there's an active
   // incident to show (see the effect below).
@@ -82,6 +86,7 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
+    localStorage.setItem('fireops-theme', theme)
   }, [theme])
 
   useEffect(() => {

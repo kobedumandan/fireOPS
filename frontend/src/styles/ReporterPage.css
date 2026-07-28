@@ -20,7 +20,7 @@
   align-items: center;
   text-align: center;
   gap: 0;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-lg);
 }
 
 .rp-brand {
@@ -129,7 +129,7 @@
   margin-bottom: 14px;
 }
 
-.rp-cta:hover { background: #ff6633; box-shadow: 0 0 20px rgba(255,77,26,0.35); }
+.rp-cta:hover { background: var(--accent-fire-hover); box-shadow: 0 0 20px rgba(var(--accent-fire-rgb),0.35); }
 
 .rp-cta-retry {
   background: var(--bg-card);

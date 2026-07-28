@@ -179,6 +179,88 @@
 
   --page-default-base: #090909;
 
+  /* ── Accent channel triplets ───────────────────────────────────────────────
+     Tints are written rgba(var(--accent-x-rgb), a) rather than as literal
+     rgba(255,77,26,a), so a tint re-tones with the theme instead of keeping
+     the dark-mode hue over a light surface. */
+  --accent-fire-rgb:   255, 77, 26;
+  --accent-amber-rgb:  255, 176, 32;
+  --accent-blue-rgb:   30, 144, 255;
+  --accent-green-rgb:  0, 230, 118;
+  --accent-gold-rgb:   245, 200, 66;
+  --accent-purple-rgb: 168, 85, 247;
+  --accent-cyan-rgb:    56, 189, 248;
+  --accent-red-rgb:     239, 68, 68;
+  --accent-slate-rgb:   148, 163, 184;
+  --accent-emerald-rgb: 34, 197, 94;
+  --accent-warn-rgb:    251, 191, 36;
+
+  /* Status accents that were previously inlined per page. */
+  --accent-cyan: #38bdf8;
+  --accent-cyan-dim: rgba(56, 189, 248, 0.15);
+  --accent-red: #ef4444;
+  --accent-red-dim: rgba(239, 68, 68, 0.12);
+  --accent-emerald: #22c55e;
+  --accent-warn: #fbbf24;
+  --accent-trend-up: #70f38e;
+  --accent-trend-down: #f5554d;
+
+  /* Green is BRIGHT in dark mode, so its label is near-black; in light mode the
+     same fill is dark, so the label has to flip to white. */
+  --on-accent-green: #04130b;
+  --accent-fire-disabled: #7a2a10;
+
+  /* Panels floating over the map keep their own text ramp — the app ramp is
+     tuned for panel chrome and is too dim to read against map imagery. */
+  --map-panel-rgb: 10, 12, 15;
+  --map-text: #cccccc;
+  --map-text-dim: #aaaaaa;
+  --map-text-faint: #888888;
+  --map-text-bright: #eeeeee;
+  --map-text-ghost: #555555;
+  --map-label: #e0f2fe;
+  --map-label-accent: #7dd3fc;
+  --map-label-shadow: rgba(0, 0, 0, 0.9);
+  --map-eco-surface: #042314;
+
+  --surface-sunken: #0b0f14;
+
+  /* "Muted / off-duty / inactive" status chips. The pair is deliberately
+     low-contrast — these chips mean "not active" and should recede — but the
+     fill and the label have to move together, or light mode pairs a pale tint
+     with pale text and drops under 3:1. */
+  --chip-muted-bg: rgba(61, 84, 104, 0.2);
+  --chip-muted-fg: var(--text-muted);
+
+  /* Decorative grid on the login backdrop. */
+  --grid-line: rgba(16, 16, 17, 0.39);
+
+  /* Fire-accent interaction states. */
+  --accent-fire-hover: #ff6633;
+  --accent-fire-focus: rgba(255, 77, 26, 0.6);
+  --accent-fire-glow: 0 0 16px rgba(255, 77, 26, 0.4);
+
+  /* Text that sits ON a saturated accent fill. */
+  --on-accent: #ffffff;
+
+  /* Raised/hover films layered over a surface. In dark these lift with white;
+     in light they must press DOWN with ink, or they vanish against the page. */
+  --surface-raise: rgba(255, 255, 255, 0.05);
+  --surface-raise-strong: rgba(255, 255, 255, 0.15);
+  --border-subtle: rgba(255, 255, 255, 0.1);
+
+  /* Modal backdrop + elevation. Light mode needs far weaker shadows — a
+     dark-mode shadow over a white page reads as dirt, not depth. */
+  --scrim: rgba(5, 8, 12, 0.75);
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.6);
+
+  /* Map canvas + the panels floating on it. */
+  --map-base: #0d1520;
+  --map-panel-grad: linear-gradient(135deg, #0a1520, #1a2d44);
+
   --font-mono: "Axiforma", "DM Sans", monospace;
   --font-ui: "Axiforma", "DM Sans", sans-serif;
   --font-condensed: "Axiforma", "DM Sans", sans-serif;
@@ -280,7 +362,14 @@ body {
   }
 }
 
-/* ── LIGHT MODE ── */
+/* ── LIGHT MODE ──────────────────────────────────────────────────────────────
+   Every custom property declared in :root must be answered here. A token left
+   out does not fall back to something neutral — it keeps its DARK value while
+   sitting on a white surface, which is how --accent-gold, --accent-purple and
+   --text-tertiary were washing out before.
+
+   Accents are darkened rather than merely desaturated: a hue tuned to glow on
+   #101011 has nowhere near 4.5:1 against #ffffff. */
 [data-theme="light"] {
   --bg-base: #f0f3f7;
   --bg-panel: #ffffff;
@@ -297,11 +386,85 @@ body {
   --accent-blue-dim: rgba(0, 112, 216, 0.1);
   --accent-green: #007a3d;
   --accent-green-dim: rgba(0, 122, 61, 0.1);
+  --accent-gold: #8a6b00;
+  --accent-gold-dim: rgba(138, 107, 0, 0.1);
+  --accent-purple: #7c3aed;
+  --accent-purple-dim: rgba(124, 58, 237, 0.1);
   --text-primary: #0d1520;
   --text-secondary: #3d5a72;
+  --text-tertiary: #6f8ba3;
   --text-muted: #7a95ab;
 
   --page-default-base: #e7e7e7;
+
+  /* Re-toned triplets so every rgba(var(--x-rgb), a) tint follows the theme. */
+  --accent-fire-rgb:   232, 57, 13;
+  --accent-amber-rgb:  192, 120, 0;
+  --accent-blue-rgb:   0, 112, 216;
+  --accent-green-rgb:  0, 122, 61;
+  --accent-gold-rgb:   138, 107, 0;
+  --accent-purple-rgb: 124, 58, 237;
+  --accent-cyan-rgb:    3, 105, 161;
+  --accent-red-rgb:     197, 34, 34;
+  --accent-slate-rgb:   100, 116, 139;
+  --accent-emerald-rgb: 21, 128, 61;
+  --accent-warn-rgb:    161, 98, 7;
+
+  --accent-cyan: #0369a1;
+  --accent-cyan-dim: rgba(3, 105, 161, 0.1);
+  --accent-red: #c52222;
+  --accent-red-dim: rgba(197, 34, 34, 0.1);
+  --accent-emerald: #15803d;
+  --accent-warn: #a16207;
+  --accent-trend-up: #15803d;
+  --accent-trend-down: #c52222;
+
+  /* Light-mode green is dark, so its label flips to white (see dark block). */
+  --on-accent-green: #ffffff;
+  --accent-fire-disabled: #e9b3a5;
+
+  /* Map panels become white cards; the text ramp inverts with them, and the
+     label halo flips from black to white so labels stay legible on tiles. */
+  --map-panel-rgb: 255, 255, 255;
+  --map-text: #24313f;
+  --map-text-dim: #4a5d70;
+  --map-text-faint: #6b7d8f;
+  --map-text-bright: #0d1520;
+  --map-text-ghost: #9aa8b5;
+  --map-label: #0c4a6e;
+  --map-label-accent: #0369a1;
+  --map-label-shadow: rgba(255, 255, 255, 0.9);
+  --map-eco-surface: #d8ece0;
+
+  --surface-sunken: #eef1f5;
+
+  /* Still recessive, but the label darkens enough to stay legible on the tint
+     (--text-muted at #7a95ab over this fill is only ~2.2:1). */
+  --chip-muted-bg: rgba(61, 90, 114, 0.12);
+  --chip-muted-fg: #52708a;
+
+  --grid-line: rgba(13, 21, 32, 0.08);
+
+  /* Hover DARKENS the fill in light mode; brightening it would wash out. */
+  --accent-fire-hover: #c22e08;
+  --accent-fire-focus: rgba(232, 57, 13, 0.55);
+  --accent-fire-glow: 0 0 0 3px rgba(232, 57, 13, 0.15);
+
+  --on-accent: #ffffff;
+
+  /* Films press down with ink instead of lifting with white. */
+  --surface-raise: rgba(13, 21, 32, 0.04);
+  --surface-raise-strong: rgba(13, 21, 32, 0.1);
+  --border-subtle: rgba(13, 21, 32, 0.12);
+
+  --scrim: rgba(13, 21, 32, 0.45);
+  --shadow-xs: 0 1px 2px rgba(13, 21, 32, 0.12);
+  --shadow-sm: 0 2px 8px rgba(13, 21, 32, 0.08);
+  --shadow-md: 0 4px 16px rgba(13, 21, 32, 0.1);
+  --shadow-lg: 0 24px 48px rgba(13, 21, 32, 0.16);
+
+  --map-base: #c8d8e8;
+  --map-panel-grad: linear-gradient(135deg, #ffffff, #eef3f9);
 }
 
 [data-theme="light"] body {

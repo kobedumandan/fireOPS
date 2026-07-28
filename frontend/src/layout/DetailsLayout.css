@@ -234,7 +234,7 @@
   color: var(--text-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  background: var(--bg-elevated, rgba(255, 255, 255, 0.02));
+  background: var(--bg-elevated, var(--surface-raise));
   border: 1px solid var(--border-dim);
   border-radius: 8px;
   padding: 12px 14px 10px;

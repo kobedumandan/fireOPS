@@ -193,8 +193,8 @@
   font-size: 8.8px;
   letter-spacing: 0.5px;
 }
-.trend-up { color: #70f38e; }
-.trend-down { color: #f5554d; }
+.trend-up { color: var(--accent-trend-up); }
+.trend-down { color: var(--accent-trend-down); }
 
 .m-grid {
   display: grid;
@@ -427,7 +427,7 @@
 .m-line { width: 100%; height: auto; display: block; }
 
 .m-line-grid-bg {
-  fill: rgba(255, 255, 255, 0.02);
+  fill: var(--surface-raise);
 }
 
 .m-line-grid {

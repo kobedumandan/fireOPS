@@ -116,7 +116,7 @@
 }
 
 .inc-btn-log:hover {
-  background: #ff6633;
+  background: var(--accent-fire-hover);
 }
 
 /* Stat cards (metrics KPI style) */
@@ -277,7 +277,7 @@
 }
 
 .inc-search-wrap input:focus {
-  border-color: #ff4c1a98;
+  border-color: var(--accent-fire-focus);
 }
 .inc-search-wrap input::placeholder {
   color: var(--text-secondary);
@@ -478,8 +478,8 @@
   background: var(--bg-hover);
 }
 .inc-table tr.selected td {
-  background: rgba(255, 77, 26, 0.06);
-  /* border-bottom-color: rgba(255, 77, 26, 0.2); */
+  background: rgba(var(--accent-fire-rgb), 0.06);
+  /* border-bottom-color: rgba(var(--accent-fire-rgb), 0.2); */
 }
 .inc-table tr.selected td:first-child {
   /* border-left: 2px solid var(--accent-fire); */
@@ -531,7 +531,7 @@
 .inc-badge-minor {
   background: var(--accent-green-dim);
   color: var(--accent-green);
-  border: 1px solid rgba(0, 230, 118, 0.3);
+  border: 1px solid rgba(var(--accent-green-rgb), 0.3);
 }
 
 /* Status pills */
@@ -577,7 +577,7 @@
   background: var(--accent-green);
 }
 .sp-closed {
-  background: rgba(61, 84, 104, 0.2);
+  background: var(--chip-muted-bg);
   color: var(--text-secondary);
 }
 
@@ -625,7 +625,7 @@
 }
 
 .inc-btn-view:hover {
-  background: rgba(255, 77, 26, 0.25);
+  background: rgba(var(--accent-fire-rgb), 0.25);
 }
 
 .inc-btn-map {
@@ -704,7 +704,7 @@
 .inc-page-btn.active {
   background: var(--accent-fire-dim);
   color: var(--accent-fire);
-  border-color: rgba(255, 77, 26, 0.4);
+  border-color: rgba(var(--accent-fire-rgb), 0.4);
 }
 
 .inc-page-ellipsis {
@@ -744,7 +744,7 @@
 }
 
 .inc-btn-dispatch-sm:hover {
-  background: #ff6633;
+  background: var(--accent-fire-hover);
 }
 
 .inc-btn-sec-sm {
@@ -769,7 +769,7 @@
 
 .inc-btn-danger-sm {
   color: var(--accent-fire);
-  border-color: rgba(255, 77, 26, 0.35);
+  border-color: rgba(var(--accent-fire-rgb), 0.35);
 }
 .inc-btn-danger-sm:hover {
   background: var(--accent-fire-dim);

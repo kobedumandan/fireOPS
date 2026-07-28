@@ -6,6 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>FireOPS</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,300,0,0" />
+    <script>
+      // Apply the saved theme before first paint. React sets this too, but from
+      // an effect — which runs after the first frame, so a saved light theme
+      // would flash the dark palette on every load.
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem('fireops-theme') || 'dark';
+      } catch (e) {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

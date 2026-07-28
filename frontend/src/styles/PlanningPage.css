@@ -88,9 +88,9 @@
 }
 
 .plan-error {
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  color: #fca5a5;
+  background: rgba(var(--accent-red-rgb), 0.12);
+  border: 1px solid rgba(var(--accent-red-rgb), 0.4);
+  color: var(--accent-red);
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 13px;
@@ -259,7 +259,7 @@
 .plan-map {
   height: 100%;
   width: 100%;
-  background: #0b0f14;
+  background: var(--surface-sunken);
 }
 
 .plan-map-loading {

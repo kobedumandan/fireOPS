@@ -83,7 +83,7 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.sta-btn-primary:hover { background: #ff6633; }
+.sta-btn-primary:hover { background: var(--accent-fire-hover); }
 
 .sta-btn-secondary {
   display: flex;
@@ -277,7 +277,7 @@
   outline: none;
   transition: border-color 0.15s;
 }
-.sta-search-wrap input:focus { border-color: #ff4c1a98; }
+.sta-search-wrap input:focus { border-color: var(--accent-fire-focus); }
 .sta-search-wrap input::placeholder { color: var(--text-secondary); }
 .sta-search-icon {
   position: absolute;
@@ -360,7 +360,7 @@
 }
 .sta-item:last-child { border-bottom: none; }
 .sta-item:hover { background: var(--bg-hover); }
-.sta-item.selected { background: rgba(255, 77, 26, 0.06); }
+.sta-item.selected { background: rgba(var(--accent-fire-rgb), 0.06); }
 .sta-item-main { border-left-color: var(--accent-amber); }
 .sta-item-sub  { border-left-color: var(--accent-blue); }
 
@@ -414,8 +414,8 @@
   text-transform: uppercase;
   flex-shrink: 0;
 }
-.sta-tt-main { background: var(--accent-amber-dim); color: var(--accent-amber); border: 1px solid rgba(255, 176, 32, 0.3); }
-.sta-tt-sub  { background: var(--accent-blue-dim);  color: var(--accent-blue);  border: 1px solid rgba(30, 144, 255, 0.3); }
+.sta-tt-main { background: var(--accent-amber-dim); color: var(--accent-amber); border: 1px solid rgba(var(--accent-amber-rgb), 0.3); }
+.sta-tt-sub  { background: var(--accent-blue-dim);  color: var(--accent-blue);  border: 1px solid rgba(var(--accent-blue-rgb), 0.3); }
 
 .sta-item-meta { display: flex; gap: 12px; flex-wrap: wrap; }
 .sta-meta-chip {
@@ -597,7 +597,7 @@
 .sta-hb-amber { background: var(--accent-amber-dim); color: var(--accent-amber);  }
 .sta-hb-blue  { background: var(--accent-blue-dim);  color: var(--accent-blue);   }
 .sta-hb-gold  { background: var(--accent-amber-dim); color: var(--accent-amber);  }
-.sta-hb-muted { background: rgba(61, 84, 104, 0.2);  color: var(--text-muted);  }
+.sta-hb-muted { background: var(--chip-muted-bg);  color: var(--chip-muted-fg);  }
 
 /* Blinking dot shown on dispatched status badges */
 .sta-blink-dot {
@@ -850,7 +850,7 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.sta-btn-dispatch:hover { background: #ff6633; }
+.sta-btn-dispatch:hover { background: var(--accent-fire-hover); }
 
 .sta-btn-sec {
   padding: 4.8px 14px 0.8px;
@@ -873,7 +873,7 @@
 
 .sta-btn-danger {
   color: var(--accent-fire);
-  border-color: rgba(255, 77, 26, 0.35);
+  border-color: rgba(var(--accent-fire-rgb), 0.35);
 }
 .sta-btn-danger:hover {
   background: var(--accent-fire-dim);
