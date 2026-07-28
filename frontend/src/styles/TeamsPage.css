@@ -112,7 +112,7 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.tea-btn-primary:hover { background: #ff6633; }
+.tea-btn-primary:hover { background: var(--accent-fire-hover); }
 
 .tea-btn-secondary {
   display: flex;
@@ -273,7 +273,7 @@
   outline: none;
   transition: border-color 0.15s;
 }
-.tea-search-wrap input:focus { border-color: #ff4c1a98; }
+.tea-search-wrap input:focus { border-color: var(--accent-fire-focus); }
 .tea-search-wrap input::placeholder { color: var(--text-secondary); }
 
 .tea-search-icon {
@@ -399,7 +399,7 @@
   cursor: pointer;
 }
 .tea-table tr:hover td { background: var(--bg-hover); }
-.tea-table tr.selected td { background: rgba(255, 77, 26, 0.06); }
+.tea-table tr.selected td { background: rgba(var(--accent-fire-rgb), 0.06); }
 
 .tea-mono-sm {
   font-family: var(--font-ui);
@@ -427,13 +427,13 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-.tea-sp-standby { background: rgba(56,189,248,0.15); color: #38bdf8; }
+.tea-sp-standby { background: rgba(var(--accent-cyan-rgb),0.15); color: var(--accent-cyan); }
 .tea-sp-standby::before { display: none; }
 .tea-sp-dispatched { background: var(--accent-amber-dim); color: var(--accent-amber); }
 .tea-sp-dispatched::before { background: var(--accent-amber); animation: tea-blink 1.5s ease-in-out infinite; }
-.tea-sp-inactive { background: rgba(61,84,104,0.2); color: var(--text-muted); }
+.tea-sp-inactive { background: var(--chip-muted-bg); color: var(--chip-muted-fg); }
 .tea-sp-inactive::before { background: var(--text-muted); }
-.tea-sp-offduty { background: rgba(61,84,104,0.2); color: var(--text-muted); }
+.tea-sp-offduty { background: var(--chip-muted-bg); color: var(--chip-muted-fg); }
 .tea-sp-offduty::before { display: none; }
 
 @keyframes tea-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -485,7 +485,7 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.tea-btn-view:hover { background: rgba(255,77,26,0.25); }
+.tea-btn-view:hover { background: rgba(var(--accent-fire-rgb),0.25); }
 
 .tea-btn-edit {
   display: flex;
@@ -503,7 +503,7 @@
   cursor: pointer;
   transition: background 0.15s;
 }
-.tea-btn-edit:hover { background: rgba(30,144,255,0.2); }
+.tea-btn-edit:hover { background: rgba(var(--accent-blue-rgb),0.2); }
 
 .tea-btn-delete {
   display: flex;
@@ -523,7 +523,7 @@
 }
 .tea-btn-delete:hover {
   color: var(--accent-fire);
-  border-color: rgba(255,77,26,0.4);
+  border-color: rgba(var(--accent-fire-rgb),0.4);
   background: var(--accent-fire-dim);
 }
 
@@ -561,8 +561,8 @@
   border-color: var(--border);
 }
 .tea-card.selected {
-  border-color: rgba(255,77,26,0.4);
-  background: rgba(255,77,26,0.05);
+  border-color: rgba(var(--accent-fire-rgb),0.4);
+  background: rgba(var(--accent-fire-rgb),0.05);
 }
 
 .tea-card-top {
@@ -592,13 +592,13 @@
 }
 
 
-.tea-cav-standby { background: rgba(56,189,248,0.15); color: #38bdf8; }
+.tea-cav-standby { background: rgba(var(--accent-cyan-rgb),0.15); color: var(--accent-cyan); }
 .tea-cav-standby .tea-card-av-ring,
-.tea-cav-standby .tea-details-av-ring { border-color: #38bdf8; }
-.tea-cav-dispatched { background: rgba(255,176,32,0.15); color: var(--accent-amber); }
+.tea-cav-standby .tea-details-av-ring { border-color: var(--accent-cyan); }
+.tea-cav-dispatched { background: rgba(var(--accent-amber-rgb),0.15); color: var(--accent-amber); }
 .tea-cav-dispatched .tea-card-av-ring,
 .tea-cav-dispatched .tea-details-av-ring { border-color: var(--accent-amber); }
-.tea-cav-inactive { background: rgba(61,84,104,0.2); color: var(--text-muted); }
+.tea-cav-inactive { background: var(--chip-muted-bg); color: var(--chip-muted-fg); }
 .tea-cav-inactive .tea-card-av-ring,
 .tea-cav-inactive .tea-details-av-ring { border-color: var(--text-muted); }
 
@@ -798,7 +798,7 @@
 }
 .tea-btn-sec.tea-btn-danger:hover {
   color: var(--accent-fire);
-  border-color: rgba(255,77,26,0.4);
+  border-color: rgba(var(--accent-fire-rgb),0.4);
   background: var(--accent-fire-dim);
 }
 

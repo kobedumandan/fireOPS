@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, GeoJSON, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { PANABO_CENTER, PANABO_ZOOM, TILE_OPTIONS, withinPanabo } from '../data/mapConfig'
+import { PANABO_CENTER, PANABO_ZOOM, TILE_OPTIONS, withinPanabo, maskStyle } from '../data/mapConfig'
+import { useTheme } from '../hooks/useTheme'
 import { PANABO_BOUNDARY } from '../data/panaboBoundary'
 import { updateStation } from '../api'
 import '../styles/AppModal.css'
@@ -16,6 +17,7 @@ L.Icon.Default.mergeOptions({
 
 function PickerMap({ lat, lng, onChange, onBoundsError }) {
   const [tileId, setTileId] = useState('satellite')
+  const theme = useTheme()
   const tile = TILE_OPTIONS.find((t) => t.id === tileId)
 
   const maskFeature = useMemo(() => ({
@@ -62,9 +64,9 @@ function PickerMap({ lat, lng, onChange, onBoundsError }) {
           <TileLayer key={`${tileId}-${i}`} {...l} />
         ))}
         <GeoJSON
-          key="mask"
+          key={`mask-${theme}`}
           data={maskFeature}
-          style={() => ({ fillColor: '#060810', fillOpacity: 0.72, stroke: false })}
+          style={() => maskStyle(theme)}
         />
         <GeoJSON
           key="boundary"

@@ -116,11 +116,11 @@
 }
 .slc-action-btn.blue {
   background: var(--accent-blue-dim);
-  border-color: rgba(30, 144, 255, 0.3);
+  border-color: rgba(var(--accent-blue-rgb), 0.3);
 }
 .slc-action-btn.fire {
   background: var(--accent-fire-dim);
-  border-color: rgba(255, 77, 26, 0.35);
+  border-color: rgba(var(--accent-fire-rgb), 0.35);
 }
 .slc-action-btn.fire img {
   width: 16px;
@@ -338,17 +338,17 @@
 .badge-critical {
   background: var(--accent-fire-dim);
   color: var(--accent-fire);
-  border: 1px solid rgba(255, 77, 26, 0.3);
+  border: 1px solid rgba(var(--accent-fire-rgb), 0.3);
 }
 .badge-moderate {
   background: var(--accent-amber-dim);
   color: var(--accent-amber);
-  border: 1px solid rgba(255, 176, 32, 0.3);
+  border: 1px solid rgba(var(--accent-amber-rgb), 0.3);
 }
 .badge-contained {
   background: var(--accent-green-dim);
   color: var(--accent-green);
-  border: 1px solid rgba(0, 230, 118, 0.3);
+  border: 1px solid rgba(var(--accent-green-rgb), 0.3);
 }
 
 .incident-location {
@@ -442,19 +442,19 @@
 }
 
 .pa-dispatched {
-  background: linear-gradient(135deg, #ff4d1a33, #ff4d1a55);
+  background: linear-gradient(135deg, rgba(var(--accent-fire-rgb),0.2), rgba(var(--accent-fire-rgb),0.33));
 }
 .pa-dispatched .status-ring {
   border-color: var(--accent-fire);
 }
 .pa-standby {
-  background: linear-gradient(135deg, #1e90ff22, #1e90ff44);
+  background: linear-gradient(135deg, rgba(var(--accent-blue-rgb),0.13), rgba(var(--accent-blue-rgb),0.27));
 }
 .pa-standby .status-ring {
   border-color: var(--accent-blue);
 }
 .pa-onscene {
-  background: linear-gradient(135deg, #ffb02022, #ffb02044);
+  background: linear-gradient(135deg, rgba(var(--accent-amber-rgb),0.13), rgba(var(--accent-amber-rgb),0.27));
 }
 .pa-onscene .status-ring {
   border-color: var(--accent-amber);
@@ -561,8 +561,8 @@
 }
 
 .slt-log-btn:hover {
-  background: #ff6633;
-  box-shadow: 0 0 20px rgba(255, 77, 26, 0.4);
+  background: var(--accent-fire-hover);
+  box-shadow: 0 0 20px rgba(var(--accent-fire-rgb), 0.4);
 }
 
 .slt-plus {
@@ -578,7 +578,7 @@
   gap: 6px;
   padding: 9px 12px;
   background: var(--accent-amber-dim);
-  border: 1px solid rgba(255, 176, 32, 0.35);
+  border: 1px solid rgba(var(--accent-amber-rgb), 0.35);
   border-radius: 4px;
   color: var(--accent-amber);
   font-family: var(--font-condensed);
@@ -623,7 +623,7 @@
 }
 
 .slt-req-btn:hover:not(:disabled) {
-  background: rgba(30, 144, 255, 0.2);
+  background: rgba(var(--accent-blue-rgb), 0.2);
 }
 .slt-req-btn:disabled {
   opacity: 0.4;

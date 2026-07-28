@@ -40,8 +40,8 @@
   justify-content: center;
 }
 .cfm-btn-danger:hover:not(:disabled) {
-  background: #ff6633;
-  box-shadow: 0 0 16px rgba(255, 77, 26, 0.4);
+  background: var(--accent-fire-hover);
+  box-shadow: 0 0 16px rgba(var(--accent-fire-rgb), 0.4);
 }
 .cfm-btn-danger:disabled {
   opacity: 0.6;

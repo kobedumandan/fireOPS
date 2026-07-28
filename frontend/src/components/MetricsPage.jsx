@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "../styles/MetricsPage.css";
 import { fetchMetricsSummary, fetchBarangays } from "../api";
+import { useTheme } from "../hooks/useTheme";
 
 const PANABO_CENTER = [7.3086, 125.6847];
 
@@ -340,9 +341,15 @@ export default function MetricsPage() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [barangays, setBarangays] = useState(null);
+  // Re-resolved whenever the theme flips — a [] dep here would freeze the
+  // choropleth on whichever palette happened to be active at mount.
+  const theme = useTheme();
   const bucketColors = useMemo(
+    // `theme` is not read in the body on purpose: readCssVar resolves against
+    // the DOM, so the theme flip — not any JS value — is what makes the
+    // previously resolved colours stale.
     () => BUCKET_COLOR_VARS.map((b) => readCssVar(b.varName, b.fallback)),
-    []
+    [theme]
   );
 
   const mapRef = useRef(null);

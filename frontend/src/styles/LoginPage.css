@@ -50,10 +50,10 @@
   position: fixed;
   inset: 0;
   background-image: linear-gradient(
-      #10101163 1px,
+      var(--grid-line) 1px,
       transparent 1px
     ),
-    linear-gradient(90deg, #10101163 1px, transparent 1px);
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   background-size: 40px 40px;
   pointer-events: none;
   z-index: 0;
@@ -313,7 +313,7 @@
   align-items: center;
   gap: 8px;
   background: var(--accent-fire-dim);
-  border: 1px solid rgba(255, 77, 26, 0.25);
+  border: 1px solid rgba(var(--accent-fire-rgb), 0.25);
   border-radius: 4px;
   padding: 9px 12px;
   margin-bottom: 14px;
@@ -388,7 +388,7 @@
 
 .lp-field-input.error {
   border-color: var(--accent-fire);
-  box-shadow: 0 0 0 3px rgba(255, 77, 26, 0.07);
+  box-shadow: 0 0 0 3px rgba(var(--accent-fire-rgb), 0.07);
 }
 
 .lp-pw-toggle {
@@ -506,7 +506,7 @@
 }
 
 .lp-forgot:hover {
-  color: #5ab0ff;
+  color: var(--accent-blue);
 }
 
 /* BUTTON */
@@ -528,8 +528,8 @@
 }
 
 .lp-btn-login:hover:not(.loading) {
-  background: #ff6633;
-  box-shadow: 0 0 20px rgba(255, 77, 26, 0.25);
+  background: var(--accent-fire-hover);
+  box-shadow: 0 0 20px rgba(var(--accent-fire-rgb), 0.25);
 }
 
 .lp-btn-login:active:not(.loading) {
@@ -537,7 +537,7 @@
 }
 
 .lp-btn-login.loading {
-  background: #7a2a10;
+  background: var(--accent-fire-disabled);
   cursor: not-allowed;
   display: flex;
   align-items: center;

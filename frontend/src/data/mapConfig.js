@@ -13,6 +13,20 @@ export function withinPanabo(lat, lng) {
   )
 }
 
+/**
+ * Style for the out-of-jurisdiction mask — the fill that dims everything
+ * outside the Panabo boundary on picker maps.
+ *
+ * It has to invert with the theme: a near-black scrim reads as "dimmed" over a
+ * dark basemap, but as a hole punched in the page over a light one. Shared here
+ * because the station, edit-station and log-incident pickers all draw it.
+ */
+export function maskStyle(theme) {
+  return theme === 'light'
+    ? { fillColor: '#f0f3f7', fillOpacity: 0.78, stroke: false }
+    : { fillColor: '#060810', fillOpacity: 0.72, stroke: false }
+}
+
 export const TILE_OPTIONS = [
   {
     id: 'street',

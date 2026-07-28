@@ -3,15 +3,15 @@
   inset: 0;
   z-index: 1;
   overflow: hidden;
-  background: #0d1520;
+  background: var(--map-base);
 }
 
 .map-bg {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(30,144,255,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(30,144,255,0.04) 1px, transparent 1px);
+    linear-gradient(rgba(var(--accent-blue-rgb),0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-blue-rgb),0.04) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
@@ -74,7 +74,7 @@
   text-transform: uppercase;
 }
 
-.layer-toggle.active { background: var(--accent-fire-dim); color: var(--accent-fire); border-color: rgba(255,77,26,0.1); }
+.layer-toggle.active { background: var(--accent-fire-dim); color: var(--accent-fire); border-color: rgba(var(--accent-fire-rgb),0.1); }
 .layer-toggle:hover:not(.active) { background: var(--bg-hover); color: var(--text-primary); }
 
 .marker {
@@ -184,8 +184,8 @@
 }
 
 @keyframes markerPulse {
-  0%, 100% { filter: drop-shadow(0 0 4px rgba(255,77,26,0.8)); }
-  50% { filter: drop-shadow(0 0 12px rgba(255,77,26,0.4)); }
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(var(--accent-fire-rgb),0.8)); }
+  50% { filter: drop-shadow(0 0 12px rgba(var(--accent-fire-rgb),0.4)); }
 }
 
 /* Personnel markers */
@@ -194,14 +194,14 @@
   height: 28px;
   border-radius: 50%;
   border: 2px solid var(--accent-blue);
-  background: linear-gradient(135deg, #0a1520, #1a2d44);
+  background: var(--map-panel-grad);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
   font-weight: 700;
   color: var(--accent-blue);
-  box-shadow: 0 0 10px rgba(30,144,255,0.4);
+  box-shadow: 0 0 10px rgba(var(--accent-blue-rgb),0.4);
   font-family: var(--font-condensed);
 }
 
@@ -209,14 +209,14 @@
 .station-marker {
   width: 28px;
   height: 28px;
-  background: #042314;
-  border: 1px solid rgba(0, 230, 118, 0.7);
+  background: var(--map-eco-surface);
+  border: 1px solid rgba(var(--accent-green-rgb), 0.7);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  box-shadow: 0 0 10px rgba(0, 230, 118, 0.7);
+  box-shadow: 0 0 10px rgba(var(--accent-green-rgb), 0.7);
 }
 
 /* Map tooltip */
@@ -231,7 +231,7 @@
   pointer-events: none;
   z-index: 50;
   white-space: nowrap;  
-  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-md);
 }
 
 .tooltip-id   { font-family: var(--font-mono); font-size: 9px; color: var(--text-secondary); }
@@ -264,7 +264,7 @@
   letter-spacing: 0.5px;
   color: var(--text-primary);
   white-space: nowrap;
-  /* box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 20px rgba(255,176,32,0.15); */
+  /* box-shadow: var(--shadow-md), 0 0 20px rgba(var(--accent-amber-rgb),0.15); */
   pointer-events: none;
 }
 
@@ -291,7 +291,7 @@
   height: 24px;
   border-radius: 50%;
   background: var(--accent-fire);
-  box-shadow: 0 0 16px rgba(255,77,26,0.7);
+  box-shadow: 0 0 16px rgba(var(--accent-fire-rgb),0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -325,7 +325,7 @@
   height: 22px;
   border-radius: 50%;
   background: var(--accent-blue);
-  box-shadow: 0 0 12px rgba(30,144,255,0.6);
+  box-shadow: 0 0 12px rgba(var(--accent-blue-rgb),0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -338,14 +338,14 @@
 
 /* Leaflet overrides */
 .leaflet-container {
-  background: #0d1520;
+  background: var(--map-base);
   font-family: var(--font-ui);
 }
 
 .leaflet-control-zoom { display: none; }
 
 .leaflet-control-attribution {
-  background: rgba(10, 12, 15, 0.75) !important;
+  background: rgba(var(--map-panel-rgb), 0.75) !important;
   color: var(--text-muted) !important;
   font-size: 9px !important;
   border: none !important;
@@ -361,7 +361,7 @@
   padding: 6px 8px;
   color: var(--text-primary);
   font-size: 11px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  box-shadow: var(--shadow-lg);
 }
 
 .leaflet-dark-tooltip::before { border-top-color: var(--border-bright) !important; }
@@ -387,21 +387,18 @@
   filter: drop-shadow(0 0 4px rgba(232, 57, 13, 0.2));
 }
 
-/* Light mode overrides */
-[data-theme="light"] .map-area { background: #c8d8e8; }
-
+/* Light mode overrides.
+   .map-area, .leaflet-container and .map-tooltip are NOT listed here any more —
+   they read --map-base and --shadow-md, which the light block already retones. */
 [data-theme="light"] .map-bg {
   background-image:
-    linear-gradient(rgba(0,112,216,0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,112,216,0.06) 1px, transparent 1px);
+    linear-gradient(rgba(var(--accent-blue-rgb),0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--accent-blue-rgb),0.06) 1px, transparent 1px);
 }
 
 [data-theme="light"] .personnel-marker {
   background: linear-gradient(135deg, #d8e8f4, #bcd4ea);
 }
-
-[data-theme="light"] .map-tooltip { box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
-[data-theme="light"] .leaflet-container { background: #c8d8e8; }
 
 [data-theme="light"] .leaflet-control-attribution {
   background: rgba(240,243,247,0.85) !important;
@@ -479,7 +476,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0a1520, #1a2d44);
+  background: var(--map-panel-grad);
   color: var(--text-muted);
   transition: color 0.15s;
 }
@@ -509,7 +506,7 @@
   height: 30px;
   border-radius: 50%;
   border: 2px solid;
-  background: linear-gradient(135deg, #0a1520, #1a2030);
+  background: var(--map-panel-grad);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -525,7 +522,7 @@
   background: var(--bg-panel);
   border: 1px solid var(--border-bright);
   border-radius: 6px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  box-shadow: var(--shadow-lg);
   color: var(--text-primary);
 }
 
@@ -567,10 +564,10 @@
 .obstruction-remove-btn {
   width: 100%;
   padding: 4px 0;
-  border: 1px solid rgba(239,68,68,0.3);
+  border: 1px solid rgba(var(--accent-red-rgb),0.3);
   border-radius: 4px;
-  background: rgba(239,68,68,0.1);
-  color: #ef4444;
+  background: rgba(var(--accent-red-rgb),0.1);
+  color: var(--accent-red);
   font-family: var(--font-condensed);
   font-size: 10px;
   font-weight: 700;
@@ -581,7 +578,7 @@
 }
 
 .obstruction-remove-btn:hover {
-  background: rgba(239,68,68,0.25);
+  background: rgba(var(--accent-red-rgb),0.25);
 }
 
 /* ── Reporter location popup ─────────────────────────────────────────────────── */
@@ -650,10 +647,10 @@
   z-index: 1000;
   background: var(--page-default-base);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: 10px 14px;
-  color: #ccc;
+  color: var(--map-text);
   font-size: 11px;
   pointer-events: auto;
 }
@@ -686,7 +683,7 @@
 .gnn-legend-count {
   margin-top: 4px;
   font-size: 10px;
-  color: #888;
+  color: var(--map-text-faint);
 }
 
 /* ── Constraint drawing banner ────────────────────────────────────────────── */
@@ -711,7 +708,7 @@
   height: 10px;
   border-radius: 50%;
   border: 2px solid;
-  background: rgba(10, 12, 15, 0.8);
+  background: rgba(var(--map-panel-rgb), 0.8);
   box-shadow: 0 0 6px rgba(0,0,0,0.5);
 }
 
@@ -719,10 +716,10 @@
 .constraint-editor {
   background: var(--page-default-base);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
   padding: 12px 11.8px;
-  color: #ccc;
+  color: var(--map-text);
   font-size: 11px;
   min-width: 180px;
   max-width: 220px;
@@ -749,7 +746,7 @@
   justify-content: center;
   gap: 6px;
   padding: 6px 10px;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
   background: transparent;
   color: var(--text-primary);
@@ -773,7 +770,7 @@
 
 .constraint-drawing-hint {
   font-size: 10px;
-  color: #aaa;
+  color: var(--map-text-dim);
   line-height: 1.5;
   padding: 4px 0;
 }
@@ -781,7 +778,7 @@
 /* ── Custom constraint list ───────────────────────────────────────────────── */
 .constraint-list {
   margin-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 1px solid var(--border-subtle);
   padding-top: 8px;
 }
 
@@ -790,7 +787,7 @@
   font-weight: 700;
   letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: #888;
+  color: var(--map-text-faint);
   margin-bottom: 4px;
 }
 
@@ -815,7 +812,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #ccc;
+  color: var(--map-text);
 }
 
 .constraint-item-btn {
@@ -823,8 +820,8 @@
   height: 20px;
   border: none;
   border-radius: 4px;
-  background: rgba(255,255,255,0.06);
-  color: #aaa;
+  background: var(--surface-raise);
+  color: var(--map-text-dim);
   font-size: 11px;
   cursor: pointer;
   display: flex;
@@ -836,13 +833,13 @@
 }
 
 .constraint-item-btn:hover {
-  background: rgba(255,255,255,0.15);
-  color: #fff;
+  background: var(--surface-raise-strong);
+  color: var(--map-text-bright);
 }
 
 .constraint-item-btn--del:hover {
-  background: rgba(239,68,68,0.2);
-  color: #ef4444;
+  background: rgba(var(--accent-red-rgb),0.2);
+  color: var(--accent-red);
 }
 
 /* ── Constraint save dialog ───────────────────────────────────────────────── */
@@ -852,14 +849,14 @@
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 2000;
-  background: rgba(10, 12, 15, 0.95);
+  background: rgba(var(--map-panel-rgb), 0.95);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
   padding: 20px 24px;
   min-width: 280px;
-  color: #ccc;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  color: var(--map-text);
+  box-shadow: var(--shadow-lg);
   pointer-events: auto;
 }
 
@@ -882,16 +879,16 @@
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: #888;
+  color: var(--map-text-faint);
   font-family: var(--font-condensed);
 }
 
 .constraint-field input {
   padding: 6px 8px;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
-  background: rgba(255,255,255,0.05);
-  color: #eee;
+  background: var(--surface-raise);
+  color: var(--map-text-bright);
   font-size: 12px;
   font-family: var(--font-ui);
   outline: none;
@@ -899,11 +896,11 @@
 }
 
 .constraint-field input:focus {
-  border-color: rgba(255,255,255,0.25);
+  border-color: var(--border-bright);
 }
 
 .constraint-field input::placeholder {
-  color: #555;
+  color: var(--map-text-ghost);
 }
 
 .constraint-save-actions {
@@ -915,10 +912,10 @@
 .constraint-save-btn {
   flex: 1;
   padding: 7px 0;
-  border: 1px solid rgba(34,197,94,0.3);
+  border: 1px solid rgba(var(--accent-emerald-rgb),0.3);
   border-radius: 6px;
-  background: rgba(34,197,94,0.15);
-  color: #22c55e;
+  background: rgba(var(--accent-emerald-rgb),0.15);
+  color: var(--accent-emerald);
   font-family: var(--font-condensed);
   font-size: 11px;
   font-weight: 700;
@@ -929,16 +926,16 @@
 }
 
 .constraint-save-btn:hover {
-  background: rgba(34,197,94,0.25);
+  background: rgba(var(--accent-emerald-rgb),0.25);
 }
 
 .constraint-cancel-btn {
   flex: 1;
   padding: 7px 0;
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--border-subtle);
   border-radius: 6px;
-  background: rgba(255,255,255,0.05);
-  color: #aaa;
+  background: var(--surface-raise);
+  color: var(--map-text-dim);
   font-family: var(--font-condensed);
   font-size: 11px;
   font-weight: 700;
@@ -949,8 +946,8 @@
 }
 
 .constraint-cancel-btn:hover {
-  background: rgba(255,255,255,0.1);
-  color: #fff;
+  background: var(--surface-raise-strong);
+  color: var(--map-text-bright);
 }
 
 /* ── Barangay overlay labels ─────────────────────────────────────────────── */
@@ -962,13 +959,13 @@
   text-align: center;
   pointer-events: none;
   text-shadow:
-    0 0 4px rgba(0, 0, 0, 0.9),
-    0 0 2px rgba(0, 0, 0, 0.9);
+    0 0 4px var(--map-label-shadow),
+    0 0 2px var(--map-label-shadow);
   user-select: none;
 }
 
 .brgy-label-name {
-  color: #e0f2fe;
+  color: var(--map-label);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.4px;
@@ -977,7 +974,7 @@
 }
 
 .brgy-label-pop {
-  color: #7dd3fc;
+  color: var(--map-label-accent);
   font-size: 10px;
   font-weight: 600;
   line-height: 1.2;

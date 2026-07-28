@@ -2,7 +2,7 @@
 .apm-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.686);
+  background: var(--scrim);
   backdrop-filter: blur(3px);
   z-index: 9000;
   display: flex;
@@ -23,7 +23,7 @@
   max-width: calc(100vw - 40px);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 77, 26, 0.1);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(var(--accent-fire-rgb), 0.1);
   overflow: hidden;
 }
 
@@ -170,7 +170,7 @@
 .apm-field input:focus,
 .apm-field select:focus,
 .apm-field textarea:focus {
-  border-color: #ff4d1a98;
+  border-color: var(--accent-fire-focus);
 }
 
 .apm-field input::placeholder,
@@ -321,7 +321,7 @@
   color: var(--accent-fire);
   padding: 8px 10px 4px;
   background: var(--accent-fire-dim);
-  border: 1px solid rgba(255, 77, 26, 0.3);
+  border: 1px solid rgba(var(--accent-fire-rgb), 0.3);
   border-radius: 4px;
   margin-bottom: 12px;
 }
@@ -332,7 +332,7 @@
   color: var(--accent-amber);
   padding: 6px 10px;
   background: var(--accent-amber-dim);
-  border: 1px solid rgba(251, 191, 36, 0.25);
+  border: 1px solid rgba(var(--accent-warn-rgb), 0.25);
   border-radius: 4px;
 }
 
@@ -380,8 +380,8 @@
   transition: all 0.15s;
 }
 .apm-btn-submit:hover {
-  background: #ff6633;
-  box-shadow: 0 0 16px rgba(255, 77, 26, 0.4);
+  background: var(--accent-fire-hover);
+  box-shadow: 0 0 16px rgba(var(--accent-fire-rgb), 0.4);
 }
 .apm-btn-submit:disabled {
   opacity: 0.5;
@@ -396,7 +396,7 @@
 .asm-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(5, 8, 12, 0.75);
+  background: var(--scrim);
   backdrop-filter: blur(3px);
   z-index: 2000;
   display: flex;
@@ -412,7 +412,7 @@
   border-radius: 6px;
   width: 520px;
   max-width: calc(100vw - 40px);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 77, 26, 0.12);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(var(--accent-fire-rgb), 0.12);
   overflow: hidden;
 }
 
@@ -581,7 +581,7 @@
 
 .asm-error {
   background: var(--accent-fire-dim);
-  border: 1px solid rgba(255, 77, 26, 0.35);
+  border: 1px solid rgba(var(--accent-fire-rgb), 0.35);
   border-radius: 4px;
   padding: 8px 12px;
   font-family: var(--font-condensed);
@@ -632,8 +632,8 @@
   transition: all 0.15s;
 }
 .asm-btn-submit:hover {
-  background: #ff6633;
-  box-shadow: 0 0 16px rgba(255, 77, 26, 0.4);
+  background: var(--accent-fire-hover);
+  box-shadow: 0 0 16px rgba(var(--accent-fire-rgb), 0.4);
 }
 
 .asm-map-wrap {
@@ -858,8 +858,8 @@
   width: 32px;
   height: 32px;
   border-radius: 11px;
-  background: rgba(255, 77, 26, 0.12);
-  /* border: 1px solid rgba(255, 77, 26, 0.3); */
+  background: rgba(var(--accent-fire-rgb), 0.12);
+  /* border: 1px solid rgba(var(--accent-fire-rgb), 0.3); */
   color: var(--accent-fire);
   font-family: var(--font-span);
   font-family: var(--font-condensed);
@@ -937,7 +937,7 @@
   min-width: 0;
 }
 .etm-add-select:focus {
-  border-color: #ff4d1a98;
+  border-color: var(--accent-fire-focus);
 }
 .etm-add-select option {
   background: var(--bg-card);
@@ -983,7 +983,7 @@
   margin-right: 6px;
 }
 .etm-member-role-select:focus {
-  border-color: #ff4d1a98;
+  border-color: var(--accent-fire-focus);
   outline: none;
 }
 .etm-member-role-select option {
@@ -1024,8 +1024,8 @@
 }
 
 .lim-unit-av {
-  background: rgba(255, 77, 26, 0.08);
-  border-color: rgba(255, 77, 26, 0.25);
+  background: rgba(var(--accent-fire-rgb), 0.08);
+  border-color: rgba(var(--accent-fire-rgb), 0.25);
   font-size: 15px;
 }
 
@@ -1092,15 +1092,15 @@
   flex-shrink: 0;
 }
 .dpm-sev-critical {
-  background: rgba(255, 77, 26, 0.15);
+  background: rgba(var(--accent-fire-rgb), 0.15);
   color: var(--accent-fire);
 }
 .dpm-sev-moderate {
-  background: rgba(255, 176, 32, 0.15);
+  background: rgba(var(--accent-amber-rgb), 0.15);
   color: var(--accent-amber);
 }
 .dpm-sev-minor {
-  background: rgba(0, 230, 118, 0.12);
+  background: rgba(var(--accent-green-rgb), 0.12);
   color: var(--accent-green);
 }
 
@@ -1245,11 +1245,11 @@
   color: var(--text-primary);
 }
 .dpm-member-row.dpm-member-leader {
-  background: rgba(251, 191, 36, 0.06);
-  border-color: rgba(251, 191, 36, 0.25);
+  background: rgba(var(--accent-warn-rgb), 0.06);
+  border-color: rgba(var(--accent-warn-rgb), 0.25);
 }
 .dpm-leader-star {
-  color: #fbbf24;
+  color: var(--accent-warn);
   font-size: 11px;
   margin-right: 4px;
 }
@@ -1276,12 +1276,12 @@
   line-height: 1.4;
 }
 .dpm-member-role.dpm-role-leader {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(var(--accent-warn-rgb), 0.15);
+  color: var(--accent-warn);
+  border-color: rgba(var(--accent-warn-rgb), 0.35);
 }
 .dpm-team-leader {
-  color: #fbbf24;
+  color: var(--accent-warn);
   font-size: 9.8px;
   font-weight: 500;
 }
@@ -1296,8 +1296,8 @@
 .dpm-route-warn {
   font-size: 11px;
   color: var(--accent-amber);
-  background: rgba(255, 176, 32, 0.07);
-  border: 1px solid rgba(255, 176, 32, 0.2);
+  background: rgba(var(--accent-amber-rgb), 0.07);
+  border: 1px solid rgba(var(--accent-amber-rgb), 0.2);
   border-radius: 4px;
   padding: 8px 10px;
   margin-bottom: 10px;
@@ -1332,21 +1332,21 @@
 }
 .adm-banner-ok {
   color: var(--accent-green);
-  background: rgba(0, 230, 118, 0.1);
-  /* border: 1px solid rgba(0, 230, 118, 0.25); */
+  background: rgba(var(--accent-green-rgb), 0.1);
+  /* border: 1px solid rgba(var(--accent-green-rgb), 0.25); */
 }
 .adm-banner-ok .adm-banner-dot {
   background: var(--accent-green);
-  box-shadow: 0 0 8px rgba(0, 230, 118, 0.6);
+  box-shadow: 0 0 8px rgba(var(--accent-green-rgb), 0.6);
 }
 .adm-banner-warn {
   color: var(--accent-amber);
   background: var(--accent-amber-dim);
-  /* border: 1px solid rgba(255, 176, 32, 0.25); */
+  /* border: 1px solid rgba(var(--accent-amber-rgb), 0.25); */
 }
 .adm-banner-warn .adm-banner-dot {
   background: var(--accent-amber);
-  box-shadow: 0 0 8px rgba(255, 176, 32, 0.6);
+  box-shadow: 0 0 8px rgba(var(--accent-amber-rgb), 0.6);
 }
 
 /* ── ETA badge on the assigned-team card ── */
@@ -1388,8 +1388,8 @@
   border-radius: 6px;
 }
 .adm-cand-winner {
-  border-color: rgba(0, 230, 118, 0.35);
-  background: rgba(0, 230, 118, 0.06);
+  border-color: rgba(var(--accent-green-rgb), 0.35);
+  background: rgba(var(--accent-green-rgb), 0.06);
 }
 .adm-cand-rank {
   width: 18px;
@@ -1407,7 +1407,7 @@
 }
 .adm-cand-winner .adm-cand-rank {
   background: var(--accent-green);
-  color: #04130b;
+  color: var(--on-accent-green);
 }
 .adm-cand-info {
   flex: 1;
