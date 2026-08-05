@@ -3304,6 +3304,84 @@ def _broadcast_threadsafe(payload: dict) -> None:
         logger.warning("Thread-safe broadcast failed: %s", exc)
 
 
+CONNECTOR_MERGE_TOLERANCE_M = 20
+
+
+def _annotate_connector_merge(
+    db: Session,
+    dispatch: DispatchRecord,
+    connector: "dict | None",
+) -> "dict | None":
+    """
+    Trim a connector at the point where it converges onto the dispatch's main
+    route, so the map can draw it as a branch that merges into the route
+    instead of a second full-length line running to the incident.
+
+    The merge is DETECTED, never forced. The connector geometry is still the
+    optimal path from the responder's own position — a non-driver may well have
+    a faster approach that never touches the truck's corridor, and routing them
+    back onto it would be slower. All this does is stop re-drawing the tail the
+    two paths already share (they resolve to the same target node near the
+    fire, so a shared tail is the common case).
+
+    Adds two GeoJSON foreign members (RFC 7946 §6.1) to the returned dict:
+      merges      — True if the path converges onto the route
+      merge_point — [lon, lat] of the convergence vertex, else None
+
+    Returns None when the responder is already sitting on the route, since a
+    branch would be pure duplicate geometry.
+    """
+    coords = (connector or {}).get("coordinates") or []
+    if len(coords) < 2:
+        return connector
+
+    route = db.get(Route, dispatch.route_id) if dispatch.route_id else None
+    if not route or not route.route_path_geojson:
+        return {**connector, "merges": False, "merge_point": None}
+
+    conn_wkt = "LINESTRING(" + ", ".join(f"{lon} {lat}" for lon, lat in coords) + ")"
+
+    # ST_DumpPoints preserves vertex order, so the lowest matching path index is
+    # the first place the connector touches the route — the convergence point.
+    row = db.execute(
+        text("""
+            SELECT (dp.path)[1] AS idx
+            FROM ST_DumpPoints(ST_SetSRID(ST_GeomFromText(:conn), 4326)) AS dp
+            WHERE ST_DWithin(
+                dp.geom::geography,
+                ST_SetSRID(ST_GeomFromText(:route), 4326)::geography,
+                :tol
+            )
+            ORDER BY (dp.path)[1]
+            LIMIT 1
+        """),
+        {
+            "conn":  conn_wkt,
+            "route": route.route_path_geojson,
+            "tol":   CONNECTOR_MERGE_TOLERANCE_M,
+        },
+    ).fetchone()
+
+    idx = int(row.idx) if row is not None and row.idx is not None else None
+
+    if idx is None:
+        # Never converges — an independent approach. Frontend keeps it dashed
+        # the whole way to the fire.
+        return {**connector, "merges": False, "merge_point": None}
+
+    # idx is 1-based; idx == 1 means the responder's own position is already on
+    # the route, leaving nothing to draw.
+    if idx < 2:
+        return None
+
+    return {
+        **connector,
+        "coordinates": coords[:idx],
+        "merges":      True,
+        "merge_point": coords[idx - 1],
+    }
+
+
 def _recompute_deviation_routing_bg(
     dispatch_id: int, per_id: int, lat: float, lon: float, manning: bool
 ) -> None:
@@ -3352,6 +3430,7 @@ def _recompute_deviation_routing_bg(
                 connector = _run_routing_via_pool(
                     "connector", lat, lon, fire.fire_latitude, fire.fire_longitude, obs
                 )
+                connector = _annotate_connector_merge(db, dispatch, connector)
             dispatch.deviation_connector_geojson = connector
             db.commit()
             payload = {

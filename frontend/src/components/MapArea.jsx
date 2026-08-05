@@ -4,6 +4,7 @@ import {
   TileLayer,
   Marker,
   Polyline,
+  CircleMarker,
   GeoJSON,
   Tooltip,
   Popup,
@@ -1197,7 +1198,14 @@ export default function MapArea({
           />
         )}
 
-        {/* Connector paths — amber dashed lines for deviated personnel.
+        {/* Branch paths — a deviated responder's own optimal path to the fire,
+            trimmed by the backend where it converges onto the dispatch route so
+            it reads as a branch off the main line rather than a second full
+            route. Held at amber and a lower opacity so it stays subordinate to
+            the route rather than competing with it — the route's own colour
+            would collide, since a non-GNN route is dashed 8 5 too. The solid
+            main route carries on from the merge dot; a path that never
+            converges stays dashed all the way to the incident.
             Rendered BEFORE dispatch routes so the route always paints on top.
             Only render for personnel dispatched to the focused incident,
             mirroring the dispatch-route visibility rules. */}
@@ -1211,6 +1219,9 @@ export default function MapArea({
                       .map((d) => d.dispatch_id)
                   )
                 : null;
+
+            const BRANCH_COLOR = "#ffb020";
+
             return livePersonnelLocations
               .filter(
                 (p) =>
@@ -1223,24 +1234,50 @@ export default function MapArea({
                 const positions = p.connector_geojson.coordinates.map(
                   ([lon, lat]) => [lat, lon]
                 );
+                const merges = p.connector_geojson.merges === true;
+                const mergePt = p.connector_geojson.merge_point;
+
                 return (
-                  <Polyline
-                    key={`connector-${p.per_id}`}
-                    positions={positions}
-                    pathOptions={{
-                      color: "#ffb020",
-                      weight: 1,
-                      dashArray: "10 6",
-                      opacity: 0.95,
-                    }}
-                  >
-                    <Tooltip sticky className="leaflet-dark-tooltip">
-                      <div className="tooltip-id">Connector · {p.name}</div>
-                      <div className="tooltip-sub">
-                        Follow amber path to rejoin route
-                      </div>
-                    </Tooltip>
-                  </Polyline>
+                  <Fragment key={`branch-${p.per_id}`}>
+                    <Polyline
+                      positions={positions}
+                      pathOptions={{
+                        color: BRANCH_COLOR,
+                        weight: 3,
+                        dashArray: "8 5",
+                        opacity: 0.6,
+                      }}
+                    >
+                      <Tooltip sticky className="leaflet-dark-tooltip">
+                        <div className="tooltip-id">Branch · {p.name}</div>
+                        <div className="tooltip-sub">
+                          {merges
+                            ? "Own path — merges into the dispatch route"
+                            : "Own path — independent approach to the incident"}
+                        </div>
+                      </Tooltip>
+                    </Polyline>
+                    {merges && mergePt && (
+                      <CircleMarker
+                        center={[mergePt[1], mergePt[0]]}
+                        radius={4}
+                        pathOptions={{
+                          color: BRANCH_COLOR,
+                          weight: 2,
+                          fillColor: BRANCH_COLOR,
+                          fillOpacity: 0.75,
+                          opacity: 0.75,
+                        }}
+                      >
+                        <Tooltip className="leaflet-dark-tooltip">
+                          <div className="tooltip-id">Merge point</div>
+                          <div className="tooltip-sub">
+                            {p.name} joins the dispatch route here
+                          </div>
+                        </Tooltip>
+                      </CircleMarker>
+                    )}
+                  </Fragment>
                 );
               });
           })()}

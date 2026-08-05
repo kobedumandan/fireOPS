@@ -557,7 +557,7 @@ export default function RightSidebar({
                           className="routing-row-value"
                           style={{ color: "var(--accent-amber, #ffb020)" }}
                         >
-                          Off Route — connector path active
+                          Off Route — branch path active
                         </span>
                       </div>
                       {p.deviation_detected_at && (
@@ -587,7 +587,7 @@ export default function RightSidebar({
                             }}
                           >
                             ⚠ This replaces the current route entirely. Use only
-                            if the connector path is insufficient.
+                            if the branch path is insufficient.
                           </div>
                           <div style={{ display: "flex", gap: 8 }}>
                             <button
