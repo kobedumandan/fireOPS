@@ -610,6 +610,24 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     }
 
 
+def _home_station(user: Users) -> "dict | None":
+    """The station a responder is dispatched from, for the mobile map's origin
+    marker. Static per personnel, so it rides the login response rather than the
+    10s status poll. Resolved from Personnel.station_id — team, truck and member
+    station assignments agree by convention, though nothing enforces it.
+    """
+    per = getattr(user, "personnel", None)
+    st  = getattr(per, "station", None) if per else None
+    if not st or st.station_latitude is None or st.station_longitude is None:
+        return None
+    return {
+        "station_id":        st.station_id,
+        "station_name":      st.station_name,
+        "station_latitude":  st.station_latitude,
+        "station_longitude": st.station_longitude,
+    }
+
+
 @app.post("/login_user")
 def login_user(req: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(Users).filter(Users.user_email == req.email).first()
@@ -621,7 +639,17 @@ def login_user(req: LoginRequest, db: Session = Depends(get_db)):
         "access_token": _create_token(user),
         "token_type": "bearer",
         "user": _user_profile(user),
+        "station": _home_station(user),
     }
+
+
+@app.get("/api/mobile/me/station")
+def mobile_me_station(current_user: Users = Depends(get_current_user)):
+    """Re-read the cached home station (e.g. on app foreground) so a long-lived
+    session picks up a corrected coordinate without forcing a re-login."""
+    if current_user.user_role != "personnel" or not current_user.personnel:
+        raise HTTPException(status_code=403, detail="Only personnel accounts can use this endpoint.")
+    return {"station": _home_station(current_user)}
 
 
 @app.get("/api/auth/me")
