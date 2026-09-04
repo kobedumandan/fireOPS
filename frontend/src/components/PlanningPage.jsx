@@ -329,7 +329,7 @@ export default function PlanningPage() {
                   scrollWheelZoom
                 >
                   <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    url={"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" + import.meta.env.VITE_CARTO_MAP_API_KEY}
                     subdomains="abcd"
                   />
                   {features.length > 0 && (
