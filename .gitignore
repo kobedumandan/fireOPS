@@ -3,3 +3,46 @@
 # added 17/07/2026
 ipynb-gnn/
 ipynb-gnn-eta-pred/
+gps-sms-test/
+gnn-files-to-be-checked/
+
+
+# 
+# FRONTEND
+# Moved here on 04/09/2026
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+*.env
+
+
+# 
+# BACKEND
+# Moved on 04/09/2026
+
+venv/
+__pycache__/
+*.__pycache__
