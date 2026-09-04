@@ -220,10 +220,14 @@ function LineChart({ points, labels, labelTicks, height = 180, width = 560 }) {
   for (let i = 0; i < n - 1; i++) {
     const i0 = Math.max(i - 1, 0);
     const i3 = Math.min(i + 2, n - 1);
-    const x0 = sx(i0), y0 = sy(points[i0]);
-    const x1 = sx(i), y1 = sy(points[i]);
-    const x2 = sx(i + 1), y2 = sy(points[i + 1]);
-    const x3 = sx(i3), y3 = sy(points[i3]);
+    const x0 = sx(i0),
+      y0 = sy(points[i0]);
+    const x1 = sx(i),
+      y1 = sy(points[i]);
+    const x2 = sx(i + 1),
+      y2 = sy(points[i + 1]);
+    const x3 = sx(i3),
+      y3 = sy(points[i3]);
     const cp1x = x1 + (x2 - x0) / 6;
     const cp1y = y1 + (y2 - y0) / 6;
     const cp2x = x2 - (x3 - x1) / 6;
@@ -392,9 +396,21 @@ export default function MetricsPage() {
   const avgResponse = summary?.avg_response_minutes;
 
   const donutData = [
-    { label: "Critical", value: severity.Critical || 0, color: SEVERITY_COLORS.Critical },
-    { label: "Moderate", value: severity.Moderate || 0, color: SEVERITY_COLORS.Moderate },
-    { label: "Minor", value: severity.Minor || 0, color: SEVERITY_COLORS.Minor },
+    {
+      label: "Critical",
+      value: severity.Critical || 0,
+      color: SEVERITY_COLORS.Critical,
+    },
+    {
+      label: "Moderate",
+      value: severity.Moderate || 0,
+      color: SEVERITY_COLORS.Moderate,
+    },
+    {
+      label: "Minor",
+      value: severity.Minor || 0,
+      color: SEVERITY_COLORS.Minor,
+    },
   ];
   const donutTotal = donutData.reduce((a, b) => a + b.value, 0);
   // A zero-total donut renders nothing — fall back to equal slices for the ring.
@@ -430,7 +446,7 @@ export default function MetricsPage() {
         <div className="m-title-row">
           <div>
             <div className="m-title">Metrics</div>
-            <UnfoldIcon/>
+            <UnfoldIcon />
             {/* <div className="m-subtitle">Operational performance overview</div> */}
           </div>
           {/* <div className="m-period-group">
@@ -562,7 +578,7 @@ export default function MetricsPage() {
                     zoomControl={false}
                   >
                     <TileLayer
-                      url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                      url={"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=" + import.meta.env.VITE_CARTO_MAP_API_KEY}
                       subdomains="abcd"
                     />
                     {barangays && (
@@ -572,7 +588,8 @@ export default function MetricsPage() {
                         style={(feature) => {
                           const name = feature.properties?.brgy_name ?? "";
                           const count = byBarangay[name] ?? 0;
-                          const color = bucketColors[bucketIndexFor(count, buckets)];
+                          const color =
+                            bucketColors[bucketIndexFor(count, buckets)];
                           return {
                             color,
                             weight: 1,
