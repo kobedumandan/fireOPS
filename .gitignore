@@ -46,3 +46,7 @@ dist-ssr
 venv/
 __pycache__/
 *.__pycache__
+# osmnx HTTP response cache — raw Overpass/Nominatim payloads written by
+# fetch_osm_roads.py. Regenerable; the committed data/roads_*.gpkg is the
+# artifact that matters.
+backend/cache/osmnx/

@@ -45,6 +45,9 @@ scipy>=1.10.0
 # ── Graph / Geospatial ────────────────────────────────────────────────────────
 networkx==3.6.1
 geopandas==1.1.3
+# OSM extraction for non-Panabo regions (fetch_osm_roads.py). Not on the
+# request path — Panabo loads its QGIS GeoPackage, never OSM.
+osmnx==2.1.0
 shapely==2.1.2
 pyproj==3.7.2
 pyogrio==0.12.1
