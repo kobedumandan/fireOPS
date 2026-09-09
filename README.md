@@ -136,8 +136,75 @@ WEB_CONCURRENCY=4 python run.py
 | `SEND_SMS`          | `true` to actually send SMS (defaults to `false` / dry run)    |
 | `WEB_CONCURRENCY`   | Uvicorn worker count (default `1`)                             |
 | `ROUTING_POOL_SIZE` | Worker processes for offloaded route computation (default `2`) |
+| `REGION`            | GIS/routing dataset — always `panabo` in production; `new_corella` is a local dev aid |
 
 See `backend/.env.example` for the full list.
+
+---
+
+## Switching regions (development only)
+
+> **Production is always Panabo City.** FireOPS was built for and proposed to
+> BFP Panabo City, and that is the only region it is ever deployed with. The
+> region switch below exists purely so a developer can test the app — dispatch,
+> routing, live tracking — without having to physically be in Panabo. It is a
+> development convenience, not a multi-tenant or multi-city feature, and
+> `REGION` should never be changed on a production deployment.
+
+Panabo's road network is a **hand-digitised QGIS export** paired with the GAT
+constraint predictions and hand-tuned routing multipliers. It is the real
+dataset, it is never sourced from OSM, and nothing in the region switch touches
+it.
+
+New Corella is a throwaway stand-in pulled straight from OpenStreetMap, added
+only so the developer isn't tied to one location while working:
+
+```
+GIS / Routing data
+├── panabo       QGIS road network + GAT constraints   ← production (the real system)
+└── new_corella  OSM road network, no constraints      ← developer testing only
+```
+
+In your **local** `.env` files, set **both** variables and restart. They must
+name the same place, or the map shows one municipality while the router plans
+over another. Leave both at `panabo` (or unset) everywhere else — that is the
+shipped default, so a deployment that never sets `REGION` is always correct.
+
+```bash
+# backend/.env
+REGION=new_corella
+# frontend/.env
+VITE_REGION=new_corella
+```
+
+`GET /api/routing/status` reports the live `region`, `road_source` and
+`has_constraints` so you can confirm which dataset is loaded.
+
+New Corella's data is already committed. To rebuild or add another OSM region
+(declare it in `REGIONS` in `backend/ai/config.py` first):
+
+```bash
+cd backend
+python fetch_osm_roads.py --region new_corella          # roads + boundary + barangays
+python seed_barangays.py --clear                        # honours REGION
+```
+
+The script refuses any region whose `road_source` is not `osm`, so it cannot
+overwrite Panabo's QGIS network.
+
+**A dev region is deliberately a reduced environment.** It gets no GAT
+constraint layer (the map's GNN-constraints panel 404s) and no routing
+multipliers, so ALT plans on raw travel time; New Corella additionally has no
+barangay polygons, because OSM has none mapped at `admin_level=10` there.
+Incident logging still works — the by-barangay metrics and coverage-gap tables
+just come back empty. You also need at least one **station with coordinates
+inside the region**, or dispatch has no origin and `/api/coverage/*` returns
+404. The database is shared across regions, so Panabo's stations and incidents
+remain visible (far off-screen).
+
+None of this is worth "fixing": the point is to exercise app behaviour away
+from Panabo, not to stand up a second production system. Anything that depends
+on the trained constraint model has to be validated against Panabo.
 
 ---
 

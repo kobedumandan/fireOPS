@@ -2,12 +2,13 @@ import { PANABO_BOUNDARY } from './panaboBoundary'
 import { NEW_CORELLA_BOUNDARY } from './newCorellaBoundary'
 
 /**
- * Region switching.
+ * Region switching — LOCAL DEVELOPMENT ONLY.
  *
- * Panabo City is the deployment target and the default. New Corella exists so
- * dispatch can be exercised in the field from there; it is development/testing
- * only and is backed by an OpenStreetMap road network rather than Panabo's
- * digitised QGIS one.
+ * Production is always Panabo City: the system was built for and proposed to
+ * BFP Panabo City. New Corella exists purely so a developer can exercise the
+ * app without being physically in Panabo, and is backed by an OpenStreetMap
+ * road network rather than Panabo's digitised QGIS one. Never set VITE_REGION
+ * on a deployed build.
  *
  * Select with VITE_REGION in the frontend .env, and keep it in step with the
  * backend's REGION variable — they must name the same place or the map will

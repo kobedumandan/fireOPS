@@ -4,15 +4,19 @@ Centralised configuration for the AI / GeoAI routing module.
 All paths are resolved relative to the backend/ directory so they work
 regardless of where uvicorn is launched from.
 
-Region switching
-────────────────
-The deployment target is Panabo City, whose road network is a hand-digitised
-QGIS export with GAT-predicted constraint weights layered on top. For field
-testing outside Panabo an alternative region can be selected with the REGION
-environment variable, which swaps the GIS/routing dataset wholesale:
+Region switching (local development only)
+─────────────────────────────────────────
+Production is ALWAYS Panabo City — the system was built for and proposed to BFP
+Panabo City, and its road network is a hand-digitised QGIS export with
+GAT-predicted constraint weights layered on top.
 
-    REGION=panabo       (default)  QGIS road network + GAT constraints
-    REGION=new_corella            OSM road network, no constraint weights
+The REGION environment variable swaps the GIS/routing dataset wholesale so a
+developer can exercise the app without being physically in Panabo. It is a
+development convenience, not a multi-city feature, and should never be set on a
+deployed instance:
+
+    REGION=panabo       (default)  production: QGIS network + GAT constraints
+    REGION=new_corella            dev aid: OSM network, no constraint weights
 
 Every region-dependent path below is resolved from REGIONS[REGION] at import
 time, so the rest of the codebase keeps referring to the same Config
