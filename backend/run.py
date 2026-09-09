@@ -12,7 +12,7 @@ IMPORTANT — before setting WEB_CONCURRENCY > 1 in production:
   Some state is per-process and will NOT be shared across workers:
     * the WebSocket ConnectionManager  -> a dashboard connected to worker A
       won't receive broadcasts emitted by worker B;
-    * the in-memory reporter-location sessions (_report_sessions).
+    * the in-memory reporter-location sessions (state.report_sessions).
   The stale-driver watchdog is already guarded by a Postgres advisory lock, so
   only one worker runs it. The remaining per-process state needs a shared
   pub/sub backend (e.g. Redis, or Postgres LISTEN/NOTIFY) before multi-worker is

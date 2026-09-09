@@ -1,0 +1,195 @@
+"""Routing engine status, ad-hoc route computation, and the GAT constraint layer."""
+import json
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+
+import state
+from ai import Config
+from database import get_db
+from models import GnnConstraint
+from schemas import RouteRequest, RouteResponse
+from services.constraints import (
+    _CONSTRAINT_PROP_KEYS, _CUSTOM_STYLE_KEY, _label_for, _load_constraint_style,
+)
+from services.routing import _load_active_obstructions
+
+
+router = APIRouter(tags=["routing"])
+
+
+@router.get("/api/routing/status")
+def routing_status():
+    region = {
+        "region": Config.REGION,
+        "region_label": Config.REGION_CFG["label"],
+        "place_name": Config.PLACE_NAME,
+        "road_source": Config.ROAD_SOURCE,
+        "has_constraints": bool(
+            Config.PREDICTED_CONSTRAINTS_PATH and Config.PREDICTED_CONSTRAINTS_PATH.exists()
+        ),
+    }
+    if state.routing_engine is None:
+        return {"status": "offline", "reason": "routing_engine is None", **region}
+    g = state.routing_engine.graph.G
+    return {
+        "status": "online",
+        "nodes": g.number_of_nodes(),
+        "edges": g.number_of_edges(),
+        "precomputed_weights": state.routing_engine._precomputed_weights,
+        "gnn_type": type(state.routing_engine.gnn).__name__,
+        **region,
+    }
+
+
+@router.post("/api/routing/compute", response_model=RouteResponse)
+def compute_route(req: RouteRequest, db: Session = Depends(get_db)):
+    try:
+        obs = _load_active_obstructions(db)
+        result = state.routing_engine.compute_route(req.source_node, req.target_node, obstructions=obs)
+        return RouteResponse(**result)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Routing error: {exc}")
+
+
+@router.get("/api/routing/graph/summary")
+def graph_summary():
+    return state.routing_engine.graph.summary()
+
+
+@router.get("/api/routing/gnn-constraints")
+def gnn_constraints(db: Session = Depends(get_db)):
+    """Return GAT-predicted per-road constraints + user-drawn custom constraints.
+
+    Each feature carries its own map_color / map_weight / map_opacity and
+    display_constraint_type so the map can render the constraint palette
+    directly. A routing_multiplier (resolved from the style config by
+    routing_constraint_type) is attached for the routing engine's edge costs,
+    and meta.legend is built server-side so the map legend is independent of
+    the style config (it also covers the GAT-only prediction buckets).
+    """
+    if state.gnn_constraints_cache is not None:
+        return state.gnn_constraints_cache
+
+    style = _load_constraint_style()
+    multiplier_by_type = {
+        k: v.get("routing_multiplier", 1.0)
+        for k, v in style.items()
+        if isinstance(v, dict)
+    }
+
+    # Regions without a trained constraint model (anything but Panabo) have no
+    # predictions to serve; the map's GNN-constraints layer just stays empty.
+    constraints_path = Config.PREDICTED_CONSTRAINTS_PATH
+    if not constraints_path or not constraints_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No predicted constraints for region '{Config.REGION}'",
+        )
+
+    with open(constraints_path, encoding="utf-8") as f:
+        raw = json.load(f)
+
+    features: list = []
+    type_counts: dict[str, int] = {}
+    type_color: dict[str, str] = {}   # display type → its map_color (for legend)
+    constrained = 0
+    threshold = None
+    model_name = "GAT"
+
+    for feat in raw.get("features", []):
+        props = feat.get("properties", {}) or {}
+        geom = feat.get("geometry") or {}
+        if geom.get("type") != "LineString" or not geom.get("coordinates"):
+            continue
+
+        dtype = props.get("display_constraint_type") or "normal"
+        type_counts[dtype] = type_counts.get(dtype, 0) + 1
+        type_color.setdefault(dtype, props.get("map_color") or "#B0BEC5")
+        if props.get("model_predicted_constrained"):
+            constrained += 1
+        if threshold is None:
+            threshold = props.get("model_threshold")
+            model_name = props.get("actual_model_used", model_name)
+
+        rtype = props.get("routing_constraint_type") or dtype
+        out = {k: props.get(k) for k in _CONSTRAINT_PROP_KEYS}
+        out["routing_multiplier"] = multiplier_by_type.get(rtype, 1.0)
+        out["display_label"] = _label_for(dtype, style)
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates": geom["coordinates"]},
+            "properties": out,
+        })
+
+    # ── Merge user-drawn custom constraints, styled from the GAT palette ───────
+    custom_rows = (
+        db.query(GnnConstraint)
+        .filter(GnnConstraint.is_active == True)
+        .all()
+    )
+    for c in custom_rows:
+        style_key = _CUSTOM_STYLE_KEY.get(c.constraint_type, "narrow_road")
+        s = style.get(style_key, {})
+        type_counts[style_key] = type_counts.get(style_key, 0) + 1
+        type_color.setdefault(style_key, s.get("color", "#E53935"))
+        constrained += 1
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates": json.loads(c.coordinates)},
+            "properties": {
+                "display_constraint_type": style_key,
+                "routing_constraint_type": style_key,
+                "display_label": c.name or s.get("label", style_key),
+                "map_color": s.get("color", "#E53935"),
+                "map_weight": s.get("weight", 4),
+                "map_opacity": s.get("opacity", 0.95),
+                "routing_multiplier": s.get("routing_multiplier", 1.45),
+                "model_predicted_constrained": 1,
+                "hover_confidence_text": "User-drawn constraint",
+                "custom": True,
+                "constraint_id": c.constraint_id,
+            },
+        })
+
+    # ── Legend (server-built, sorted: constrained types by count, normal last) ─
+    legend = [
+        {
+            "type": t,
+            "label": _label_for(t, style),
+            "color": type_color.get(t, "#B0BEC5"),
+            "count": type_counts[t],
+            "routing_multiplier": multiplier_by_type.get(t, 1.0),
+        }
+        for t in type_counts
+    ]
+    legend.sort(key=lambda it: (it["type"] == "normal", -it["count"]))
+
+    result = {
+        "constraints": {
+            "type": "FeatureCollection",
+            "features": features,
+        },
+        "style_config": style,
+        "meta": {
+            "model": model_name,
+            "threshold": threshold,
+            "total": len(features),
+            "constrained": constrained,
+            "type_counts": type_counts,
+            "legend": legend,
+        },
+    }
+    state.gnn_constraints_cache = result
+    return result
+
+
+@router.get("/api/routing/nearest-station")
+def nearest_station(lat: float, lon: float):
+    node_id = state.routing_engine.nearest_station_node(lat, lon)
+    if node_id is None:
+        raise HTTPException(status_code=404, detail="No station node found near that location.")
+    node_data = state.routing_engine.graph.G.nodes[node_id]
+    return {"node_id": node_id, "lat": node_data["lat"], "lon": node_data["lon"]}
