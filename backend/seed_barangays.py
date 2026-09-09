@@ -1,11 +1,17 @@
 """
-Seeder: Panabo City barangay polygons into barangay_boundaries.
+Seeder: barangay polygons into barangay_boundaries, for the active region.
 
 Source: faeldon/philippines-json-maps (PSA PSGC 2023, hires).
-Input:  backend/data/panabo_barangays.geojson
+Input:  Config.BARANGAYS_PATH — backend/data/panabo_barangays.geojson unless
+        REGION selects another region (see ai/config.py).
+
+The population figures below are Panabo's; a region whose barangay names don't
+appear in them still seeds fine, just with a NULL population (reported at the
+end as "unmatched").
 
 Usage (from backend/ with venv active):
     python seed_barangays.py [--clear]
+    REGION=new_corella python seed_barangays.py --clear
 
 --clear  truncates barangay_boundaries before seeding (CASCADE-safe via NULLing
          fire_incidents.brgy_id first).
@@ -14,7 +20,6 @@ Usage (from backend/ with venv active):
 import argparse
 import json
 import sys
-from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -24,7 +29,9 @@ from sqlalchemy import text
 
 from database import SessionLocal
 
-GEOJSON_PATH = Path(__file__).parent / "data" / "panabo_barangays.geojson"
+from ai.config import Config
+
+GEOJSON_PATH = Config.BARANGAYS_PATH
 
 # 2020 PSA Census of Population and Housing — Panabo City barangays.
 # Source: PhilAtlas (https://www.philatlas.com/mindanao/r11/davao-del-norte/panabo.html),
