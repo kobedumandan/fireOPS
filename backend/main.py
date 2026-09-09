@@ -275,8 +275,17 @@ def health():
 
 @app.get("/api/routing/status")
 def routing_status():
+    region = {
+        "region": Config.REGION,
+        "region_label": Config.REGION_CFG["label"],
+        "place_name": Config.PLACE_NAME,
+        "road_source": Config.ROAD_SOURCE,
+        "has_constraints": bool(
+            Config.PREDICTED_CONSTRAINTS_PATH and Config.PREDICTED_CONSTRAINTS_PATH.exists()
+        ),
+    }
     if routing_engine is None:
-        return {"status": "offline", "reason": "routing_engine is None"}
+        return {"status": "offline", "reason": "routing_engine is None", **region}
     g = routing_engine.graph.G
     return {
         "status": "online",
@@ -284,6 +293,7 @@ def routing_status():
         "edges": g.number_of_edges(),
         "precomputed_weights": routing_engine._precomputed_weights,
         "gnn_type": type(routing_engine.gnn).__name__,
+        **region,
     }
 
 def _load_active_obstructions(db: Session) -> list:
@@ -348,7 +358,7 @@ def _load_constraint_style() -> dict:
     global _constraint_style_cache
     if _constraint_style_cache is None:
         path = Config.CONSTRAINT_STYLE_PATH
-        if path.exists():
+        if path and path.exists():
             with open(path, encoding="utf-8") as f:
                 _constraint_style_cache = json.load(f)
         else:
@@ -388,9 +398,14 @@ def gnn_constraints(db: Session = Depends(get_db)):
         if isinstance(v, dict)
     }
 
+    # Regions without a trained constraint model (anything but Panabo) have no
+    # predictions to serve; the map's GNN-constraints layer just stays empty.
     constraints_path = Config.PREDICTED_CONSTRAINTS_PATH
-    if not constraints_path.exists():
-        raise HTTPException(status_code=404, detail="Predicted constraints file not found")
+    if not constraints_path or not constraints_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"No predicted constraints for region '{Config.REGION}'",
+        )
 
     with open(constraints_path, encoding="utf-8") as f:
         raw = json.load(f)
@@ -690,7 +705,7 @@ def nearest_station(lat: float, lon: float):
 # computation is a whole-graph multi-source Dijkstra + polygon build, so it is
 # computed once and cached (stations don't move); ?refresh=1 recomputes.
 
-_BARANGAYS_GEOJSON_PATH = Config.PREDICTED_CONSTRAINTS_PATH.parent / "panabo_barangays.geojson"
+_BARANGAYS_GEOJSON_PATH = Config.BARANGAYS_PATH
 
 
 def _station_source_nodes(db: Session) -> list[int]:

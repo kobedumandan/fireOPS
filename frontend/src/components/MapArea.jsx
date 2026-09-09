@@ -15,8 +15,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import "../styles/MapArea.css";
-import { PANABO_BOUNDARY } from "../data/panaboBoundary";
-import { PANABO_CENTER, PANABO_ZOOM, TILE_OPTIONS } from "../data/mapConfig";
+
+import { MAP_CENTER, MAP_ZOOM, TILE_OPTIONS, REGION_BOUNDARY } from "../data/mapConfig";
 import {
   fetchHeatmap,
   fetchObstructions,
@@ -43,7 +43,7 @@ function FireGeneralIcon() {
   );
 }
 
-const ZOOM = PANABO_ZOOM;
+const ZOOM = MAP_ZOOM;
 const PERSONNEL_MIN_ZOOM = 13;
 // Hide personnel whose last known location is older than this (8 hours).
 const PERSONNEL_STALE_HIDE_MINUTES = 8 * 60;
@@ -273,7 +273,7 @@ function CoverageLayers() {
     svg.insertBefore(defs, svg.firstChild);
   }, [map]);
 
-  // World polygon with Panabo City cut out as a hole
+  // World polygon with the active region cut out as a hole
   const maskFeature = useMemo(
     () => ({
       type: "Feature",
@@ -289,25 +289,25 @@ function CoverageLayers() {
             [180, -90],
             [-180, -90],
           ],
-          PANABO_BOUNDARY,
+          REGION_BOUNDARY,
         ],
       },
     }),
     []
   );
 
-  // Panabo City outline only (no fill)
+  // Active-region outline only (no fill)
   const boundaryFeature = useMemo(
     () => ({
       type: "Feature",
-      geometry: { type: "Polygon", coordinates: [PANABO_BOUNDARY] },
+      geometry: { type: "Polygon", coordinates: [REGION_BOUNDARY] },
     }),
     []
   );
 
   return (
     <>
-      {/* Dark semi-transparent overlay outside Panabo City */}
+      {/* Dark semi-transparent overlay outside the active region */}
       {/* <GeoJSON
         key="mask-dark"
         data={maskFeature}
@@ -1151,7 +1151,7 @@ export default function MapArea({
       )}
 
       <MapContainer
-        center={PANABO_CENTER}
+        center={MAP_CENTER}
         zoom={ZOOM}
         style={{ height: "100%", width: "100%" }}
         zoomControl={false}

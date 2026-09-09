@@ -5,8 +5,7 @@ import "leaflet/dist/leaflet.css";
 import "../styles/MetricsPage.css";
 import { fetchMetricsSummary, fetchBarangays } from "../api";
 import { useTheme } from "../hooks/useTheme";
-
-const PANABO_CENTER = [7.3086, 125.6847];
+import { MAP_CENTER } from "../data/mapConfig";
 
 function readCssVar(name, fallback) {
   if (typeof window === "undefined") return fallback;
@@ -564,7 +563,7 @@ export default function MetricsPage() {
               <div className="m-brgy-map-col">
                 <div className="m-brgy-map-wrap">
                   <MapContainer
-                    center={PANABO_CENTER}
+                    center={MAP_CENTER}
                     zoom={11}
                     ref={mapRef}
                     className="m-brgy-map"

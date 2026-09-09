@@ -2,9 +2,8 @@ import { useState, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, GeoJSON, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { PANABO_CENTER, PANABO_ZOOM, TILE_OPTIONS, withinPanabo, maskStyle } from '../data/mapConfig'
+import { MAP_CENTER, MAP_ZOOM, TILE_OPTIONS, withinRegion, maskStyle, REGION_BOUNDARY, REGION_LABEL } from '../data/mapConfig'
 import { useTheme } from '../hooks/useTheme'
-import { PANABO_BOUNDARY } from '../data/panaboBoundary'
 import { createStation } from '../api'
 import '../styles/AppModal.css'
 
@@ -26,22 +25,22 @@ function PickerMap({ lat, lng, onChange, onBoundsError }) {
       type: 'Polygon',
       coordinates: [
         [[-180, -90], [-180, 90], [180, 90], [180, -90], [-180, -90]],
-        PANABO_BOUNDARY,
+        REGION_BOUNDARY,
       ],
     },
   }), [])
 
   const boundaryFeature = useMemo(() => ({
     type: 'Feature',
-    geometry: { type: 'Polygon', coordinates: [PANABO_BOUNDARY] },
+    geometry: { type: 'Polygon', coordinates: [REGION_BOUNDARY] },
   }), [])
 
   function ClickHandler() {
     useMapEvents({
       click(e) {
         const { lat: la, lng: lo } = e.latlng
-        if (!withinPanabo(la, lo)) {
-          onBoundsError('Selected point is outside Panabo City. Please pick a location within the city boundary.')
+        if (!withinRegion(la, lo)) {
+          onBoundsError(`Selected point is outside ${REGION_LABEL}. Please pick a location within the boundary.`)
           return
         }
         onBoundsError(null)
@@ -54,8 +53,8 @@ function PickerMap({ lat, lng, onChange, onBoundsError }) {
   return (
     <div className="asm-map-wrap">
       <MapContainer
-        center={lat && lng ? [lat, lng] : PANABO_CENTER}
-        zoom={PANABO_ZOOM + 1}
+        center={lat && lng ? [lat, lng] : MAP_CENTER}
+        zoom={MAP_ZOOM + 1}
         style={{ width: '100%', height: '260px', borderRadius: '6px', cursor: 'crosshair' }}
         scrollWheelZoom
         zoomControl

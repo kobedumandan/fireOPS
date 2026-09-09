@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "../styles/PlanningPage.css";
-import { PANABO_CENTER, PANABO_ZOOM } from "../data/mapConfig";
+import { MAP_CENTER, MAP_ZOOM } from "../data/mapConfig";
 import { fetchCoverageIsochrones, fetchCoverageGaps } from "../api";
 
 const STATUS_COLOR = { covered: "#22c55e", partial: "#f59e0b", gap: "#ef4444" };
@@ -322,8 +322,8 @@ export default function PlanningPage() {
                 </div>
               ) : (
                 <MapContainer
-                  center={PANABO_CENTER}
-                  zoom={PANABO_ZOOM}
+                  center={MAP_CENTER}
+                  zoom={MAP_ZOOM}
                   className="plan-map"
                   attributionControl={false}
                   scrollWheelZoom

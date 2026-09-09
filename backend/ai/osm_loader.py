@@ -1,6 +1,10 @@
 """
-OSM loader: downloads the Panabo City road network via OSMnx and converts it
-into a RoadNetworkGraph ready for GNN input.
+OSM loader: downloads the active region's road network via OSMnx and converts
+it into a RoadNetworkGraph ready for GNN input.
+
+Note this is NOT how Panabo gets its roads — Panabo runs on a hand-digitised
+QGIS export (see qgis_loader). This module serves OSM-sourced regions such as
+New Corella, and stays available as a last-resort fallback.
 
 The downloaded graph is cached locally as a .graphml file so subsequent
 server restarts don't re-hit the OSM API.
@@ -127,22 +131,32 @@ def osm_to_road_network(
     return rng
 
 
-def load_panabo_graph(
+def load_place_graph(
+    place: str = Config.PLACE_NAME,
+    cache_path: Path = Config.OSM_GRAPHML,
     station_osm_node_ids: Optional[list[int]] = None,
     force_download: bool = False,
 ) -> RoadNetworkGraph:
     """
     One-call convenience: download (or load cache) + convert to RoadNetworkGraph.
 
-    This is what main.py calls on startup:
+    Defaults to the active region (see Config.REGION), so:
 
-        from ai.osm_loader import load_panabo_graph
-        routing_engine.graph = load_panabo_graph()
+        from ai.osm_loader import load_place_graph
+        routing_engine.graph = load_place_graph()
 
     Args:
-        station_osm_node_ids: OSM node IDs of BFP fire stations in Panabo City.
-                              Find them via osmnx or the PostGIS database.
+        place:                OSM place name. Defaults to the active region's.
+        cache_path:           Where the .graphml cache lives (region-scoped).
+        station_osm_node_ids: OSM node IDs of BFP fire stations. Find them via
+                              osmnx or the PostGIS database.
         force_download:       Re-download OSM data even if cache exists.
     """
-    G_osm = download_road_network(force_download=force_download)
+    G_osm = download_road_network(
+        place=place, cache_path=cache_path, force_download=force_download
+    )
     return osm_to_road_network(G_osm, station_osm_node_ids=station_osm_node_ids)
+
+
+# Back-compat alias — predates region switching, when OSM meant Panabo.
+load_panabo_graph = load_place_graph

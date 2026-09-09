@@ -1,21 +1,78 @@
-export const PANABO_CENTER = [7.307, 125.635]
-export const PANABO_ZOOM   = 12
+import { PANABO_BOUNDARY } from './panaboBoundary'
+import { NEW_CORELLA_BOUNDARY } from './newCorellaBoundary'
 
-export const PANABO_BOUNDS = {
-  latMin: 7.15, latMax: 7.50,
-  lngMin: 125.50, lngMax: 125.90,
+/**
+ * Region switching — LOCAL DEVELOPMENT ONLY.
+ *
+ * Production is always Panabo City: the system was built for and proposed to
+ * BFP Panabo City. New Corella exists purely so a developer can exercise the
+ * app without being physically in Panabo, and is backed by an OpenStreetMap
+ * road network rather than Panabo's digitised QGIS one. Never set VITE_REGION
+ * on a deployed build.
+ *
+ * Select with VITE_REGION in the frontend .env, and keep it in step with the
+ * backend's REGION variable — they must name the same place or the map will
+ * show one municipality while the router plans over another. The live backend
+ * value is reported by GET /api/routing/status as `region`.
+ */
+export const REGIONS = {
+  panabo: {
+    key: 'panabo',
+    label: 'Panabo City',
+    center: [7.307, 125.635],
+    zoom: 12,
+    bounds: { latMin: 7.15, latMax: 7.50, lngMin: 125.50, lngMax: 125.90 },
+    boundary: PANABO_BOUNDARY,
+  },
+  new_corella: {
+    key: 'new_corella',
+    label: 'New Corella',
+    // Derived from the OSM boundary relation by fetch_osm_roads.py; the bbox
+    // is padded ~15% so a pin right on the municipal edge is still accepted.
+    center: [7.6029, 125.8516],
+    zoom: 13,
+    bounds: { latMin: 7.481, latMax: 7.734, lngMin: 125.750, lngMax: 125.958 },
+    boundary: NEW_CORELLA_BOUNDARY,
+  },
 }
 
-export function withinPanabo(lat, lng) {
-  return (
-    lat >= PANABO_BOUNDS.latMin && lat <= PANABO_BOUNDS.latMax &&
-    lng >= PANABO_BOUNDS.lngMin && lng <= PANABO_BOUNDS.lngMax
+const _requested = (import.meta.env.VITE_REGION || 'panabo').trim().toLowerCase()
+if (!REGIONS[_requested]) {
+  console.warn(
+    `[mapConfig] Unknown VITE_REGION="${_requested}" — falling back to "panabo". ` +
+    `Valid regions: ${Object.keys(REGIONS).join(', ')}`,
   )
 }
 
+export const REGION = REGIONS[_requested] ? _requested : 'panabo'
+export const REGION_CONFIG   = REGIONS[REGION]
+export const REGION_LABEL    = REGION_CONFIG.label
+export const REGION_BOUNDARY = REGION_CONFIG.boundary
+
+export const MAP_CENTER = REGION_CONFIG.center
+export const MAP_ZOOM   = REGION_CONFIG.zoom
+export const MAP_BOUNDS = REGION_CONFIG.bounds
+
+/** True when (lat, lng) falls inside the active region's bounding box. */
+export function withinRegion(lat, lng) {
+  return (
+    lat >= MAP_BOUNDS.latMin && lat <= MAP_BOUNDS.latMax &&
+    lng >= MAP_BOUNDS.lngMin && lng <= MAP_BOUNDS.lngMax
+  )
+}
+
+// ── Back-compat aliases ──────────────────────────────────────────────────────
+// These predate region switching and are still imported across the map
+// components. They now follow the ACTIVE region, so despite the name they are
+// not Panabo-specific. Prefer the MAP_*/withinRegion names in new code.
+export const PANABO_CENTER = MAP_CENTER
+export const PANABO_ZOOM   = MAP_ZOOM
+export const PANABO_BOUNDS = MAP_BOUNDS
+export const withinPanabo  = withinRegion
+
 /**
  * Style for the out-of-jurisdiction mask — the fill that dims everything
- * outside the Panabo boundary on picker maps.
+ * outside the active region's boundary on picker maps.
  *
  * It has to invert with the theme: a near-black scrim reads as "dimmed" over a
  * dark basemap, but as a hole punched in the page over a light one. Shared here
