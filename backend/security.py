@@ -1,0 +1,106 @@
+"""Password hashing, JWT issue/verify, and the authenticated-user dependency."""
+import hashlib
+from datetime import datetime, timedelta, timezone
+
+from fastapi import Depends, HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
+from sqlalchemy.orm import Session
+
+from config import JWT_ALGORITHM, JWT_EXPIRE_HOURS, JWT_SECRET
+from database import get_db
+from models import TokenBlacklist, Users
+
+
+_bearer = HTTPBearer()
+
+
+def _verify_password(plain: str, stored: str) -> bool:
+    try:
+        _, params = stored.split("$", 1)
+        salt, dk_hex = params.split("$")
+        dk = hashlib.pbkdf2_hmac("sha256", plain.encode(), salt.encode(), 260_000)
+        return dk.hex() == dk_hex
+    except Exception:
+        return False
+
+
+def _hash_password(plain: str) -> str:
+    import secrets
+    salt = secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", plain.encode(), salt.encode(), 260_000)
+    return f"pbkdf2:sha256:260000${salt}${dk.hex()}"
+
+
+def _create_token(user: Users) -> str:
+    import secrets
+    payload = {
+        "sub": str(user.user_id),
+        "email": user.user_email,
+        "role": user.user_role,
+        "jti": secrets.token_hex(16),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRE_HOURS),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Security(_bearer),
+    db: Session = Depends(get_db),
+) -> Users:
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = int(payload["sub"])
+        jti = payload.get("jti")
+    except (JWTError, KeyError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if jti and db.query(TokenBlacklist).filter(TokenBlacklist.jti == jti).first():
+        raise HTTPException(status_code=401, detail="Token has been revoked")
+    user = db.get(Users, user_id)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+
+def _user_profile(user: Users) -> dict:
+    """Return a serialisable profile dict that includes name/contact from the related table."""
+    profile = {
+        "user_id":    user.user_id,
+        "email":      user.user_email,
+        "role":       user.user_role,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+        "first_name": None,
+        "last_name":  None,
+        "contact":    None,
+        "designation": None,
+        "rank":        None,
+    }
+    if user.admin:
+        profile["first_name"] = user.admin.admin_firstname
+        profile["last_name"]  = user.admin.admin_lastname
+        profile["contact"]    = user.admin.admin_contact
+    elif user.personnel:
+        profile["first_name"]  = user.personnel.per_firstname
+        profile["last_name"]   = user.personnel.per_lastname
+        profile["contact"]     = user.personnel.per_contact
+        profile["designation"] = user.personnel.per_designation
+        profile["rank"]        = user.personnel.per_rank
+    return profile
+
+
+def _home_station(user: Users) -> "dict | None":
+    """The station a responder is dispatched from, for the mobile map's origin
+    marker. Static per personnel, so it rides the login response rather than the
+    10s status poll. Resolved from Personnel.station_id — team, truck and member
+    station assignments agree by convention, though nothing enforces it.
+    """
+    per = getattr(user, "personnel", None)
+    st  = getattr(per, "station", None) if per else None
+    if not st or st.station_latitude is None or st.station_longitude is None:
+        return None
+    return {
+        "station_id":        st.station_id,
+        "station_name":      st.station_name,
+        "station_latitude":  st.station_latitude,
+        "station_longitude": st.station_longitude,
+    }
