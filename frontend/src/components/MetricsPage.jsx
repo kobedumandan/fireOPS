@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import "../styles/MetricsPage.css";
 import { fetchMetricsSummary, fetchBarangays } from "../api";
 import { useTheme } from "../hooks/useTheme";
-import { MAP_CENTER } from "../data/mapConfig";
+import { MAP_CENTER, tileLayersFor } from "../data/mapConfig";
 
 function readCssVar(name, fallback) {
   if (typeof window === "undefined") return fallback;
@@ -576,10 +576,11 @@ export default function MetricsPage() {
                     keyboard={false}
                     zoomControl={false}
                   >
-                    <TileLayer
-                      url={"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=" + import.meta.env.VITE_CARTO_MAP_API_KEY}
-                      subdomains="abcd"
-                    />
+                    {tileLayersFor(theme === "light" ? "street" : "dark").map(
+                      (layer, i) => (
+                        <TileLayer key={`${theme}-${i}`} {...layer} />
+                      ),
+                    )}
                     {barangays && (
                       <GeoJSON
                         key={barangays.features?.length || 0}
