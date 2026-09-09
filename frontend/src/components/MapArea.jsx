@@ -16,7 +16,8 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import "../styles/MapArea.css";
 
-import { MAP_CENTER, MAP_ZOOM, TILE_OPTIONS, REGION_BOUNDARY } from "../data/mapConfig";
+import { MAP_CENTER, MAP_ZOOM, tileLayersFor, REGION_BOUNDARY } from "../data/mapConfig";
+import { useTheme } from "../hooks/useTheme";
 import {
   fetchHeatmap,
   fetchObstructions,
@@ -881,9 +882,10 @@ export default function MapArea({
       : viewMode === "barangay"
       ? new Set(["Barangay"])
       : new Set(["Incidents", "Personnel", "Stations", "Routes"]);
-  const [tileMode, setTileMode] = useState(
-    () => localStorage.getItem("tileMode") ?? "dark"
-  );
+  // The command map has no basemap switcher, so it follows the theme like the
+  // metrics and planning maps do.
+  const theme = useTheme();
+  const tileMode = theme === "light" ? "street" : "dark";
   const [heatPoints, setHeatPoints] = useState([]);
 
   // ── GNN constraints ────────────────────────────────────────────────────────
@@ -1157,7 +1159,7 @@ export default function MapArea({
         zoomControl={false}
         attributionControl={false}
       >
-        {TILE_OPTIONS.find((t) => t.id === tileMode).layers.map((layer, i) => (
+        {tileLayersFor(tileMode).map((layer, i) => (
           <TileLayer key={`${tileMode}-${i}`} {...layer} />
         ))}
 
