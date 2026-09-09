@@ -50,3 +50,6 @@ __pycache__/
 # fetch_osm_roads.py. Regenerable; the committed data/roads_*.gpkg is the
 # artifact that matters.
 backend/cache/osmnx/
+# Loose Overpass/Nominatim payloads written to the cache root by older
+# fetch_osm_roads.py runs, before the osmnx cache_folder was pinned above.
+backend/cache/*.json
