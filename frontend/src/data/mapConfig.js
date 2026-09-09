@@ -91,7 +91,7 @@ export const TILE_OPTIONS = [
     thumb: 'https://a.basemaps.cartocdn.com/rastertiles/voyager/5/27/15.png',
     layers: [
       {
-        url: `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.pngkey=${import.meta.env.VITE_CARTO_MAP_API_KEY}`,
+        url: `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${import.meta.env.VITE_CARTO_MAP_API_KEY}`,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
         subdomains: 'abcd',
         maxZoom: 19,
@@ -125,3 +125,17 @@ export const TILE_OPTIONS = [
     ],
   },
 ]
+
+/**
+ * Layers of one TILE_OPTIONS entry, for maps that render a basemap without
+ * offering a switcher (the metrics choropleth, the planning coverage map).
+ * They follow the page theme instead:
+ *
+ *   tileLayersFor(theme === 'light' ? 'street' : 'dark')
+ *
+ * Unknown ids fall back to 'dark' so a typo can never blank the basemap.
+ */
+export function tileLayersFor(id) {
+  const opt = TILE_OPTIONS.find((t) => t.id === id)
+  return (opt ?? TILE_OPTIONS.find((t) => t.id === 'dark')).layers
+}

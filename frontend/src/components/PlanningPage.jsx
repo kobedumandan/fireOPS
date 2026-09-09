@@ -3,7 +3,8 @@ import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "../styles/PlanningPage.css";
-import { MAP_CENTER, MAP_ZOOM } from "../data/mapConfig";
+import { MAP_CENTER, MAP_ZOOM, tileLayersFor } from "../data/mapConfig";
+import { useTheme } from "../hooks/useTheme";
 import { fetchCoverageIsochrones, fetchCoverageGaps } from "../api";
 
 const STATUS_COLOR = { covered: "#22c55e", partial: "#f59e0b", gap: "#ef4444" };
@@ -153,6 +154,8 @@ export default function PlanningPage() {
   const [error, setError] = useState(null);
   // Default matches the backend order: least-covered barangays first.
   const [sort, setSort] = useState({ key: "covered_pct", dir: "asc" });
+  // Picks the basemap out of TILE_OPTIONS; re-renders the layer on a flip.
+  const theme = useTheme();
 
   useEffect(() => {
     // `loading` starts true, so the fetch only needs to clear it on settle.
@@ -328,10 +331,11 @@ export default function PlanningPage() {
                   attributionControl={false}
                   scrollWheelZoom
                 >
-                  <TileLayer
-                    url={"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" + import.meta.env.VITE_CARTO_MAP_API_KEY}
-                    subdomains="abcd"
-                  />
+                  {tileLayersFor(theme === "light" ? "street" : "dark").map(
+                    (layer, i) => (
+                      <TileLayer key={`${theme}-${i}`} {...layer} />
+                    ),
+                  )}
                   {features.length > 0 && (
                     <CoverageIsochroneLayer features={features} />
                   )}
