@@ -20,7 +20,7 @@
   right: 9.8px;
   top: 9.8px;
   bottom: 20px;
-  z-index: 200;
+  z-index: var(--z-sidebar);
   width: 290px;
   height: 540px;
   padding: 0 11.8px;
@@ -35,7 +35,7 @@
 
 .view-mode-toggles {
   position: absolute;
-  z-index: 500;
+  z-index: var(--z-floating);
   display: flex;
   gap: 4px;
   transition: top 0.2s ease, right 0.2s ease;
@@ -90,7 +90,7 @@
   position: absolute;
   top: 9.8px;
   right: 9.8px;
-  z-index: 500;
+  z-index: var(--z-floating);
   max-width: fit-content;
   height: 23px;
   padding: 0 7px;
