@@ -17,7 +17,7 @@ import "leaflet.heat";
 import "../styles/MapArea.css";
 
 import { MAP_CENTER, MAP_ZOOM, tileLayersFor, REGION_BOUNDARY } from "../data/mapConfig";
-import { useTheme } from "../hooks/useTheme";
+import { useTheme, readCssVar } from "../hooks/useTheme";
 import {
   fetchHeatmap,
   fetchObstructions,
@@ -241,6 +241,7 @@ function obstructionIcon(type) {
 // Must be rendered inside MapContainer (uses useMap hook)
 function CoverageLayers() {
   const map = useMap();
+  const theme = useTheme();
 
   useEffect(() => {
     // Inject diagonal hatch pattern into the Leaflet SVG overlay pane
@@ -297,6 +298,18 @@ function CoverageLayers() {
     []
   );
 
+  // Boundary stroke has to be a resolved value, not var(--accent-fire): Leaflet
+  // writes it to the SVG `stroke` attribute, which does not evaluate CSS custom
+  // properties. Re-resolve on theme flip, and key the layer on the result so
+  // Leaflet re-applies it instead of keeping the colour it read on mount.
+  const boundaryColor = useMemo(
+    () => readCssVar("--accent-fire", "#ff4d1a"),
+    // readCssVar reads the resolved value off the DOM, so `theme` is the
+    // invalidation trigger rather than an input the linter can see.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [theme]
+  );
+
   // Active-region outline only (no fill)
   const boundaryFeature = useMemo(
     () => ({
@@ -332,12 +345,13 @@ function CoverageLayers() {
 
       {/* Jurisdiction boundary — glowing blue outline */}
       <GeoJSON
-        key="boundary"
+        key={`boundary-${boundaryColor}`}
         data={boundaryFeature}
         style={() => ({
+          className: "jurisdiction-boundary",
           fill: false,
           stroke: true,
-          color: "#e8390d",
+          color: boundaryColor,
           weight: 2,
           opacity: 0.35,
         })}
