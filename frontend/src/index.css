@@ -1,7 +1,9 @@
-@import url("https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap");
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+/* Only DM Sans is loaded here — it backs --font-span and is the fallback for
+   the Axiforma tokens below. Barlow Condensed is imported by LoginPage.css,
+   which is the only place it is used (the FIREOPS wordmark). Share Tech Mono,
+   Barlow, Montserrat, Poppins, Roboto and Inter used to be requested here and
+   were referenced nowhere. */
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
 
 /* ── Axiforma (local) ─────────────────────────────────────────────────────── */
 @font-face {
@@ -114,13 +116,6 @@
   src: url("../fonts/Axiforma/Axiforma Extra Bold Italic.otf") format("opentype");
   font-weight: 800;
   font-style: italic;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Axiforma";
-  src: url("../fonts/Axiforma/Axiforma Bold.otf") format("opentype");
-  font-weight: 700;
-  font-style: normal;
   font-display: swap;
 }
 @font-face {
@@ -261,11 +256,37 @@
   --map-base: #0d1520;
   --map-panel-grad: linear-gradient(135deg, #0a1520, #1a2d44);
 
+  /* All three resolve to Axiforma — the names describe the ROLE each one plays
+     (numeric/data, body chrome, headings), not three different faces. Nothing
+     here is monospace or condensed; the `monospace` tail on --font-mono is a
+     last-resort fallback only, and digit alignment comes from the tabular-nums
+     rule on body rather than from a fixed-width face. */
   --font-mono: "Axiforma", "DM Sans", monospace;
   --font-ui: "Axiforma", "DM Sans", sans-serif;
   --font-condensed: "Axiforma", "DM Sans", sans-serif;
 
   --font-span: "DM Sans", sans-serif;
+
+  /* ── Stacking scale ──────────────────────────────────────────────────────────
+     Names the tiers the app already had, so a new layer picks an existing rung
+     instead of guessing a bigger number. Values are unchanged from what each
+     rule used before, with one exception: .apm-overlay sat at 9000 while every
+     other modal overlay sat at 2000, so an AppModal always beat a modal opened
+     later regardless of DOM order. All overlays share --z-modal now, which
+     lets order decide — the correct behaviour for stacked dialogs.
+
+     Purely local stacking (z-index 0-3 inside a component's own context) is
+     left alone; those are not app layers. */
+  --z-sticky: 10;
+  --z-map-overlay: 20;
+  --z-map-control: 50;
+  --z-topbar: 100;
+  --z-sidebar: 200;
+  --z-floating: 500;
+  --z-popover: 1000;
+  --z-map-label: 1500;
+  --z-map-label-top: 1600;
+  --z-modal: 2000;
 }
 
 * {
@@ -274,17 +295,90 @@
   box-sizing: border-box;
 }
 
+/* ── Keyboard focus ───────────────────────────────────────────────────────────
+   Component styles set `outline: none` on inputs in their BASE state and signal
+   focus with border-colour alone, which leaves buttons, links and the sidebar
+   rails with no keyboard affordance at all. This restores one.
+
+   Scoped as `html :focus-visible` rather than `:focus-visible` on purpose: the
+   component rules are plain class selectors of equal specificity that load
+   after this file, so the bare selector would lose on source order. The
+   descendant combinator buys one point and settles it without !important.
+
+   :focus-visible, not :focus — pointer users keep clean clicks. */
+html :focus-visible {
+  outline: 2px solid var(--accent-fire-focus);
+  outline-offset: 2px;
+}
+
+/* Skip link. Off-screen until focused, then pinned over the top bar. Sits
+   above --z-modal so it is never buried by whatever is open. */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: calc(var(--z-modal) + 1);
+  padding: 10px 16px;
+  border-radius: 6px;
+  background: var(--accent-fire);
+  color: var(--on-accent);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+/* Press feedback. The codebase has 127 :hover rules and almost no :active, so
+   controls light up on approach but feel dead on click.
+
+   Uses the standalone `scale` property rather than `transform: scale()`: a
+   number of these buttons are positioned with transform: translateY(-50%), and
+   a transform here would overwrite that and knock them out of place. `scale`
+   composes instead.
+
+   Real <button> elements only. Do NOT widen this to [role="button"]: Leaflet
+   stamps that role onto every keyboard-enabled map marker, and the app itself
+   uses the attribute nowhere. */
+html button:not(:disabled):active {
+  scale: 0.98;
+}
+
+/* Nothing Leaflet positions may be scaled. Markers, panes and controls are
+   placed with transform: translate3d(x, y, 0), and the individual `scale`
+   property resolves BEFORE `transform` — so a scale multiplies the element's
+   own offset from the map origin and visibly walks it across the map, which
+   also drags it out from under the pointer and eats the click. */
+html .leaflet-container button:active,
+html .leaflet-marker-icon:active,
+html .leaflet-control a:active {
+  scale: 1;
+}
+
+/* Leaflet puts tabindex on the map container; a ring around the whole canvas is
+   noise, and the panes inside it are not keyboard targets. */
+html .leaflet-container:focus-visible {
+  outline: none;
+}
+
 body {
   background: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font-ui);
-  height: 100vh;
+  /* Axiforma ships a `tnum` feature. Without it, counts, ETAs and timestamps
+     re-flow every time a digit changes — visible jitter on a console that
+     updates live. */
+  font-variant-numeric: tabular-nums;
+  height: 100dvh;
   overflow: hidden;
 }
 
 #root {
   width: 100%;
-  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: row;
 }
@@ -469,4 +563,21 @@ body {
 
 [data-theme="light"] body {
   background: var(--bg-base);
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────────
+   Several loops here run indefinitely (the wordmark's flamePulse, the blink
+   used for live status, the map's pulse rings). On a console left running for a
+   whole shift that is fatiguing, and it is a stated accessibility preference.
+   Animations are cut to a single frame rather than removed, so anything that
+   depends on an animation's end state still lands on it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

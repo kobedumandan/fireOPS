@@ -369,7 +369,7 @@ export default function RightSidebar({
   return (
     <>
       {viewModeButtons}
-      <div className="sidebar-right">
+      <aside className="sidebar-right">
         <div className="sidebar-tabs">
           <div className="sidebar-section-header">Incident View</div>
           <button
@@ -798,7 +798,7 @@ export default function RightSidebar({
             </button>
           </div>
         )}
-      </div>
+      </aside>
 
       {showDispatch && incident && (
         <DispatchModal

@@ -4,7 +4,7 @@
   inset: 0;
   background: var(--scrim);
   backdrop-filter: blur(3px);
-  z-index: 9000;
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -278,14 +278,15 @@
 .apm-eye:hover {
   opacity: 0.8;
 }
-.apm-eye img {
+.apm-eye-icon {
   width: 16px;
   height: 16px;
   opacity: 0.55;
   transition: opacity 0.15s;
   display: block;
+  color: var(--text-primary);
 }
-.apm-eye:hover img {
+.apm-eye:hover .apm-eye-icon {
   opacity: 0.9;
 }
 
@@ -398,7 +399,7 @@
   inset: 0;
   background: var(--scrim);
   backdrop-filter: blur(3px);
-  z-index: 2000;
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -646,7 +647,7 @@
   position: absolute;
   bottom: 8px;
   left: 8px;
-  z-index: 1000;
+  z-index: var(--z-popover);
   display: flex;
   gap: 3px;
 }

@@ -30,7 +30,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  z-index: 10;
+  z-index: var(--z-sticky);
 }
 
 .map-btn {
@@ -55,7 +55,7 @@
   top: 12px;
   display: flex;
   gap: 6px;
-  z-index: 1500;
+  z-index: var(--z-map-label);
   pointer-events: all;
 }
 
@@ -81,7 +81,7 @@
   position: absolute;
   transform: translate(-50%, -50%);
   cursor: pointer;
-  z-index: 20;
+  z-index: var(--z-map-overlay);
 }
 
 /* Fire incident markers */
@@ -229,7 +229,7 @@
   font-size: 11px;
   color: var(--text-primary);
   pointer-events: none;
-  z-index: 50;
+  z-index: var(--z-map-control);
   white-space: nowrap;  
   box-shadow: var(--shadow-md);
 }
@@ -253,7 +253,7 @@
   top: 9.8px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1600;
+  z-index: var(--z-map-label-top);
   background: var(--bg-hover);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -382,9 +382,11 @@
   fill-opacity: 1 !important;
 }
 
-/* Jurisdiction boundary glow */
-.leaflet-interactive[stroke="#e8390d"] {
-  filter: drop-shadow(0 0 4px rgba(232, 57, 13, 0.2));
+/* Jurisdiction boundary glow. Matched on a class, not on the literal stroke —
+   the stroke is theme-resolved now, so an attribute selector would stop
+   matching the moment the accent retones. */
+.jurisdiction-boundary {
+  filter: drop-shadow(0 0 4px rgba(var(--accent-fire-rgb), 0.2));
 }
 
 /* Light mode overrides.
@@ -410,7 +412,7 @@
   position: absolute;
   bottom: 9.8px;
   right: 9.8px !important;
-  z-index: 1500;
+  z-index: var(--z-map-label);
   display: flex;
   gap: 6px;
   pointer-events: all;
@@ -644,7 +646,7 @@
   position: absolute;
   top: 9.8px;
   left: 9.8px;
-  z-index: 1000;
+  z-index: var(--z-popover);
   background: var(--page-default-base);
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-subtle);
@@ -848,7 +850,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 2000;
+  z-index: var(--z-modal);
   background: rgba(var(--map-panel-rgb), 0.95);
   backdrop-filter: blur(16px);
   border: 1px solid var(--border-subtle);

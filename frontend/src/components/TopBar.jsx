@@ -136,7 +136,7 @@ export default function TopBar({
   }, []);
 
   return (
-    <aside className="topbar">
+    <header className="topbar">
       <div
         className={`user-chip${showingSettings ? " active" : ""}`}
         onClick={onOpenSettings}
@@ -234,6 +234,6 @@ export default function TopBar({
           </div>
         </AppModal>
       )}
-    </aside>
+    </header>
   );
 }

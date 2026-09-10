@@ -15,7 +15,7 @@
   left: 0;
   top: 0;
   bottom: 0;
-  z-index: 200;
+  z-index: var(--z-sidebar);
   width: 280px;
   background: var(--bg-panel);
   border-right: 1px solid var(--border-dim);
@@ -87,6 +87,18 @@
   cursor: not-allowed;
 }
 
+.slc-section-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.slc-section-icon--fire {
+  color: var(--accent-fire);
+}
+.slc-section-icon--blue {
+  color: var(--accent-blue);
+}
+
 .slc-section-btn {
   flex-direction: column;
   gap: 2px;
@@ -122,11 +134,16 @@
   background: var(--accent-fire-dim);
   border-color: rgba(var(--accent-fire-rgb), 0.35);
 }
-.slc-action-btn.fire img {
+.slc-action-icon {
   width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
-.slc-action-btn.blue img {
-  width: 16px;
+.slc-action-btn.fire {
+  color: var(--accent-fire);
+}
+.slc-action-btn.blue {
+  color: var(--accent-blue);
 }
 
 .slc-divider {
@@ -556,10 +573,6 @@
   cursor: pointer;
   transition: all 0.15s;
 }
-.slt-log-btn img {
-  width: 16px;
-}
-
 .slt-log-btn:hover {
   background: var(--accent-fire-hover);
   box-shadow: 0 0 20px rgba(var(--accent-fire-rgb), 0.4);
@@ -616,10 +629,6 @@
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.15s;
-}
-
-.slt-req-btn img {
-  width: 16px;
 }
 
 .slt-req-btn:hover:not(:disabled) {

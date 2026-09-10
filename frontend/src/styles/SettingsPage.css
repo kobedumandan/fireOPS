@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  height: calc(100vh - 48px); /* topbar */
+  height: calc(100dvh - 48px); /* topbar */
 }
 
 .settings-body {
@@ -473,10 +473,12 @@
 }
 
 .tp-dark {
-  background: #0a0c0f;
+  /* Hardcoded on purpose: a swatch previews the theme it is NOT.
+     Values mirror the dark palette in index.css — keep in step with it. */
+  background: #101011;
 }
 .tp-light {
-  background: #f0f2f5;
+  background: #f0f3f7;
 }
 
 .tp-dark::before,
@@ -491,10 +493,10 @@
 }
 
 .tp-dark::before {
-  background: #1e2d3d;
+  background: #141a21;
 }
 .tp-light::before {
-  background: #dde1e8;
+  background: #d0dce8;
 }
 
 .tp-dark::after,
@@ -509,10 +511,10 @@
 }
 
 .tp-dark::after {
-  background: #2a3f55;
+  background: #2e2e2e;
 }
 .tp-light::after {
-  background: #c8cdd6;
+  background: #bcc4cc;
 }
 
 .theme-name {

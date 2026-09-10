@@ -37,7 +37,7 @@
   background: var(--page-default-base);
   color: var(--text-primary);
   font-family: var(--font-ui);
-  min-height: 100vh;
+  min-height: 100dvh;
   flex: 1;
   width: 100%;
   display: flex;
@@ -176,17 +176,27 @@
   margin-top: 1px;
 }
 
+.lp-feature-glyph {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
 .fi-fire {
   background: var(--accent-fire-dim);
+  color: var(--accent-fire);
 }
 .fi-blue {
   background: var(--accent-blue-dim);
+  color: var(--accent-blue);
 }
 .fi-green {
   background: var(--accent-green-dim);
+  color: var(--accent-green);
 }
 .fi-amber {
   background: var(--accent-amber-dim);
+  color: var(--accent-amber);
 }
 
 .lp-feature-title {

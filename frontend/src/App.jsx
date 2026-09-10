@@ -551,6 +551,9 @@ export default function App() {
 
   return (
     <>
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
       <TopBar
         activeNav={activeNav}
         onNavChange={nav => { setActiveNav(nav); setShowSettings(false); setFocusedPersonnel(null) }}
@@ -561,7 +564,7 @@ export default function App() {
         user={route.user}
         onLogout={handleLogout}
       />
-      <div className="app-content">
+      <main className="app-content" id="main-content">
       {showSettings ? (
         <SettingsPage
           user={route.user}
@@ -635,7 +638,7 @@ export default function App() {
           />
         </div>
       )}
-      </div>
+      </main>
 
       {pickedLocation && (
         <NewIncidentModal

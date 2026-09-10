@@ -51,6 +51,55 @@ function VisibilityOff() {
   );
 }
 
+function FeatureFireIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="lp-feature-glyph"
+      fill="currentColor"
+    >
+      <path d="M240-400q0 52 21 98.5t60 81.5q-1-5-1-9v-9q0-32 12-60t35-51l113-111 113 111q23 23 35 51t12 60v9q0 4-1 9 39-35 60-81.5t21-98.5q0-50-18.5-94.5T648-574q-20 13-42 19.5t-45 6.5q-62 0-107.5-41T401-690q-39 33-69 68.5t-50.5 72Q261-513 250.5-475T240-400Zm240 52-57 56q-11 11-17 25t-6 29q0 32 23.5 55t56.5 23q33 0 56.5-23t23.5-55q0-16-6-29.5T537-292l-57-56Zm0-492v132q0 34 23.5 57t57.5 23q18 0 33.5-7.5T622-658l18-22q74 42 117 117t43 163q0 134-93 227T480-80q-134 0-227-93t-93-227q0-129 86.5-245T480-840Z" />
+    </svg>
+  );
+}
+function FeatureRoutingIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="lp-feature-glyph"
+      fill="currentColor"
+    >
+      <path d="M247-167q-47-47-47-113v-327q-35-13-57.5-43.5T120-720q0-50 35-85t85-35q50 0 85 35t35 85q0 39-22.5 69.5T280-607v327q0 33 23.5 56.5T360-200q33 0 56.5-23.5T440-280v-400q0-66 47-113t113-47q66 0 113 47t47 113v327q35 13 57.5 43.5T840-240q0 50-35 85t-85 35q-50 0-85-35t-35-85q0-39 22.5-70t57.5-43v-327q0-33-23.5-56.5T600-760q-33 0-56.5 23.5T520-680v400q0 66-47 113t-113 47q-66 0-113-47Zm-7-513q17 0 28.5-11.5T280-720q0-17-11.5-28.5T240-760q-17 0-28.5 11.5T200-720q0 17 11.5 28.5T240-680Zm480 480q17 0 28.5-11.5T760-240q0-17-11.5-28.5T720-280q-17 0-28.5 11.5T680-240q0 17 11.5 28.5T720-200ZM240-720Zm480 480Z" />
+    </svg>
+  );
+}
+function FeatureTrackingIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="lp-feature-glyph"
+      fill="currentColor"
+    >
+      <path d="M440-42v-80q-125-14-214.5-103.5T122-440H42v-80h80q14-125 103.5-214.5T440-838v-80h80v80q125 14 214.5 103.5T838-520h80v80h-80q-14 125-103.5 214.5T520-122v80h-80Zm238-240q82-82 82-198t-82-198q-82-82-198-82t-198 82q-82 82-82 198t82 198q82 82 198 82t198-82Zm-311-85q-47-47-47-113t47-113q47-47 113-47t113 47q47 47 47 113t-47 113q-47 47-113 47t-113-47Zm169.5-56.5Q560-447 560-480t-23.5-56.5Q513-560 480-560t-56.5 23.5Q400-513 400-480t23.5 56.5Q447-400 480-400t56.5-23.5ZM480-480Z" />
+    </svg>
+  );
+}
+function FeatureTruckIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="lp-feature-glyph"
+      fill="currentColor"
+    >
+      <path d="M195-155q-35-35-35-85h-40q-33 0-56.5-23.5T40-320v-200h440v-160q0-33 23.5-56.5T560-760h80v-40q0-17 11.5-28.5T680-840h40q17 0 28.5 11.5T760-800v40h22q26 0 47 15t29 40l58 172q2 6 3 12.5t1 13.5v267H800q0 50-35 85t-85 35q-50 0-85-35t-35-85H400q0 50-35 85t-85 35q-50 0-85-35Zm113.5-56.5Q320-223 320-240t-11.5-28.5Q297-280 280-280t-28.5 11.5Q240-257 240-240t11.5 28.5Q263-200 280-200t28.5-11.5Zm400 0Q720-223 720-240t-11.5-28.5Q697-280 680-280t-28.5 11.5Q640-257 640-240t11.5 28.5Q663-200 680-200t28.5-11.5ZM120-440v120h71q17-19 40-29.5t49-10.5q26 0 49 10.5t40 29.5h111v-120H120Zm440 120h31q17-19 40-29.5t49-10.5q26 0 49 10.5t40 29.5h71v-120H560v120Zm0-200h276l-54-160H560v160ZM40-560v-60h40v-80H40v-60h400v60h-40v80h40v60H40Zm100-60h70v-80h-70v80Zm130 0h70v-80h-70v80Zm210 180H120h360Zm80 0h280-280Z" />
+    </svg>
+  );
+}
+
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -124,32 +173,32 @@ export default function LoginPage({ onLogin }) {
             {[
               {
                 cls: "fi-fire",
-                icon: "src/assets/svg_icons/fire_icon.svg",
+                Icon: FeatureFireIcon,
                 title: "Real-Time Incident Management",
                 desc: "Monitor active fire incidents across all barangays with live severity tracking and alarm escalation.",
               },
               {
                 cls: "fi-blue",
-                icon: "src/assets/svg_icons/routing_icon.svg",
+                Icon: FeatureRoutingIcon,
                 title: "GNN-RL Routing Engine",
                 desc: "Optimal routing computed by a Graph Neural Network.",
               },
               {
                 cls: "fi-green",
-                icon: "src/assets/svg_icons/location_tracking_icon.svg",
+                Icon: FeatureTrackingIcon,
                 title: "Personnel Tracking",
                 desc: "Field unit locations tracked via GPS.",
               },
               {
                 cls: "fi-amber",
-                icon: "src/assets/svg_icons/fire_truck_icon.svg",
+                Icon: FeatureTruckIcon,
                 title: "Multi-Station Dispatch",
                 desc: "Coordinate response teams across main and sub-stations from a single command dashboard.",
               },
             ].map((f) => (
               <div className="lp-feature" key={f.title}>
                 <div className={`lp-feature-icon ${f.cls}`}>
-                  <img src={f.icon} alt="x" width="14px" />
+                  <f.Icon />
                 </div>
                 <div>
                   <div className="lp-feature-title">{f.title}</div>
@@ -238,16 +287,6 @@ export default function LoginPage({ onLogin }) {
               >
                 {showPw ? <VisibilityOn /> : <VisibilityOff />}
               </button>
-              {/* <img
-                className="lp-pw-toggle"
-                src={
-                  showPw
-                    ? "src/assets/svg_icons/visibility_on.svg"
-                    : "src/assets/svg_icons/visibility_off.svg"
-                }
-                alt={showPw ? "Hide password" : "Show password"}
-                onClick={() => setShowPw((v) => !v)}
-              /> */}
             </div>
             {errors.password && (
               <div className="lp-field-error">Password is required.</div>

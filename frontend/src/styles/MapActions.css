@@ -45,7 +45,7 @@
   position: absolute;
   bottom: 9.8px;
   left: 9.8px;
-  z-index: 500;
+  z-index: var(--z-floating);
   max-width: fit-content;
   height: 23px;
   padding: 0 7px;
@@ -73,7 +73,7 @@
   position: absolute;
   bottom: 9.8px;
   left: 9.8px;
-  z-index: 500;
+  z-index: var(--z-floating);
   width: 220px;
   padding: 0 11.8px 12px;
   background: var(--page-default-base);
