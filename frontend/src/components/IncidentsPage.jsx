@@ -182,14 +182,12 @@ export default function IncidentsPage() {
   }
 
   async function handleLogSubmit(data) {
-    try {
-      await createIncident(data);
-      setShowLogModal(false);
-      // force a fresh fetch from page 1 (bump _seq so the effect fires even if page was already 1)
-      setQuery((prev) => ({ ...prev, page: 1, _seq: (prev._seq ?? 0) + 1 }));
-    } catch (e) {
-      alert(e.message);
-    }
+    // No try/catch: LogIncidentModal awaits this and renders a failure in its
+    // own .apm-error. Catching here would hide it behind a blocking dialog.
+    await createIncident(data);
+    setShowLogModal(false);
+    // force a fresh fetch from page 1 (bump _seq so the effect fires even if page was already 1)
+    setQuery((prev) => ({ ...prev, page: 1, _seq: (prev._seq ?? 0) + 1 }));
   }
 
   function handleEditSubmit(updated) {

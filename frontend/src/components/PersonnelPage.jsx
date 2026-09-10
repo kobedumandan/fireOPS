@@ -1099,13 +1099,11 @@ export default function PersonnelPage({ onShowOnMap, livePersonnelLocations = []
         <AddPersonnelModal
           onClose={() => setShowAddModal(false)}
           onSubmit={async (data) => {
-            try {
-              const newPerson = await createPersonnel(data);
-              setPersonnel((prev) => [...prev, newPerson]);
-              setShowAddModal(false);
-            } catch (err) {
-              alert(err.message);
-            }
+            // Errors propagate: AddPersonnelModal catches and renders them
+            // inline, and keeps the form open with the entered values intact.
+            const newPerson = await createPersonnel(data);
+            setPersonnel((prev) => [...prev, newPerson]);
+            setShowAddModal(false);
           }}
         />
       )}
