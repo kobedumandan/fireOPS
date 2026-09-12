@@ -34,12 +34,17 @@ def _hash_password(plain: str) -> str:
 
 def _create_token(user: Users) -> str:
     import secrets
+    # "iat" is what the client reads back to show how long the session has been
+    # running; without it the dashboard can only time from when a component
+    # mounted, which resets on every reload and tab switch.
+    issued_at = datetime.now(timezone.utc)
     payload = {
         "sub": str(user.user_id),
         "email": user.user_email,
         "role": user.user_role,
         "jti": secrets.token_hex(16),
-        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRE_HOURS),
+        "iat": issued_at,
+        "exp": issued_at + timedelta(hours=JWT_EXPIRE_HOURS),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 

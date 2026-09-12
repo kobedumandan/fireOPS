@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import "../styles/SettingsPage.css";
+import { useSessionTimer } from "../hooks/useSessionTimer";
 import AppModal from "../components/AppModal";
 
 function IcoAccount({ className }) {
@@ -190,32 +191,6 @@ function EditableRow({ label, sub, value: initialValue }) {
   );
 }
 
-function SessionTimer() {
-  const startRef = useRef(Date.now());
-  const [elapsed, setElapsed] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(
-      () => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)),
-      1000
-    );
-    return () => clearInterval(id);
-  }, []);
-
-  const h = String(Math.floor(elapsed / 3600)).padStart(2, "0");
-  const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0");
-  const s = String(elapsed % 60).padStart(2, "0");
-  const expiry = new Date(
-    startRef.current + 8 * 3600 * 1000
-  ).toLocaleTimeString("en-US", {
-    hour12: true,
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  return { timer: `${h}:${m}:${s}`, expiry };
-}
-
 // ── SECTIONS ─────────────────────────────────────────────────────────────────
 
 function SectionProfile({ user }) {
@@ -386,7 +361,8 @@ function SectionSecurity({ user }) {
 }
 
 function SectionSession({ onLogout }) {
-  const { timer, expiry } = SessionTimer();
+  const { timer, signedInAt, expiry, lifetimeHours, expired } =
+    useSessionTimer();
 
   return (
     <>
@@ -405,7 +381,9 @@ function SectionSession({ onLogout }) {
             <div className="row-sub">Current authentication state</div>
           </div>
           <div className="row-right">
-            <span className="val-badge vb-green">Active</span>
+            <span className={`val-badge ${expired ? "vb-red" : "vb-green"}`}>
+              {expired ? "Expired" : "Active"}
+            </span>
           </div>
         </div>
         <div className="block-row">
@@ -422,27 +400,24 @@ function SectionSession({ onLogout }) {
         </div>
         <div className="block-row">
           <div className="row-left">
-            <div className="row-label">Session Expires</div>
-            <div className="row-sub">
-              Auto-logout after 8 hours of inactivity
-            </div>
+            <div className="row-label">Signed In</div>
+            <div className="row-sub">When this session started</div>
           </div>
           <div className="row-right">
-            <span className="row-value">{expiry}</span>
+            <span className="row-value">{signedInAt}</span>
           </div>
         </div>
         <div className="block-row">
           <div className="row-left">
-            <div className="row-label">Session Token</div>
-            <div className="row-sub">Current authentication token ID</div>
+            <div className="row-label">Session Expires</div>
+            <div className="row-sub">
+              {lifetimeHours
+                ? `Auto-logout ${lifetimeHours} hours after sign-in`
+                : "Auto-logout when the access token expires"}
+            </div>
           </div>
           <div className="row-right">
-            <span
-              className="row-value"
-              style={{ fontSize: "10px", letterSpacing: "0.5px" }}
-            >
-              bfp-sess-0042f8a1
-            </span>
+            <span className="row-value">{expiry}</span>
           </div>
         </div>
       </div>
