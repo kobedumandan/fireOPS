@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
 import "../styles/TrucksPage.css";
-import AddTruckModal from "./AddTruckModal";
-import EditTruckModal from "./EditTruckModal";
-import ConfirmModal from "./ConfirmModal";
+import AddTruckModal from "../components/AddTruckModal";
+import EditTruckModal from "../components/EditTruckModal";
+import ConfirmModal from "../components/ConfirmModal";
 import { fetchTrucks, createTruck, deleteTruck } from "../api";
 
 const STATUS_OPTIONS = ["available", "dispatched", "maintenance", "unavailable"];

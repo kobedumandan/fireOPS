@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import "../styles/StationsPage.css";
 import { fetchStations, createStation, deleteStation, fetchPersonnel, fetchTeams, fetchTrucks } from "../api";
-import AddStationModal from "./AddStationModal";
-import EditStationModal from "./EditStationModal";
-import ConfirmModal from "./ConfirmModal";
+import AddStationModal from "../components/AddStationModal";
+import EditStationModal from "../components/EditStationModal";
+import ConfirmModal from "../components/ConfirmModal";
 
 function ExportIcon() {
   return (

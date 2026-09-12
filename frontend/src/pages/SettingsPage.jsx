@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import "../styles/SettingsPage.css";
-import AppModal from "./AppModal";
+import AppModal from "../components/AppModal";
 
 function IcoAccount({ className }) {
   return (

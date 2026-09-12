@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import "./IncidentDetailsPage.css";
+import "../styles/IncidentDetailsPage.css";
 import DetailsLayout, {
   DetailsSection,
   DetailsGrid,
@@ -12,7 +12,7 @@ import {
   EditIcon,
   RemoveIcon,
   formatReported,
-} from "./incidentUi";
+} from "../components/incidentUi";
 import { fetchIncidentReport } from "../api";
 
 /**

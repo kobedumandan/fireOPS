@@ -2,9 +2,9 @@ import { useState, useMemo, useEffect } from "react";
 import "../styles/TeamsPage.css";
 import { fetchTeams, deleteTeam } from "../api";
 import { isOnCurrentShift } from "../utils/shift";
-import AddTeamModal from "./AddTeamModal";
-import EditTeamModal from "./EditTeamModal";
-import ConfirmModal from "./ConfirmModal";
+import AddTeamModal from "../components/AddTeamModal";
+import EditTeamModal from "../components/EditTeamModal";
+import ConfirmModal from "../components/ConfirmModal";
 
 function ExportIcon() {
   return (
