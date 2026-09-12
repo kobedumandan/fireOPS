@@ -65,6 +65,19 @@ STATION_FALLBACK_GRACE_MINUTES = 2
 WATCHDOG_INTERVAL_SECONDS      = 15
 
 
+# ── Token-blacklist reaper ────────────────────────────────────────────────────
+# Logout parks a token's jti in `token_blacklist` so the remainder of its life
+# can be refused. Once the token's own "exp" has passed, jwt.decode rejects it
+# on signature-expiry alone and the row stops carrying any information — it is
+# dead weight that would otherwise accumulate one row per logout, forever.
+# A second advisory lock keeps the reaper single-worker, same as the watchdog.
+_BLACKLIST_REAPER_LOCK_KEY        = 912737
+BLACKLIST_REAPER_INTERVAL_SECONDS = int(os.getenv("BLACKLIST_REAPER_INTERVAL", "3600"))
+# Keep rows a little past expiry: clock skew between the API and anything else
+# validating the token shouldn't let a just-expired jti slip back through.
+BLACKLIST_REAPER_GRACE_MINUTES    = 5
+
+
 # ── Off-request-thread routing ────────────────────────────────────────────────
 # Operational switch: when true, the deviation-triggered routing runs INLINE in
 # the request (blocking it — the pre-optimisation behaviour, useful for A/B

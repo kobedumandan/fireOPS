@@ -1,9 +1,10 @@
 """BFP Capstone — GeoAI Fire Response API.
 
 This module owns only the application object: startup/shutdown (the routing
-engine, the routing process pool, the stale-driver watchdog), middleware, and
-the router mounts. Every endpoint lives in `routers/`, the logic they share in
-`services/`, and process-wide mutable state in `state.py`.
+engine, the routing process pool, the stale-driver watchdog, the token-blacklist
+reaper), middleware, and the router mounts. Every endpoint lives in `routers/`,
+the logic they share in `services/`, and process-wide mutable state in
+`state.py`.
 """
 import asyncio
 import logging
@@ -17,13 +18,16 @@ from fastapi.staticfiles import StaticFiles
 import routing_pool
 import state
 from config import ROUTING_POOL_SIZE, UPLOAD_ROOT
-from config import WATCHDOG_INTERVAL_SECONDS
+from config import BLACKLIST_REAPER_INTERVAL_SECONDS, WATCHDOG_INTERVAL_SECONDS
 from routers import (
     auth, constraints, coverage, dispatch, geodata, incidents, metrics, mobile,
     obstructions, personnel, reporting, routing, shifts, stations, system, teams,
     trucks,
 )
 from routing_setup import build_routing_engine
+from services.token_cleanup import (
+    _acquire_reaper_lock, _release_reaper_lock, _token_blacklist_reaper,
+)
 from services.watchdog import (
     _acquire_watchdog_lock, _release_watchdog_lock, _stale_driver_watchdog,
 )
@@ -74,15 +78,27 @@ async def lifespan(_app: FastAPI):
     else:
         logger.info("Stale-driver watchdog held by another worker — not started here.")
 
+    reaper_task = None
+    if _acquire_reaper_lock():
+        reaper_task = asyncio.create_task(_token_blacklist_reaper())
+        logger.info(
+            "Token-blacklist reaper started (interval=%ss).",
+            BLACKLIST_REAPER_INTERVAL_SECONDS,
+        )
+    else:
+        logger.info("Token-blacklist reaper held by another worker — not started here.")
+
     yield  # server runs here
 
-    if watchdog_task is not None:
-        watchdog_task.cancel()
-        try:
-            await watchdog_task
-        except asyncio.CancelledError:
-            pass
+    for task in (watchdog_task, reaper_task):
+        if task is not None:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
     _release_watchdog_lock()
+    _release_reaper_lock()
 
     if state.routing_pool_executor is not None:
         state.routing_pool_executor.shutdown(wait=False, cancel_futures=True)
