@@ -530,6 +530,18 @@ export default function App() {
     setRoute({ view: 'dashboard', user })
   }
 
+  // A credential change re-mints the token server-side (email is a JWT claim,
+  // and a password change revokes the old jti), so the new one has to land in
+  // localStorage before the next request or apiFetch's 401 handler signs the
+  // user out mid-edit. access_token is null when the save was a no-op.
+  function handleAccountUpdate({ user, access_token }) {
+    if (access_token) localStorage.setItem('bfp_token', access_token)
+    if (user) {
+      localStorage.setItem('bfp_user', JSON.stringify(user))
+      setRoute(r => ({ ...r, user }))
+    }
+  }
+
   function handleLogout() {
     localStorage.removeItem('bfp_token')
     localStorage.removeItem('bfp_user')
@@ -571,6 +583,7 @@ export default function App() {
           theme={theme}
           onThemeToggle={toggleTheme}
           onLogout={handleLogout}
+          onAccountUpdate={handleAccountUpdate}
         />
       ) : activeNav === 'Metrics' ? (
         <MetricsPage />
