@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import "../styles/IncidentsPage.css";
-import LogIncidentModal from "./LogIncidentModal";
-import EditIncidentModal from "./EditIncidentModal";
-import ConfirmModal from "./ConfirmModal";
+import LogIncidentModal from "../components/LogIncidentModal";
+import EditIncidentModal from "../components/EditIncidentModal";
+import ConfirmModal from "../components/ConfirmModal";
 import IncidentDetailsPage from "./IncidentDetailsPage";
-import { SeverityBadge, StatusPill, formatReported } from "./incidentUi";
+import { SeverityBadge, StatusPill, formatReported } from "../components/incidentUi";
 import { fetchIncidents, createIncident, deleteIncident } from "../api";
 
 function ExportIcon() {

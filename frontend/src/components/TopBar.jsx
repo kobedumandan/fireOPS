@@ -174,9 +174,12 @@ export default function TopBar({
                 !showingSettings && activeNav === label ? " active" : ""
               }`}
               onClick={() => onNavChange(label)}
+              /* data-label feeds the CSS tooltip that replaces the text when
+                 the rail is compacted — see [data-nav="compact"] in TopBar.css */
+              data-label={label}
             >
               <Icon className="nav-btn-icon" />
-              {label}
+              <span className="nav-btn-label">{label}</span>
             </button>
           </span>
         ))}
@@ -195,9 +198,10 @@ export default function TopBar({
         <button
           className="topbar-signout-btn"
           onClick={() => setConfirmLogout(true)}
+          data-label="Sign Out"
         >
           <IcoLogout className="logout-icon" />
-          Sign Out
+          <span className="nav-btn-label">Sign Out</span>
         </button>
       </div>
 

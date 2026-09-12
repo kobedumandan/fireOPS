@@ -5,19 +5,19 @@ import MapArea from './components/MapArea'
 import MapActions from './components/MapActions'
 import RightSidebar from './components/RightSidebar'
 import StatusBar from './components/StatusBar'
-import IncidentsPage from './components/IncidentsPage'
-import PersonnelPage from './components/PersonnelPage'
+import IncidentsPage from './pages/IncidentsPage'
+import PersonnelPage from './pages/PersonnelPage'
 import NewIncidentModal from './components/NewIncidentModal'
 import AutoDispatchModal from './components/AutoDispatchModal'
 import LocationRequestModal from './components/LocationRequestModal'
-import ReporterPage from './components/ReporterPage'
-import StationsPage from './components/StationsPage'
-import TeamsPage from './components/TeamsPage'
-import TrucksPage from './components/TrucksPage'
-import MetricsPage from './components/MetricsPage'
-import PlanningPage from './components/PlanningPage'
-import SettingsPage from './components/SettingsPage'
-import LoginPage from './components/LoginPage'
+import ReporterPage from './pages/ReporterPage'
+import StationsPage from './pages/StationsPage'
+import TeamsPage from './pages/TeamsPage'
+import TrucksPage from './pages/TrucksPage'
+import MetricsPage from './pages/MetricsPage'
+import PlanningPage from './pages/PlanningPage'
+import SettingsPage from './pages/SettingsPage'
+import LoginPage from './pages/LoginPage'
 import { fetchActiveIncidents, fetchPersonnel, fetchStations, fetchDispatches, selectRoute, fetchPersonnelLocations, fullReroute, createIncident, fetchReporterSessions } from './api'
 import './App.css'
 
@@ -51,6 +51,15 @@ export default function App() {
   // reload, so picking Light in Settings never survived a refresh.
   const [theme, setTheme]                         = useState(
     () => localStorage.getItem('fireops-theme') || 'dark'
+  )
+  // Appearance preferences, persisted the same way as theme. Both are applied
+  // purely through an attribute on <html> that CSS keys off, so no component
+  // needs the value threaded down to it.
+  const [compactNav, setCompactNav]               = useState(
+    () => localStorage.getItem('fireops-compact-nav') === '1'
+  )
+  const [animations, setAnimations]               = useState(
+    () => localStorage.getItem('fireops-animations') !== '0'   // default on
   )
   const [leftCollapsed, setLeftCollapsed]         = useState(false)
   // Start collapsed; the Incident View only auto-opens once there's an active
@@ -88,6 +97,19 @@ export default function App() {
     document.documentElement.dataset.theme = theme
     localStorage.setItem('fireops-theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    document.documentElement.dataset.nav = compactNav ? 'compact' : 'full'
+    localStorage.setItem('fireops-compact-nav', compactNav ? '1' : '0')
+  }, [compactNav])
+
+  useEffect(() => {
+    // "off" is what index.css and MapArea look for; the OS reduced-motion
+    // setting suppresses motion independently, so this can only ever turn
+    // animation off, never force it back on against an accessibility choice.
+    document.documentElement.dataset.motion = animations ? 'on' : 'off'
+    localStorage.setItem('fireops-animations', animations ? '1' : '0')
+  }, [animations])
 
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') cancelPicking() }
@@ -530,6 +552,18 @@ export default function App() {
     setRoute({ view: 'dashboard', user })
   }
 
+  // A credential change re-mints the token server-side (email is a JWT claim,
+  // and a password change revokes the old jti), so the new one has to land in
+  // localStorage before the next request or apiFetch's 401 handler signs the
+  // user out mid-edit. access_token is null when the save was a no-op.
+  function handleAccountUpdate({ user, access_token }) {
+    if (access_token) localStorage.setItem('bfp_token', access_token)
+    if (user) {
+      localStorage.setItem('bfp_user', JSON.stringify(user))
+      setRoute(r => ({ ...r, user }))
+    }
+  }
+
   function handleLogout() {
     localStorage.removeItem('bfp_token')
     localStorage.removeItem('bfp_user')
@@ -570,7 +604,12 @@ export default function App() {
           user={route.user}
           theme={theme}
           onThemeToggle={toggleTheme}
+          compactNav={compactNav}
+          onCompactNavChange={setCompactNav}
+          animations={animations}
+          onAnimationsChange={setAnimations}
           onLogout={handleLogout}
+          onAccountUpdate={handleAccountUpdate}
         />
       ) : activeNav === 'Metrics' ? (
         <MetricsPage />

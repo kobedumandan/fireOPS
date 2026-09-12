@@ -1,8 +1,8 @@
 import { useState, useMemo, useEffect } from "react";
 import "../styles/PersonnelPage.css";
-import AddPersonnelModal from "./AddPersonnelModal";
-import EditPersonnelModal from "./EditPersonnelModal";
-import ConfirmModal from "./ConfirmModal";
+import AddPersonnelModal from "../components/AddPersonnelModal";
+import EditPersonnelModal from "../components/EditPersonnelModal";
+import ConfirmModal from "../components/ConfirmModal";
 import { fetchPersonnel, createPersonnel, deletePersonnel } from "../api";
 import { isOnCurrentShift } from "../utils/shift";
 

@@ -103,6 +103,45 @@ function CursorController({ active }) {
   return null;
 }
 
+/**
+ * Keep Leaflet's idea of the container size in step with the real one.
+ *
+ * Leaflet caches the container's pixel dimensions and only re-measures when it
+ * is told to. Anything that resizes the container without a window resize event
+ * — collapsing the navigation rail, opening the incident panel, the browser
+ * zooming — leaves that cache stale, and every pixel-to-coordinate conversion
+ * built on it is then off by the difference. The symptom is a map that feels
+ * "sticky" or offset while dragging, and clicks that land away from the cursor.
+ *
+ * A ResizeObserver catches every cause at once, including the ones no prop
+ * change would tell us about. Calls are coalesced into one per animation frame
+ * so a continuous resize can't queue a recalculation per observer callback.
+ */
+function MapResizeWatcher() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    let frame = null;
+
+    const observer = new ResizeObserver(() => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        // animate: false — this is a correction, not a transition; letting it
+        // ease would fight whatever gesture is in flight.
+        map.invalidateSize({ animate: false });
+      });
+    });
+    observer.observe(container);
+
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [map]);
+  return null;
+}
+
 function PersonnelFocuser({ focusedPersonnel, livePersonnelLocations }) {
   const map = useMap();
   useEffect(() => {
@@ -111,8 +150,13 @@ function PersonnelFocuser({ focusedPersonnel, livePersonnelLocations }) {
       (x) => x.per_id === focusedPersonnel.per_id
     );
     if (p?.latitude != null && p?.longitude != null) {
+      // Leaflet's own animation is out of CSS's reach, so the Animations
+      // preference has to be read here too — otherwise turning motion off
+      // still leaves the map gliding across the city.
+      const animate = document.documentElement.dataset.motion !== "off";
       map.flyTo([p.latitude, p.longitude], Math.max(map.getZoom(), 16), {
-        duration: 0.9,
+        animate,
+        duration: animate ? 0.9 : 0,
       });
     }
     // Re-fires whenever the user clicks Map again (nonce changes).
@@ -888,6 +932,11 @@ export default function MapArea({
 }) {
   const leftOffset = leftCollapsed ? 52 + 12 : 280 + 12;
   const rightOffset = rightCollapsed ? 32 + 12 : 300 + 12;
+  // Read once: Leaflet takes these as constructor options, and reading during
+  // render rather than in state would be an impure call.
+  const [mapMotion] = useState(
+    () => document.documentElement.dataset.motion !== "off"
+  );
   const activeLayers =
     viewMode === "gnn"
       ? new Set(["GNN Constraints"])
@@ -1172,6 +1221,13 @@ export default function MapArea({
         style={{ height: "100%", width: "100%" }}
         zoomControl={false}
         attributionControl={false}
+        /* Leaflet's motion is switched off through its own API rather than by
+           overriding its CSS — see the data-motion note in index.css. These are
+           constructor options, so they are read once per mount; MapArea
+           unmounts while Settings is open, so a change there lands on return. */
+        zoomAnimation={mapMotion}
+        fadeAnimation={mapMotion}
+        markerZoomAnimation={mapMotion}
       >
         {tileLayersFor(tileMode).map((layer, i) => (
           <TileLayer key={`${tileMode}-${i}`} {...layer} />
@@ -1186,6 +1242,7 @@ export default function MapArea({
         />
         <DrawClickHandler active={isDrawing} onPoint={handleDrawPoint} />
         <CursorController active={pickingMode || !!placingType || isDrawing} />
+        <MapResizeWatcher />
 
         <PersonnelFocuser
           focusedPersonnel={focusedPersonnel}

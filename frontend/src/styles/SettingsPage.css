@@ -240,6 +240,10 @@
   background: var(--accent-fire-dim);
   color: var(--accent-fire);
 }
+.vb-red {
+  background: var(--accent-red-dim);
+  color: var(--accent-red);
+}
 
 /* ── BUTTONS ── */
 .btn-edit {
@@ -321,6 +325,65 @@
   border-color: var(--accent-fire-focus);
 }
 
+/* ── ROW STATUS TEXT ── */
+/* The sub-label doubles as the inline error/confirmation slot for a row, so a
+   failed save is reported where the control is rather than in a toast. */
+.row-sub-error {
+  color: var(--accent-red);
+}
+.row-sub-ok {
+  color: var(--accent-green);
+}
+
+.inline-input.input-invalid {
+  border-color: var(--accent-red);
+}
+
+.inline-input:disabled,
+.btn-edit:disabled,
+.btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-save:disabled:hover {
+  background: var(--accent-fire-dim);
+}
+
+/* ── INLINE PASSWORD CHANGE ── */
+/* Tinted and rule-led so the revealed fields read as one group belonging to the
+   Password row above them, without needing a modal. */
+.pw-row {
+  background: rgba(var(--accent-fire-rgb), 0.04);
+  box-shadow: inset 2px 0 0 var(--accent-fire);
+}
+.pw-row:hover {
+  background: rgba(var(--accent-fire-rgb), 0.07);
+}
+.pw-actions {
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ── EARLIER SIGN-INS ── */
+.block-subhead {
+  padding: 10px 18px 4px;
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-span);
+  font-size: 8.8px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.history-row {
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+.history-row .row-label {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
 /* ── AVATAR ── */
 .avatar-block {
   display: flex;
@@ -382,21 +445,66 @@
 
 /* ── SESSION TIMER ── */
 .session-timer {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
+  padding: 5px 11px 5px 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-raise);
   font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-muted);
+  font-size: 9.8px;
+  font-weight: 400;
+  /* Was --text-muted, which is a 3.x:1 dim grey meant for de-emphasised labels;
+     the running clock is the value of this row, so it takes the primary ink. */
+  color: var(--text-primary);
+  letter-spacing: 0.6px;
+  font-variant-numeric: tabular-nums;
+  /* --font-mono resolves to Axiforma, which is NOT monospaced. Without tabular
+     figures every digit change re-measures the text and the pill jitters once a
+     second. */
+  font-feature-settings: "tnum" 1;
+}
+
+/* line-height: 1 collapses the text box to the glyph height, so the flex
+   cross-axis centring lines the dot up with the middle of the digits instead of
+   the middle of the (taller) line box. */
+.session-timer > span {
+  line-height: 1;
+  transform: translateY(1px);
 }
 
 .timer-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent-amber);
-  box-shadow: 0 0 5px var(--accent-amber);
-  animation: blink 1.5s ease-in-out infinite;
+  flex: none;
+  transform: translateY(1px);
+  /* Green, matching the "Active" badge on the row above — this dot means the
+     session is live, so it shouldn't read as a warning. */
+  background: var(--accent-green);
+  animation: st-timer-pulse 1.6s ease-in-out infinite;
+}
+
+/* A halo that breathes out from the dot rather than a hard on/off flash. The
+   spread is animated via box-shadow so the dot's own box never changes size and
+   the text can't be nudged sideways. */
+@keyframes st-timer-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(var(--accent-green-rgb), 0.5);
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 4px rgba(var(--accent-green-rgb), 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timer-dot {
+    animation: none;
+  }
 }
 
 /* ── TOGGLE ── */
@@ -415,6 +523,17 @@
   cursor: pointer;
   transition: background 0.2s;
   flex-shrink: 0;
+  /* A real <button> so the switch is keyboard-reachable; these undo the UA
+     button styling that would otherwise fight the track. */
+  padding: 0;
+  border: none;
+  appearance: none;
+  display: block;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--accent-fire-focus);
+  outline-offset: 2px;
 }
 
 .toggle.on {

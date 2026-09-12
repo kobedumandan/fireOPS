@@ -1,6 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import "../styles/SettingsPage.css";
-import AppModal from "./AppModal";
+import { useSessionTimer } from "../hooks/useSessionTimer";
+import AppModal from "../components/AppModal";
+import {
+  changePassword,
+  fetchCurrentUser,
+  fetchLoginHistory,
+  updateAccountProfile,
+} from "../api";
+import { describeUserAgent, formatLoginStamp } from "../utils/session";
 
 function IcoAccount({ className }) {
   return (
@@ -119,29 +127,68 @@ const SIDEBAR_ITEMS = [
   },
 ];
 
-function Toggle({ id, defaultOn = false }) {
-  const [on, setOn] = useState(defaultOn);
+// Matches the backend's PasswordChange floor; keep the two in step.
+const MIN_PASSWORD_LENGTH = 8;
+const LOGIN_HISTORY_LIMIT = 5;
+
+/**
+ * Pass `on` and `onChange` to drive the switch from outside — that's the form
+ * used by anything whose state has somewhere real to live. Omit them and it
+ * falls back to local state, which is where the not-yet-wired preference rows
+ * still sit.
+ */
+function Toggle({ on, onChange, defaultOn = false }) {
+  const [localOn, setLocalOn] = useState(defaultOn);
+  const controlled = on !== undefined;
+  const value = controlled ? on : localOn;
+
+  function toggle() {
+    if (controlled) onChange(!value);
+    else setLocalOn((v) => !v);
+  }
+
   return (
     <div className="toggle-wrap">
-      <div
-        className={`toggle${on ? " on" : ""}`}
-        onClick={() => setOn((v) => !v)}
+      <button
+        type="button"
+        className={`toggle${value ? " on" : ""}`}
+        onClick={toggle}
+        role="switch"
+        aria-checked={value}
       >
         <div className="toggle-knob" />
-      </div>
-      <span className="toggle-label">{on ? "ON" : "OFF"}</span>
+      </button>
+      <span className="toggle-label">{value ? "ON" : "OFF"}</span>
     </div>
   );
 }
 
-function EditableRow({ label, sub, value: initialValue }) {
+/**
+ * An inline-editable row. Pass `onSave` to persist the value server-side: it is
+ * awaited, and the row stays open showing the error if it rejects, so a failed
+ * save can never look like a successful one. Without `onSave` the edit is local
+ * only, which is the historical behaviour of the un-wired Profile rows.
+ */
+function EditableRow({ label, sub, value: initialValue, onSave, type = "text" }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(initialValue);
   const [draft, setDraft] = useState(initialValue);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
   const inputRef = useRef();
 
+  // The parent re-renders with the saved profile, so follow the prop when it
+  // changes underneath us. Adjusted during render rather than in an effect —
+  // an effect here would paint the stale value for a frame first.
+  const [lastProp, setLastProp] = useState(initialValue);
+  if (initialValue !== lastProp) {
+    setLastProp(initialValue);
+    setValue(initialValue);
+  }
+
   function startEdit() {
-    setDraft(value);
+    setDraft(value === "—" ? "" : value);
+    setError(null);
     setEditing(true);
     setTimeout(() => {
       inputRef.current?.focus();
@@ -149,16 +196,42 @@ function EditableRow({ label, sub, value: initialValue }) {
     }, 0);
   }
 
-  function save() {
-    setValue(draft || value);
+  function cancel() {
     setEditing(false);
+    setError(null);
+  }
+
+  async function save() {
+    const next = draft.trim();
+    if (!next || next === value) {
+      cancel();
+      return;
+    }
+    if (!onSave) {
+      setValue(next);
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(next);
+      setValue(next);
+      setEditing(false);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="block-row">
       <div className="row-left">
         <div className="row-label">{label}</div>
-        <div className="row-sub">{sub}</div>
+        <div className={`row-sub${error ? " row-sub-error" : ""}`}>
+          {error || sub}
+        </div>
       </div>
       <div className="row-right">
         {editing ? (
@@ -166,15 +239,20 @@ function EditableRow({ label, sub, value: initialValue }) {
             <input
               ref={inputRef}
               className="inline-input"
+              type={type}
               value={draft}
+              disabled={saving}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") save();
-                if (e.key === "Escape") setEditing(false);
+                if (e.key === "Escape") cancel();
               }}
             />
-            <button className="btn-save" onClick={save}>
-              Save
+            <button className="btn-save" onClick={save} disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button className="btn-edit" onClick={cancel} disabled={saving}>
+              Cancel
             </button>
           </>
         ) : (
@@ -190,35 +268,9 @@ function EditableRow({ label, sub, value: initialValue }) {
   );
 }
 
-function SessionTimer() {
-  const startRef = useRef(Date.now());
-  const [elapsed, setElapsed] = useState(0);
-
-  useEffect(() => {
-    const id = setInterval(
-      () => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)),
-      1000
-    );
-    return () => clearInterval(id);
-  }, []);
-
-  const h = String(Math.floor(elapsed / 3600)).padStart(2, "0");
-  const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0");
-  const s = String(elapsed % 60).padStart(2, "0");
-  const expiry = new Date(
-    startRef.current + 8 * 3600 * 1000
-  ).toLocaleTimeString("en-US", {
-    hour12: true,
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  return { timer: `${h}:${m}:${s}`, expiry };
-}
-
 // ── SECTIONS ─────────────────────────────────────────────────────────────────
 
-function SectionProfile({ user }) {
+function SectionProfile({ user, onAccountUpdate = () => {} }) {
   const firstName = user?.first_name ?? "";
   const lastName = user?.last_name ?? "";
   const initials = `${firstName[0] ?? "?"}${lastName[0] ?? ""}`.toUpperCase();
@@ -235,6 +287,17 @@ function SectionProfile({ user }) {
         year: "numeric",
       })
     : "—";
+
+  // Admins aren't station-bound, so an absent station is expected for them and
+  // a genuine gap for a responder — say which, rather than printing "—".
+  const station = user?.station?.station_name
+    ? user.station.station_name
+    : role === "admin"
+      ? "City-wide — all stations"
+      : "Not assigned";
+
+  const saveField = (field) => async (value) =>
+    onAccountUpdate(await updateAccountProfile({ [field]: value }));
 
   return (
     <>
@@ -262,22 +325,25 @@ function SectionProfile({ user }) {
           label="First Name"
           sub="Your given name on record"
           value={firstName || "—"}
+          onSave={saveField("first_name")}
         />
         <EditableRow
           label="Last Name"
           sub="Your surname on record"
           value={lastName || "—"}
+          onSave={saveField("last_name")}
         />
         <EditableRow
           label="Contact Number"
           sub="Primary contact for dispatch"
           value={contact}
+          onSave={saveField("contact")}
         />
       </div>
 
       <div className="settings-block">
         <div className="block-header">
-          <div className="block-title">Role & Access</div>
+          <div className="block-title">Role &amp; Access</div>
         </div>
         <div className="block-row">
           <div className="row-left">
@@ -297,13 +363,26 @@ function SectionProfile({ user }) {
             <span className="row-value">{designation}</span>
           </div>
         </div>
+        {/* Rank only exists on personnel records, so it would read "—" forever
+            on an admin account. Omit the row instead of showing an empty one. */}
+        {user?.rank && (
+          <div className="block-row">
+            <div className="row-left">
+              <div className="row-label">Rank</div>
+              <div className="row-sub">Service rank on record</div>
+            </div>
+            <div className="row-right">
+              <span className="row-value">{user.rank}</span>
+            </div>
+          </div>
+        )}
         <div className="block-row">
           <div className="row-left">
             <div className="row-label">Assigned Station</div>
             <div className="row-sub">Primary reporting station</div>
           </div>
           <div className="row-right">
-            <span className="row-value">BFP Panabo City Main Station</span>
+            <span className="row-value">{station}</span>
           </div>
         </div>
         <div className="block-row">
@@ -320,7 +399,223 @@ function SectionProfile({ user }) {
   );
 }
 
-function SectionSecurity({ user }) {
+/** Rows revealed under Password when "Change" is pressed — kept on the page
+ *  rather than in a modal so the surrounding credentials stay visible. */
+function PasswordChangeRows({ onDone, onCancel }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const firstRef = useRef();
+
+  useEffect(() => {
+    firstRef.current?.focus();
+  }, []);
+
+  const mismatch = confirm.length > 0 && next !== confirm;
+  const ready =
+    current.length > 0 && next.length >= MIN_PASSWORD_LENGTH && next === confirm;
+
+  async function submit() {
+    if (!ready || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      onDone(await changePassword(current, next));
+    } catch (e) {
+      setError(e.message);
+      setSaving(false);
+    }
+  }
+
+  function onKeyDown(e) {
+    if (e.key === "Enter") submit();
+    if (e.key === "Escape") onCancel();
+  }
+
+  const fields = [
+    {
+      key: "current",
+      label: "Current Password",
+      sub: "Confirms it is really you making the change",
+      value: current,
+      set: setCurrent,
+      inputRef: firstRef,
+    },
+    {
+      key: "next",
+      label: "New Password",
+      sub: `At least ${MIN_PASSWORD_LENGTH} characters`,
+      value: next,
+      set: setNext,
+    },
+    {
+      key: "confirm",
+      label: "Confirm New Password",
+      sub: mismatch ? "Passwords do not match" : "Re-enter the new password",
+      value: confirm,
+      set: setConfirm,
+      invalid: mismatch,
+    },
+  ];
+
+  return (
+    <>
+      {fields.map((f) => (
+        <div className="block-row pw-row" key={f.key}>
+          <div className="row-left">
+            <div className="row-label">{f.label}</div>
+            <div className={`row-sub${f.invalid ? " row-sub-error" : ""}`}>
+              {f.sub}
+            </div>
+          </div>
+          <div className="row-right">
+            <input
+              ref={f.inputRef}
+              className={`inline-input${f.invalid ? " input-invalid" : ""}`}
+              type="password"
+              autoComplete={
+                f.key === "current" ? "current-password" : "new-password"
+              }
+              value={f.value}
+              disabled={saving}
+              onChange={(e) => f.set(e.target.value)}
+              onKeyDown={onKeyDown}
+            />
+          </div>
+        </div>
+      ))}
+      <div className="block-row pw-row pw-actions">
+        <div className="row-left">
+          {error ? (
+            <div className="row-sub row-sub-error">{error}</div>
+          ) : (
+            <div className="row-sub">
+              All other sessions are signed out when the password changes.
+            </div>
+          )}
+        </div>
+        <div className="row-right">
+          <button className="btn-edit" onClick={onCancel} disabled={saving}>
+            Cancel
+          </button>
+          <button
+            className="btn-save"
+            onClick={submit}
+            disabled={!ready || saving}
+          >
+            {saving ? "Updating…" : "Update Password"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function LoginHistoryBlock() {
+  const [rows, setRows] = useState(null); // null = still loading
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchLoginHistory(LOGIN_HISTORY_LIMIT)
+      .then((data) => alive && setRows(data))
+      .catch((e) => alive && setError(e.message));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const pending = rows === null && !error;
+  const latest = rows?.[0] ?? null;
+  const earlier = rows?.slice(1) ?? [];
+
+  // One placeholder for every row while the fetch is in flight or has failed,
+  // so a blank value is never mistaken for "no logins recorded".
+  function cell(render) {
+    if (pending) return "Loading…";
+    if (error || !latest) return "—";
+    return render(latest);
+  }
+
+  return (
+    <div className="settings-block">
+      <div className="block-header">
+        <div className="block-title">Login History</div>
+      </div>
+      <div className="block-row">
+        <div className="row-left">
+          <div className="row-label">Last Login</div>
+          <div className={`row-sub${error ? " row-sub-error" : ""}`}>
+            {error || "Most recent successful authentication"}
+          </div>
+        </div>
+        <div className="row-right">
+          <span className="row-value highlight">
+            {cell((r) => formatLoginStamp(r.logged_in_at))}
+          </span>
+        </div>
+      </div>
+      <div className="block-row">
+        <div className="row-left">
+          <div className="row-label">Login Device</div>
+          <div className="row-sub">Browser and operating system</div>
+        </div>
+        <div className="row-right">
+          <span className="row-value">
+            {cell((r) => describeUserAgent(r.user_agent))}
+          </span>
+        </div>
+      </div>
+      <div className="block-row">
+        <div className="row-left">
+          <div className="row-label">IP Address</div>
+          <div className="row-sub">Network address at time of login</div>
+        </div>
+        <div className="row-right">
+          <span className="row-value">{cell((r) => r.ip_address ?? "—")}</span>
+        </div>
+      </div>
+
+      {earlier.length > 0 && (
+        <>
+          <div className="block-subhead">Earlier Sign-ins</div>
+          {earlier.map((r) => (
+            <div className="block-row history-row" key={r.login_id}>
+              <div className="row-left">
+                <div className="row-label">
+                  {formatLoginStamp(r.logged_in_at)}
+                </div>
+                <div className="row-sub">{describeUserAgent(r.user_agent)}</div>
+              </div>
+              <div className="row-right">
+                <span className="row-value">{r.ip_address ?? "—"}</span>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** "Last changed 45 days ago", from the real timestamp. */
+function passwordAgeLabel(user) {
+  const changed = user?.password_changed_at;
+  if (!changed) return "Not changed since this account was created";
+  const then = new Date(changed);
+  if (Number.isNaN(then.getTime())) return "Last changed at an unknown time";
+  const days = Math.floor((Date.now() - then.getTime()) / 86_400_000);
+  if (days <= 0) return "Last changed today";
+  if (days === 1) return "Last changed yesterday";
+  return `Last changed ${days} days ago`;
+}
+
+function SectionSecurity({ user, onAccountUpdate = () => {} }) {
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [notice, setNotice] = useState(null);
+
   return (
     <>
       <div className="section-title">Security</div>
@@ -336,57 +631,56 @@ function SectionSecurity({ user }) {
           label="Email Address"
           sub="Used for system login and alerts"
           value={user?.email ?? "—"}
+          onSave={async (email) => {
+            onAccountUpdate(await updateAccountProfile({ email }));
+            setNotice("Email address updated. Other sessions were signed out.");
+          }}
         />
         <div className="block-row">
           <div className="row-left">
             <div className="row-label">Password</div>
-            <div className="row-sub">Last changed 45 days ago</div>
+            <div className="row-sub">{passwordAgeLabel(user)}</div>
           </div>
           <div className="row-right">
-            <span className="row-value">••••••••••••</span>
-            <button className="btn-edit">Change</button>
+            {!changingPassword && <span className="row-value">••••••••••••</span>}
+            <button
+              className="btn-edit"
+              onClick={() => {
+                setNotice(null);
+                setChangingPassword((v) => !v);
+              }}
+            >
+              {changingPassword ? "Close" : "Change"}
+            </button>
           </div>
         </div>
+        {changingPassword && (
+          <PasswordChangeRows
+            onCancel={() => setChangingPassword(false)}
+            onDone={(res) => {
+              setChangingPassword(false);
+              setNotice("Password updated. Other sessions were signed out.");
+              onAccountUpdate(res);
+            }}
+          />
+        )}
+        {notice && (
+          <div className="block-row">
+            <div className="row-left">
+              <div className="row-sub row-sub-ok">{notice}</div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="settings-block">
-        <div className="block-header">
-          <div className="block-title">Login History</div>
-        </div>
-        <div className="block-row">
-          <div className="row-left">
-            <div className="row-label">Last Login</div>
-            <div className="row-sub">Most recent successful authentication</div>
-          </div>
-          <div className="row-right">
-            <span className="row-value highlight">Today, 08:31 AM</span>
-          </div>
-        </div>
-        <div className="block-row">
-          <div className="row-left">
-            <div className="row-label">Login Device</div>
-            <div className="row-sub">Browser and operating system</div>
-          </div>
-          <div className="row-right">
-            <span className="row-value">Chrome · Windows 11</span>
-          </div>
-        </div>
-        <div className="block-row">
-          <div className="row-left">
-            <div className="row-label">IP Address</div>
-            <div className="row-sub">Network address at time of login</div>
-          </div>
-          <div className="row-right">
-            <span className="row-value">192.168.1.45</span>
-          </div>
-        </div>
-      </div>
+      <LoginHistoryBlock />
     </>
   );
 }
 
 function SectionSession({ onLogout }) {
-  const { timer, expiry } = SessionTimer();
+  const { timer, signedInAt, expiry, lifetimeHours, expired } =
+    useSessionTimer();
 
   return (
     <>
@@ -405,7 +699,9 @@ function SectionSession({ onLogout }) {
             <div className="row-sub">Current authentication state</div>
           </div>
           <div className="row-right">
-            <span className="val-badge vb-green">Active</span>
+            <span className={`val-badge ${expired ? "vb-red" : "vb-green"}`}>
+              {expired ? "Expired" : "Active"}
+            </span>
           </div>
         </div>
         <div className="block-row">
@@ -422,27 +718,24 @@ function SectionSession({ onLogout }) {
         </div>
         <div className="block-row">
           <div className="row-left">
-            <div className="row-label">Session Expires</div>
-            <div className="row-sub">
-              Auto-logout after 8 hours of inactivity
-            </div>
+            <div className="row-label">Signed In</div>
+            <div className="row-sub">When this session started</div>
           </div>
           <div className="row-right">
-            <span className="row-value">{expiry}</span>
+            <span className="row-value">{signedInAt}</span>
           </div>
         </div>
         <div className="block-row">
           <div className="row-left">
-            <div className="row-label">Session Token</div>
-            <div className="row-sub">Current authentication token ID</div>
+            <div className="row-label">Session Expires</div>
+            <div className="row-sub">
+              {lifetimeHours
+                ? `Auto-logout ${lifetimeHours} hours after sign-in`
+                : "Auto-logout when the access token expires"}
+            </div>
           </div>
           <div className="row-right">
-            <span
-              className="row-value"
-              style={{ fontSize: "10px", letterSpacing: "0.5px" }}
-            >
-              bfp-sess-0042f8a1
-            </span>
+            <span className="row-value">{expiry}</span>
           </div>
         </div>
       </div>
@@ -469,7 +762,14 @@ function SectionSession({ onLogout }) {
   );
 }
 
-function SectionAppearance({ theme, onThemeToggle }) {
+function SectionAppearance({
+  theme,
+  onThemeToggle,
+  compactNav,
+  onCompactNavChange,
+  animations,
+  onAnimationsChange,
+}) {
   return (
     <>
       <div className="section-title">Appearance</div>
@@ -524,10 +824,12 @@ function SectionAppearance({ theme, onThemeToggle }) {
         <div className="block-row">
           <div className="row-left">
             <div className="row-label">Compact Sidebar</div>
-            <div className="row-sub">Show icons only in the sidebar panel</div>
+            <div className="row-sub">
+              Show icons only in the navigation sidebar
+            </div>
           </div>
           <div className="row-right">
-            <Toggle id="compact" defaultOn={false} />
+            <Toggle on={compactNav} onChange={onCompactNavChange} />
           </div>
         </div>
         <div className="block-row">
@@ -536,7 +838,7 @@ function SectionAppearance({ theme, onThemeToggle }) {
             <div className="row-sub">Enable UI motion and transitions</div>
           </div>
           <div className="row-right">
-            <Toggle id="anim" defaultOn={true} />
+            <Toggle on={animations} onChange={onAnimationsChange} />
           </div>
         </div>
       </div>
@@ -564,7 +866,7 @@ function SectionNotifications() {
             </div>
           </div>
           <div className="row-right">
-            <Toggle id="inc" defaultOn={true} />
+            <Toggle defaultOn={true} />
           </div>
         </div>
         <div className="block-row">
@@ -573,7 +875,7 @@ function SectionNotifications() {
             <div className="row-sub">Notify on alarm level upgrades</div>
           </div>
           <div className="row-right">
-            <Toggle id="esc" defaultOn={true} />
+            <Toggle defaultOn={true} />
           </div>
         </div>
         <div className="block-row">
@@ -582,7 +884,7 @@ function SectionNotifications() {
             <div className="row-sub">Alert when an incident is closed</div>
           </div>
           <div className="row-right">
-            <Toggle id="res" defaultOn={false} />
+            <Toggle defaultOn={false} />
           </div>
         </div>
       </div>
@@ -599,7 +901,7 @@ function SectionNotifications() {
             </div>
           </div>
           <div className="row-right">
-            <Toggle id="disp" defaultOn={true} />
+            <Toggle defaultOn={true} />
           </div>
         </div>
         <div className="block-row">
@@ -610,7 +912,7 @@ function SectionNotifications() {
             </div>
           </div>
           <div className="row-right">
-            <Toggle id="iot" defaultOn={true} />
+            <Toggle defaultOn={true} />
           </div>
         </div>
       </div>
@@ -668,7 +970,7 @@ function SectionMapDisplay() {
               <div className="row-sub">{row.sub}</div>
             </div>
             <div className="row-right">
-              <Toggle id={row.id} defaultOn={row.on} />
+              <Toggle defaultOn={row.on} />
             </div>
           </div>
         ))}
@@ -753,21 +1055,56 @@ function SectionAbout() {
 
 // ── MAIN COMPONENT ────────────────────────────────────────────────────────────
 
-export default function SettingsPage({ user, theme, onThemeToggle, onLogout }) {
+export default function SettingsPage({
+  user,
+  theme,
+  onThemeToggle,
+  compactNav,
+  onCompactNavChange,
+  animations,
+  onAnimationsChange,
+  onLogout,
+  onAccountUpdate,
+}) {
   const [activeId, setActiveId] = useState("profile");
   const [confirmLogout, setConfirmLogout] = useState(false);
+
+  // The cached profile in localStorage is whatever sign-in returned, so it goes
+  // stale when an admin edits the record — and it predates any field added
+  // since. Re-read it once when Settings opens; a failure is silent because the
+  // cached copy is still a usable fallback.
+  useEffect(() => {
+    let alive = true;
+    fetchCurrentUser()
+      .then((fresh) => alive && onAccountUpdate({ user: fresh }))
+      .catch(() => {});
+    // Runs once per open: onAccountUpdate is a fresh closure on every App
+    // render, and depending on it would refetch in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function renderContent() {
     switch (activeId) {
       case "profile":
-        return <SectionProfile user={user} />;
+        return (
+          <SectionProfile user={user} onAccountUpdate={onAccountUpdate} />
+        );
       case "security":
-        return <SectionSecurity user={user} />;
+        return (
+          <SectionSecurity user={user} onAccountUpdate={onAccountUpdate} />
+        );
       case "session":
         return <SectionSession onLogout={() => setConfirmLogout(true)} />;
       case "appearance":
         return (
-          <SectionAppearance theme={theme} onThemeToggle={onThemeToggle} />
+          <SectionAppearance
+            theme={theme}
+            onThemeToggle={onThemeToggle}
+            compactNav={compactNav}
+            onCompactNavChange={onCompactNavChange}
+            animations={animations}
+            onAnimationsChange={onAnimationsChange}
+          />
         );
       case "notifications":
         return <SectionNotifications />;

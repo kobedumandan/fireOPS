@@ -581,3 +581,32 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Animations preference ────────────────────────────────────────────────────
+   The same cut, driven by Appearance > Animations instead of the OS setting
+   (App.jsx stamps data-motion onto <html>). Kept as a separate rule rather than
+   folded into the query above because the two are independent and both mean
+   "off wins": the toggle can suppress motion, but it can never re-enable it
+   against a reduced-motion accessibility preference.
+
+   The map is excluded wholesale, for two reasons.
+
+   Leaflet drives its zoom and pan animations off CSS transitions and waits for
+   the matching transitionend to clear its internal _animatingZoom flag. Forcing
+   those durations to ~0 from outside means relying on an event the browser is
+   free not to send, and a missed one leaves the map stuck mid-animation with
+   interaction blocked. Leaflet exposes zoomAnimation / fadeAnimation /
+   markerZoomAnimation for exactly this, so MapArea reads the preference and
+   turns them off through the API instead of us fighting its stylesheet.
+
+   It also keeps the incident cues alive. This console is how a dispatcher
+   notices a fire has come in, so a display preference must not be able to
+   silence that — the rings and ripples are information, not decoration, and
+   they render as raw HTML inside Leaflet divIcons where there is no JSX to
+   annotate anyway. */
+:root[data-motion="off"] *:not(.leaflet-container, .leaflet-container *) {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}

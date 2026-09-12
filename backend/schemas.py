@@ -1,5 +1,5 @@
 """Request/response models shared by the routers."""
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RouteRequest(BaseModel):
@@ -39,6 +39,31 @@ class ConstraintUpdate(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+
+class ProfileUpdate(BaseModel):
+    """A partial patch of the signed-in user's own profile.
+
+    Every field is optional and read with exclude_unset, so the Settings page can
+    save one row at a time without echoing back values it isn't changing.
+    """
+    # Deliberately a pattern rather than pydantic's EmailStr: that pulls in the
+    # email-validator package, which isn't a dependency of this project.
+    email: str | None = Field(
+        default=None, min_length=3, max_length=255,
+        pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    first_name: str | None = Field(default=None, min_length=1, max_length=100)
+    last_name:  str | None = Field(default=None, min_length=1, max_length=100)
+    # "No letters" is the rule the personnel/station modals already enforce on
+    # contact numbers; keep this endpoint consistent with them.
+    contact: str | None = Field(
+        default=None, min_length=7, max_length=50, pattern=r"^[0-9 ()+\-]+$")
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    # 8 is the floor the frontend also enforces; keep them in step.
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class PersonnelUpdate(BaseModel):

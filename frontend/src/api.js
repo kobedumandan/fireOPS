@@ -543,3 +543,62 @@ export async function deleteStation(stationId) {
   }
   delete _cache['stations']
 }
+
+// ── Account credentials ───────────────────────────────────────────────────────
+// FastAPI returns `detail` as a string for HTTPException but as a list of error
+// objects for a 422 validation failure; rendering that raw gives "[object
+// Object]" in the UI, so pull the first message out.
+async function _detail(res, fallback) {
+  const body = await res.json().catch(() => ({}))
+  const d = body.detail
+  if (typeof d === 'string') return d
+  if (Array.isArray(d) && d.length) return d[0].msg || fallback
+  return fallback
+}
+
+/** The signed-in user's profile, straight from the server.
+ *  localStorage holds whatever the profile looked like at sign-in, which goes
+ *  stale when an admin edits the record — or when a deploy adds a field. */
+export async function fetchCurrentUser() {
+  const res = await apiFetch('/api/auth/me')
+  if (!res.ok) throw new Error(await _detail(res, `Failed to load profile (${res.status})`))
+  return res.json()
+}
+
+/** Patch the signed-in user's own profile. Send only the fields being changed,
+ *  e.g. { contact } or { email } — the backend reads the body with
+ *  exclude_unset, so an omitted field is left alone.
+ *
+ *  Changing the email re-mints the token (email is a JWT claim), so the caller
+ *  must persist a non-null access_token from the response or the next request
+ *  401s. Other fields return access_token: null. */
+export async function updateAccountProfile(fields) {
+  const res = await apiFetch('/api/auth/me', {
+    method: 'PATCH',
+    body: JSON.stringify(fields),
+  })
+  if (!res.ok) throw new Error(await _detail(res, `Failed to update profile (${res.status})`))
+  return res.json()   // { user, access_token }
+}
+
+/** Replace the password, proving knowledge of the current one.
+ *  Also returns a fresh token, since the old one is revoked server-side. */
+export async function changePassword(currentPassword, newPassword) {
+  const res = await apiFetch('/api/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  })
+  if (!res.ok) throw new Error(await _detail(res, `Failed to change password (${res.status})`))
+  return res.json()   // { user, access_token }
+}
+
+/** Most recent sign-ins for the current user, newest first. Not cached — a
+ *  stale login list is worse than no list on a security screen. */
+export async function fetchLoginHistory(limit = 5) {
+  const res = await apiFetch(`/api/auth/login-history?limit=${limit}`)
+  if (!res.ok) throw new Error(await _detail(res, `Failed to load login history (${res.status})`))
+  return res.json()
+}
