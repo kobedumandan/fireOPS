@@ -27,10 +27,17 @@ class Users(Base):
     user_role    = Column(String(50))          # "admin" | "personnel" | ...
     created_at   = Column(DateTime(timezone=True), default=_now)
     updated_at   = Column(DateTime(timezone=True), default=_now, onupdate=_now)
+    # Null for accounts still on their seeded password; the Security tab falls
+    # back to created_at so the row never reads "never changed" misleadingly.
+    password_changed_at = Column(DateTime(timezone=True))
 
     admin                = relationship("Admin",        back_populates="user", uselist=False)
     personnel            = relationship("Personnel",    back_populates="user", uselist=False)
     confirmed_incidents  = relationship("FireIncident", back_populates="confirmed_by")
+    login_history        = relationship(
+        "LoginHistory", back_populates="user",
+        cascade="all, delete-orphan", passive_deletes=True,
+    )
 
 
 class Admin(Base):
@@ -455,6 +462,23 @@ class GnnConstraint(Base):
     created_at    = Column(DateTime(timezone=True), default=_now)
     updated_at    = Column(DateTime(timezone=True), default=_now, onupdate=_now)
     created_by    = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+
+
+class LoginHistory(Base):
+    """One row per successful authentication, for the Security tab's sign-in list.
+
+    Written on the login routes only — a token being *used* is not a login, so
+    get_current_user stays read-only and the auth path takes no extra write.
+    """
+    __tablename__ = "login_history"
+
+    login_id     = Column(Integer, primary_key=True, autoincrement=True)
+    user_id      = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    logged_in_at = Column(DateTime(timezone=True), default=_now)
+    ip_address   = Column(String(45))
+    user_agent   = Column(String(512))
+
+    user = relationship("Users", back_populates="login_history")
 
 
 class TokenBlacklist(Base):

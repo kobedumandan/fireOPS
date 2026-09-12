@@ -74,11 +74,17 @@ def _user_profile(user: Users) -> dict:
         "email":      user.user_email,
         "role":       user.user_role,
         "created_at": user.created_at.isoformat() if user.created_at else None,
+        "password_changed_at": (
+            user.password_changed_at.isoformat() if user.password_changed_at else None),
         "first_name": None,
         "last_name":  None,
         "contact":    None,
         "designation": None,
         "rank":        None,
+        # The station this account reports to. Admins are city-wide rather than
+        # station-bound, so None here means "not station-assigned", which the
+        # dashboard renders differently per role.
+        "station":     None,
     }
     if user.admin:
         profile["first_name"] = user.admin.admin_firstname
@@ -90,6 +96,12 @@ def _user_profile(user: Users) -> dict:
         profile["contact"]     = user.personnel.per_contact
         profile["designation"] = user.personnel.per_designation
         profile["rank"]        = user.personnel.per_rank
+        station = user.personnel.station
+        if station:
+            profile["station"] = {
+                "station_id":   station.station_id,
+                "station_name": station.station_name,
+            }
     return profile
 
 
