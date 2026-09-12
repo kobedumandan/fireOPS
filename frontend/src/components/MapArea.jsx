@@ -103,6 +103,45 @@ function CursorController({ active }) {
   return null;
 }
 
+/**
+ * Keep Leaflet's idea of the container size in step with the real one.
+ *
+ * Leaflet caches the container's pixel dimensions and only re-measures when it
+ * is told to. Anything that resizes the container without a window resize event
+ * — collapsing the navigation rail, opening the incident panel, the browser
+ * zooming — leaves that cache stale, and every pixel-to-coordinate conversion
+ * built on it is then off by the difference. The symptom is a map that feels
+ * "sticky" or offset while dragging, and clicks that land away from the cursor.
+ *
+ * A ResizeObserver catches every cause at once, including the ones no prop
+ * change would tell us about. Calls are coalesced into one per animation frame
+ * so a continuous resize can't queue a recalculation per observer callback.
+ */
+function MapResizeWatcher() {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    let frame = null;
+
+    const observer = new ResizeObserver(() => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        // animate: false — this is a correction, not a transition; letting it
+        // ease would fight whatever gesture is in flight.
+        map.invalidateSize({ animate: false });
+      });
+    });
+    observer.observe(container);
+
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [map]);
+  return null;
+}
+
 function PersonnelFocuser({ focusedPersonnel, livePersonnelLocations }) {
   const map = useMap();
   useEffect(() => {
@@ -1203,6 +1242,7 @@ export default function MapArea({
         />
         <DrawClickHandler active={isDrawing} onPoint={handleDrawPoint} />
         <CursorController active={pickingMode || !!placingType || isDrawing} />
+        <MapResizeWatcher />
 
         <PersonnelFocuser
           focusedPersonnel={focusedPersonnel}
