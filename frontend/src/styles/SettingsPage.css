@@ -523,6 +523,17 @@
   cursor: pointer;
   transition: background 0.2s;
   flex-shrink: 0;
+  /* A real <button> so the switch is keyboard-reachable; these undo the UA
+     button styling that would otherwise fight the track. */
+  padding: 0;
+  border: none;
+  appearance: none;
+  display: block;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--accent-fire-focus);
+  outline-offset: 2px;
 }
 
 .toggle.on {

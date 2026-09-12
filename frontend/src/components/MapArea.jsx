@@ -111,8 +111,13 @@ function PersonnelFocuser({ focusedPersonnel, livePersonnelLocations }) {
       (x) => x.per_id === focusedPersonnel.per_id
     );
     if (p?.latitude != null && p?.longitude != null) {
+      // Leaflet's own animation is out of CSS's reach, so the Animations
+      // preference has to be read here too — otherwise turning motion off
+      // still leaves the map gliding across the city.
+      const animate = document.documentElement.dataset.motion !== "off";
       map.flyTo([p.latitude, p.longitude], Math.max(map.getZoom(), 16), {
-        duration: 0.9,
+        animate,
+        duration: animate ? 0.9 : 0,
       });
     }
     // Re-fires whenever the user clicks Map again (nonce changes).
@@ -888,6 +893,11 @@ export default function MapArea({
 }) {
   const leftOffset = leftCollapsed ? 52 + 12 : 280 + 12;
   const rightOffset = rightCollapsed ? 32 + 12 : 300 + 12;
+  // Read once: Leaflet takes these as constructor options, and reading during
+  // render rather than in state would be an impure call.
+  const [mapMotion] = useState(
+    () => document.documentElement.dataset.motion !== "off"
+  );
   const activeLayers =
     viewMode === "gnn"
       ? new Set(["GNN Constraints"])
@@ -1172,6 +1182,13 @@ export default function MapArea({
         style={{ height: "100%", width: "100%" }}
         zoomControl={false}
         attributionControl={false}
+        /* Leaflet's motion is switched off through its own API rather than by
+           overriding its CSS — see the data-motion note in index.css. These are
+           constructor options, so they are read once per mount; MapArea
+           unmounts while Settings is open, so a change there lands on return. */
+        zoomAnimation={mapMotion}
+        fadeAnimation={mapMotion}
+        markerZoomAnimation={mapMotion}
       >
         {tileLayersFor(tileMode).map((layer, i) => (
           <TileLayer key={`${tileMode}-${i}`} {...layer} />

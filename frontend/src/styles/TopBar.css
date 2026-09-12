@@ -10,6 +10,11 @@
   flex-shrink: 0;
   position: relative;
   z-index: var(--z-topbar);
+  /* Deliberately not transitioned. The rail is a flex sibling of the map, so
+     animating its width resizes the map container on every frame, and Leaflet
+     has to re-measure and reposition every layer each time (see
+     MapResizeWatcher in MapArea.jsx). Snapping to the new width keeps that to
+     a single recalculation. */
 }
 
 .topbar-logo {
@@ -317,4 +322,85 @@
 .theme-toggle:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
+}
+
+/* ── COMPACT NAVIGATION RAIL ──────────────────────────────────────────────────
+   Driven by the Appearance > Compact Sidebar preference, which App.jsx stamps
+   onto <html> as data-nav. Everything here is a width change plus hiding the
+   text, so the markup is identical in both states and nothing re-renders when
+   the preference flips. */
+
+.nav-btn-label {
+  white-space: nowrap;
+}
+
+:root[data-nav="compact"] .topbar {
+  width: 56px;
+  padding: 16px 8px;
+  align-items: center;
+}
+
+/* The labels are the only thing that goes; icons keep their own sizing. */
+:root[data-nav="compact"] .nav-btn-label,
+:root[data-nav="compact"] .user-chip-name-wrap,
+:root[data-nav="compact"] .user-chip-btn-wrap,
+:root[data-nav="compact"] .current-shift-label,
+:root[data-nav="compact"] .current-shift-window {
+  display: none;
+}
+
+:root[data-nav="compact"] .nav-btn,
+:root[data-nav="compact"] .topbar-signout-btn,
+:root[data-nav="compact"] .user-chip {
+  justify-content: center;
+  align-items: center;
+  padding: 7px 0;
+  gap: 0;
+}
+
+/* Keep the A/B shift badge legible on its own once its label is gone — it is
+   the one piece of the block that still carries information at this width. */
+:root[data-nav="compact"] .current-shift {
+  padding: 7px 4px;
+  align-items: center;
+}
+:root[data-nav="compact"] .current-shift-header {
+  justify-content: center;
+}
+
+/* An icon-only rail is unreadable without names, so the hidden label comes
+   back as a hover bubble. Scoped to the compact state only, otherwise every
+   already-labelled button would sprout a redundant tooltip. */
+:root[data-nav="compact"] .nav-btn,
+:root[data-nav="compact"] .topbar-signout-btn {
+  position: relative;
+}
+
+/* .topbar-nav scrolls vertically, and a single non-visible axis forces the
+   other to clip too — which would cut the tooltip off at the rail's edge. At
+   56px the eight items never need to scroll, so let it overflow instead. */
+:root[data-nav="compact"] .topbar-nav {
+  overflow: visible;
+}
+
+:root[data-nav="compact"] .nav-btn:hover::after,
+:root[data-nav="compact"] .topbar-signout-btn:hover::after {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: var(--z-popover);
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-condensed);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }

@@ -131,17 +131,34 @@ const SIDEBAR_ITEMS = [
 const MIN_PASSWORD_LENGTH = 8;
 const LOGIN_HISTORY_LIMIT = 5;
 
-function Toggle({ id, defaultOn = false }) {
-  const [on, setOn] = useState(defaultOn);
+/**
+ * Pass `on` and `onChange` to drive the switch from outside — that's the form
+ * used by anything whose state has somewhere real to live. Omit them and it
+ * falls back to local state, which is where the not-yet-wired preference rows
+ * still sit.
+ */
+function Toggle({ on, onChange, defaultOn = false }) {
+  const [localOn, setLocalOn] = useState(defaultOn);
+  const controlled = on !== undefined;
+  const value = controlled ? on : localOn;
+
+  function toggle() {
+    if (controlled) onChange(!value);
+    else setLocalOn((v) => !v);
+  }
+
   return (
     <div className="toggle-wrap">
-      <div
-        className={`toggle${on ? " on" : ""}`}
-        onClick={() => setOn((v) => !v)}
+      <button
+        type="button"
+        className={`toggle${value ? " on" : ""}`}
+        onClick={toggle}
+        role="switch"
+        aria-checked={value}
       >
         <div className="toggle-knob" />
-      </div>
-      <span className="toggle-label">{on ? "ON" : "OFF"}</span>
+      </button>
+      <span className="toggle-label">{value ? "ON" : "OFF"}</span>
     </div>
   );
 }
@@ -745,7 +762,14 @@ function SectionSession({ onLogout }) {
   );
 }
 
-function SectionAppearance({ theme, onThemeToggle }) {
+function SectionAppearance({
+  theme,
+  onThemeToggle,
+  compactNav,
+  onCompactNavChange,
+  animations,
+  onAnimationsChange,
+}) {
   return (
     <>
       <div className="section-title">Appearance</div>
@@ -800,10 +824,12 @@ function SectionAppearance({ theme, onThemeToggle }) {
         <div className="block-row">
           <div className="row-left">
             <div className="row-label">Compact Sidebar</div>
-            <div className="row-sub">Show icons only in the sidebar panel</div>
+            <div className="row-sub">
+              Show icons only in the navigation sidebar
+            </div>
           </div>
           <div className="row-right">
-            <Toggle id="compact" defaultOn={false} />
+            <Toggle on={compactNav} onChange={onCompactNavChange} />
           </div>
         </div>
         <div className="block-row">
@@ -812,7 +838,7 @@ function SectionAppearance({ theme, onThemeToggle }) {
             <div className="row-sub">Enable UI motion and transitions</div>
           </div>
           <div className="row-right">
-            <Toggle id="anim" defaultOn={true} />
+            <Toggle on={animations} onChange={onAnimationsChange} />
           </div>
         </div>
       </div>
@@ -840,7 +866,7 @@ function SectionNotifications() {
             </div>
           </div>
           <div className="row-right">
-            <Toggle id="inc" defaultOn={true} />
+            <Toggle defaultOn={true} />
           </div>
         </div>
         <div className="block-row">
@@ -849,7 +875,7 @@ function SectionNotifications() {
             <div className="row-sub">Notify on alarm level upgrades</div>
           </div>
           <div className="row-right">
-            <Toggle id="esc" defaultOn={true} />
+            <Toggle defaultOn={true} />
           </div>
         </div>
         <div className="block-row">
@@ -858,7 +884,7 @@ function SectionNotifications() {
             <div className="row-sub">Alert when an incident is closed</div>
           </div>
           <div className="row-right">
-            <Toggle id="res" defaultOn={false} />
+            <Toggle defaultOn={false} />
           </div>
         </div>
       </div>
@@ -875,7 +901,7 @@ function SectionNotifications() {
             </div>
           </div>
           <div className="row-right">
-            <Toggle id="disp" defaultOn={true} />
+            <Toggle defaultOn={true} />
           </div>
         </div>
         <div className="block-row">
@@ -886,7 +912,7 @@ function SectionNotifications() {
             </div>
           </div>
           <div className="row-right">
-            <Toggle id="iot" defaultOn={true} />
+            <Toggle defaultOn={true} />
           </div>
         </div>
       </div>
@@ -944,7 +970,7 @@ function SectionMapDisplay() {
               <div className="row-sub">{row.sub}</div>
             </div>
             <div className="row-right">
-              <Toggle id={row.id} defaultOn={row.on} />
+              <Toggle defaultOn={row.on} />
             </div>
           </div>
         ))}
@@ -1033,6 +1059,10 @@ export default function SettingsPage({
   user,
   theme,
   onThemeToggle,
+  compactNav,
+  onCompactNavChange,
+  animations,
+  onAnimationsChange,
   onLogout,
   onAccountUpdate,
 }) {
@@ -1067,7 +1097,14 @@ export default function SettingsPage({
         return <SectionSession onLogout={() => setConfirmLogout(true)} />;
       case "appearance":
         return (
-          <SectionAppearance theme={theme} onThemeToggle={onThemeToggle} />
+          <SectionAppearance
+            theme={theme}
+            onThemeToggle={onThemeToggle}
+            compactNav={compactNav}
+            onCompactNavChange={onCompactNavChange}
+            animations={animations}
+            onAnimationsChange={onAnimationsChange}
+          />
         );
       case "notifications":
         return <SectionNotifications />;

@@ -52,6 +52,15 @@ export default function App() {
   const [theme, setTheme]                         = useState(
     () => localStorage.getItem('fireops-theme') || 'dark'
   )
+  // Appearance preferences, persisted the same way as theme. Both are applied
+  // purely through an attribute on <html> that CSS keys off, so no component
+  // needs the value threaded down to it.
+  const [compactNav, setCompactNav]               = useState(
+    () => localStorage.getItem('fireops-compact-nav') === '1'
+  )
+  const [animations, setAnimations]               = useState(
+    () => localStorage.getItem('fireops-animations') !== '0'   // default on
+  )
   const [leftCollapsed, setLeftCollapsed]         = useState(false)
   // Start collapsed; the Incident View only auto-opens once there's an active
   // incident to show (see the effect below).
@@ -88,6 +97,19 @@ export default function App() {
     document.documentElement.dataset.theme = theme
     localStorage.setItem('fireops-theme', theme)
   }, [theme])
+
+  useEffect(() => {
+    document.documentElement.dataset.nav = compactNav ? 'compact' : 'full'
+    localStorage.setItem('fireops-compact-nav', compactNav ? '1' : '0')
+  }, [compactNav])
+
+  useEffect(() => {
+    // "off" is what index.css and MapArea look for; the OS reduced-motion
+    // setting suppresses motion independently, so this can only ever turn
+    // animation off, never force it back on against an accessibility choice.
+    document.documentElement.dataset.motion = animations ? 'on' : 'off'
+    localStorage.setItem('fireops-animations', animations ? '1' : '0')
+  }, [animations])
 
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') cancelPicking() }
@@ -582,6 +604,10 @@ export default function App() {
           user={route.user}
           theme={theme}
           onThemeToggle={toggleTheme}
+          compactNav={compactNav}
+          onCompactNavChange={setCompactNav}
+          animations={animations}
+          onAnimationsChange={setAnimations}
           onLogout={handleLogout}
           onAccountUpdate={handleAccountUpdate}
         />
