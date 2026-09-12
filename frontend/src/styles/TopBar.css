@@ -330,10 +330,6 @@
    text, so the markup is identical in both states and nothing re-renders when
    the preference flips. */
 
-.nav-btn-label {
-  white-space: nowrap;
-}
-
 :root[data-nav="compact"] .topbar {
   width: 56px;
   padding: 16px 8px;
@@ -349,19 +345,45 @@
   display: none;
 }
 
+/* Every hit target becomes a centred square of the same size.
+
+   The buttons carry width: 100% for the full-width rail, which at 56px leaves
+   them spanning the whole 40px content box while holding a ~16px icon — so the
+   hover highlight reads as a stretched bar rather than a button. Sizing them
+   squarely is the fix; extra padding would only grow the highlight, since
+   padding sits inside it. 34px in a 40px box also leaves the highlight clear of
+   the rail edges. */
 :root[data-nav="compact"] .nav-btn,
 :root[data-nav="compact"] .topbar-signout-btn,
 :root[data-nav="compact"] .user-chip {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  gap: 0;
   justify-content: center;
   align-items: center;
-  padding: 7px 0;
-  gap: 0;
+  /* The rail is a flex column, so without this a tight viewport would squash
+     these back out of square. */
+  flex: none;
+}
+
+/* .topbar centres its children, which would otherwise leave this shrink-wrapped
+   around its own content and make the buttons' width: 100% resolve against an
+   unpredictable base. */
+:root[data-nav="compact"] .topbar-nav {
+  width: 100%;
+  align-items: center;
+  /* .topbar-nav scrolls vertically, and a single non-visible axis forces the
+     other to clip too — which would cut the hover label off at the rail's edge.
+     At this width the eight items never need to scroll. */
+  overflow: visible;
 }
 
 /* Keep the A/B shift badge legible on its own once its label is gone — it is
    the one piece of the block that still carries information at this width. */
 :root[data-nav="compact"] .current-shift {
-  padding: 7px 4px;
+  width: 34px;
+  padding: 6px 0;
   align-items: center;
 }
 :root[data-nav="compact"] .current-shift-header {
@@ -374,13 +396,6 @@
 :root[data-nav="compact"] .nav-btn,
 :root[data-nav="compact"] .topbar-signout-btn {
   position: relative;
-}
-
-/* .topbar-nav scrolls vertically, and a single non-visible axis forces the
-   other to clip too — which would cut the tooltip off at the rail's edge. At
-   56px the eight items never need to scroll, so let it overflow instead. */
-:root[data-nav="compact"] .topbar-nav {
-  overflow: visible;
 }
 
 :root[data-nav="compact"] .nav-btn:hover::after,
