@@ -846,7 +846,22 @@ function SectionAppearance({
   );
 }
 
-function SectionNotifications() {
+/* Every row here gates a real alert (see useNotifications). Two rows changed
+   meaning when they were wired up:
+
+   - "Dispatch Confirmations / Notify when a unit acknowledges dispatch"
+     described an event the system cannot produce — nothing ever sets a
+     dispatch to "en_route" and there is no acknowledgement endpoint. It is
+     repointed at arrival, which the backend does record.
+   - Auto-dispatch failure was already broadcast and silently dropped, which
+     meant nobody being en route to a logged fire showed up nowhere on the
+     dashboard. It gets its own row. */
+function SectionNotifications({ prefs, onPrefChange }) {
+  const bind = (key) => ({
+    on: !!prefs[key],
+    onChange: (v) => onPrefChange(key, v),
+  });
+
   return (
     <>
       <div className="section-title">Notifications</div>
@@ -866,7 +881,7 @@ function SectionNotifications() {
             </div>
           </div>
           <div className="row-right">
-            <Toggle defaultOn={true} />
+            <Toggle {...bind("newIncident")} />
           </div>
         </div>
         <div className="block-row">
@@ -875,7 +890,7 @@ function SectionNotifications() {
             <div className="row-sub">Notify on alarm level upgrades</div>
           </div>
           <div className="row-right">
-            <Toggle defaultOn={true} />
+            <Toggle {...bind("escalation")} />
           </div>
         </div>
         <div className="block-row">
@@ -884,24 +899,35 @@ function SectionNotifications() {
             <div className="row-sub">Alert when an incident is closed</div>
           </div>
           <div className="row-right">
-            <Toggle defaultOn={false} />
+            <Toggle {...bind("resolution")} />
           </div>
         </div>
       </div>
 
       <div className="settings-block">
         <div className="block-header">
-          <div className="block-title">Personnel & Dispatch</div>
+          <div className="block-title">Personnel &amp; Dispatch</div>
         </div>
         <div className="block-row">
           <div className="row-left">
-            <div className="row-label">Dispatch Confirmations</div>
+            <div className="row-label">Unit On Scene</div>
             <div className="row-sub">
-              Notify when a unit acknowledges dispatch
+              Alert when a unit marks arrival at the scene
             </div>
           </div>
           <div className="row-right">
-            <Toggle defaultOn={true} />
+            <Toggle {...bind("onScene")} />
+          </div>
+        </div>
+        <div className="block-row">
+          <div className="row-left">
+            <div className="row-label">Auto-Dispatch Failures</div>
+            <div className="row-sub">
+              Alert when no unit could be auto-dispatched to a fire
+            </div>
+          </div>
+          <div className="row-right">
+            <Toggle {...bind("autoDispatchFailed")} />
           </div>
         </div>
         <div className="block-row">
@@ -912,7 +938,26 @@ function SectionNotifications() {
             </div>
           </div>
           <div className="row-right">
-            <Toggle defaultOn={true} />
+            <Toggle {...bind("deviceOffline")} />
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-block">
+        <div className="block-header">
+          <div className="block-title">Delivery</div>
+        </div>
+        <div className="block-row">
+          <div className="row-left">
+            <div className="row-label">Alert Sound</div>
+            <div className="row-sub">
+              Play a chime for critical alerts. Browsers block audio until the
+              page has been clicked once, so the first alert after a reload is
+              silent.
+            </div>
+          </div>
+          <div className="row-right">
+            <Toggle {...bind("sound")} />
           </div>
         </div>
       </div>
@@ -1063,6 +1108,8 @@ export default function SettingsPage({
   onCompactNavChange,
   animations,
   onAnimationsChange,
+  notifPrefs,
+  onNotifPrefChange,
   onLogout,
   onAccountUpdate,
 }) {
@@ -1107,7 +1154,12 @@ export default function SettingsPage({
           />
         );
       case "notifications":
-        return <SectionNotifications />;
+        return (
+          <SectionNotifications
+            prefs={notifPrefs}
+            onPrefChange={onNotifPrefChange}
+          />
+        );
       case "display":
         return <SectionMapDisplay />;
       case "about":
