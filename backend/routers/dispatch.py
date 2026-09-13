@@ -264,6 +264,7 @@ def select_dispatch_route(
 @router.patch("/api/dispatch/{dispatch_id}/arrived")
 def mark_arrived(
     dispatch_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: Users = Depends(get_current_user),
 ):
@@ -301,6 +302,26 @@ def mark_arrived(
         dispatch_truck.truck.truck_status = "on_scene"
 
     db.commit()
+
+    # Arrival used to commit silently, so the dashboard never learned a unit had
+    # reached the scene. This endpoint is sync (it is called from the mobile app
+    # and has no other awaits), so the broadcast goes through BackgroundTasks —
+    # the same pattern as the reroute broadcast above.
+    background_tasks.add_task(
+        manager.broadcast,
+        {
+            "type": "dispatch_arrived",
+            "data": {
+                "dispatch_id": dispatch.dispatch_id,
+                "fire_id":     dispatch.fire_id,
+                "team_id":     dispatch.team_id,
+                "team_name":   (dispatch.team.team_name if dispatch.team else None)
+                               or f"Team {dispatch.team_id}",
+                "arrived_at":  dispatch.dispatch_arrived_at.isoformat(),
+            },
+        },
+    )
+
     return {
         "dispatch_id":         dispatch.dispatch_id,
         "dispatch_status":     dispatch.dispatch_status,
