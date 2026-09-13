@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "../styles/TopBar.css";
 import AppModal from "./AppModal";
 import { getCurrentShift } from "../utils/shift";
+import { BellIcon } from "./notificationUi";
 
 function PointUpIcon({className}) {
   return (
@@ -126,6 +127,9 @@ export default function TopBar({
   showingSettings,
   user,
   onLogout,
+  unreadCount = 0,
+  onToggleAlerts,
+  alertsOpen = false,
 }) {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [shift, setShift] = useState(() => getCurrentShift());
@@ -186,6 +190,27 @@ export default function TopBar({
       </nav>
 
       <div className="topbar-bottom">
+        {/* .nav-btn + data-label buys the compact rail's 34x34 square sizing
+            and its hover label for free — only the badge needs its own
+            compact rule. */}
+        <button
+          className={`nav-btn topbar-alerts-btn${alertsOpen ? " active" : ""}`}
+          onClick={onToggleAlerts}
+          data-label="Alerts"
+          aria-expanded={alertsOpen}
+        >
+          <BellIcon className="nav-btn-icon" />
+          <span className="nav-btn-label">Alerts</span>
+          {unreadCount > 0 && (
+            <span
+              className="topbar-alerts-badge"
+              aria-label={`${unreadCount} unread alert${unreadCount === 1 ? "" : "s"}`}
+            >
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
+        </button>
+
         <div className="current-shift">
           <div className="current-shift-header">
             <span className="current-shift-label">Current Shift</span>

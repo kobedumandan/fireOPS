@@ -419,3 +419,46 @@
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
+
+/* ── Alerts bell ─────────────────────────────────────────────────────────────
+   The button itself is a plain .nav-btn, so it inherits the rail's sizing,
+   hover and active states and — in the compact rail — the 34x34 square and the
+   hover label, with no rules of its own. Only the unread badge is new.
+
+   position: relative is declared here rather than relied on from the compact
+   block, which scopes it to [data-nav="compact"]; in the full rail the badge
+   would otherwise anchor to the viewport. */
+.topbar-alerts-btn {
+  position: relative;
+  align-items: center;
+}
+
+.topbar-alerts-badge {
+  position: absolute;
+  top: 1px;
+  left: 20px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: var(--accent-fire);
+  color: var(--on-accent);
+  font-family: var(--font-condensed);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* At 34x34 the icon is centred, so the badge moves to the square's top-right
+   corner instead of tracking a left-aligned icon. A ring in the rail's own
+   colour keeps it legible where it overlaps the glyph. */
+:root[data-nav="compact"] .topbar-alerts-badge {
+  top: 1px;
+  left: auto;
+  right: 1px;
+  box-shadow: 0 0 0 2px var(--bg-panel);
+}

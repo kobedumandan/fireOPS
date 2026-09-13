@@ -18,6 +18,9 @@ import MetricsPage from './pages/MetricsPage'
 import PlanningPage from './pages/PlanningPage'
 import SettingsPage from './pages/SettingsPage'
 import LoginPage from './pages/LoginPage'
+import ToastStack from './components/ToastStack'
+import NotificationPanel from './components/NotificationPanel'
+import { useNotifications, readNotifPrefs, NOTIF_STORAGE_KEY } from './hooks/useNotifications'
 import { fetchActiveIncidents, fetchPersonnel, fetchStations, fetchDispatches, selectRoute, fetchPersonnelLocations, fullReroute, createIncident, fetchReporterSessions } from './api'
 import './App.css'
 
@@ -26,6 +29,13 @@ const ACTIVE_STATUSES = new Set(['pending', 'active', 'dispatched', 'contained']
 // incident's dispatch is "completed", so its routes are excluded on (re)load.
 const ACTIVE_DISPATCH_STATUSES = new Set(['dispatched', 'en_route', 'on_scene'])
 const WS_URL = 'ws://localhost:8000/ws'
+
+// Alarm levels are stored as free text, so "did this escalate?" is an ordering
+// question, not a string comparison. Mirrors ALARM_UNIT_TARGETS in
+// backend/auto_dispatch.py; an unrecognised level ranks 0 and never trips an
+// escalation alert on its own.
+const ALARM_ORDER = { '1st Alarm': 1, '2nd Alarm': 2, '3rd Alarm': 3, 'General Alarm': 4 }
+function _alarmRank(level) { return ALARM_ORDER[level] ?? 0 }
 
 function getInitialRoute() {
   const hash = window.location.hash
@@ -61,6 +71,11 @@ export default function App() {
   const [animations, setAnimations]               = useState(
     () => localStorage.getItem('fireops-animations') !== '0'   // default on
   )
+  // Alert preferences. One blob rather than seven useStates — they are always
+  // read together, and they persist per-browser exactly like compact-nav and
+  // animations do, so there is no account-level store to migrate.
+  const [notifPrefs, setNotifPrefs]               = useState(readNotifPrefs)
+  const [showAlerts, setShowAlerts]               = useState(false)
   const [leftCollapsed, setLeftCollapsed]         = useState(false)
   // Start collapsed; the Incident View only auto-opens once there's an active
   // incident to show (see the effect below).
@@ -90,6 +105,41 @@ export default function App() {
   const wsDestroyRef           = useRef(false)
   const pendingReporterTokenRef = useRef(null)
 
+  // ── Alert plumbing ───────────────────────────────────────────────────────
+  // `push` gates itself on notifPrefs, so every call site below can stay dumb.
+  const { items: notifItems, toasts, unreadCount, push: pushNotif,
+          dismiss: dismissNotif, hideToast, markAllRead, clear: clearNotifs }
+    = useNotifications(notifPrefs)
+
+  // Last-seen { alarm, status, loc } per fire_id.
+  //
+  // The diffing has to happen in the message handler BEFORE setState, not
+  // inside a setActiveIncidents(prev => …) updater: an updater that pushes a
+  // notification is a side effect in a reducer, and StrictMode double-invokes
+  // those — which would double every escalation alert in development.
+  const incidentSnapRef = useRef(new Map())
+  // per_ids already known to be offline, so a tracker that has been stale for
+  // hours doesn't re-alert on every 10s poll.
+  const staleSeenRef    = useRef(null)
+
+  function setNotifPref(key, value) {
+    setNotifPrefs(prev => ({ ...prev, [key]: value }))
+  }
+
+  // Read is marked on CLOSE, not on open: marking on open would wipe the unread
+  // strips in the same frame the dispatcher started reading them. Doing it here
+  // rather than inside a setShowAlerts updater keeps the side effect out of a
+  // reducer, which StrictMode double-invokes.
+  function closeAlerts() {
+    markAllRead()
+    setShowAlerts(false)
+  }
+
+  function toggleAlerts() {
+    if (showAlerts) closeAlerts()
+    else setShowAlerts(true)
+  }
+
   // Keep ref in sync so the WS onmessage handler never reads a stale value
   useEffect(() => { pendingReporterTokenRef.current = pendingReporterToken }, [pendingReporterToken])
 
@@ -110,6 +160,10 @@ export default function App() {
     document.documentElement.dataset.motion = animations ? 'on' : 'off'
     localStorage.setItem('fireops-animations', animations ? '1' : '0')
   }, [animations])
+
+  useEffect(() => {
+    localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifPrefs))
+  }, [notifPrefs])
 
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') cancelPicking() }
@@ -146,7 +200,16 @@ export default function App() {
     setLoadingPersonnel(true)
 
     fetchActiveIncidents()
-      .then(data => { setActiveIncidents(data.filter(i => ACTIVE_STATUSES.has(i.status))); setLoadingIncidents(false) })
+      .then(data => {
+        const active = data.filter(i => ACTIVE_STATUSES.has(i.status))
+        // Seed the diff baseline, silently — everything already open at login
+        // is history, not news.
+        const snap = new Map()
+        data.forEach(i => snap.set(i.fire_id, { alarm: i.alarm, status: i.status, loc: i.loc }))
+        incidentSnapRef.current = snap
+        setActiveIncidents(active)
+        setLoadingIncidents(false)
+      })
       .catch(() => { setLoadingIncidents(false) })
 
     fetchPersonnel()
@@ -241,11 +304,41 @@ export default function App() {
           const msg = JSON.parse(e.data)
           if (msg.type === 'incident_created') {
             const inc = msg.data
+            incidentSnapRef.current.set(inc.fire_id, {
+              alarm: inc.alarm, status: inc.status, loc: inc.loc,
+            })
+            pushNotif('newIncident', {
+              title: inc.loc,
+              body: `${inc.sev} · ${inc.alarm}`,
+              fireId: inc.fire_id,
+              severity: 'critical',
+            })
             if (ACTIVE_STATUSES.has(inc.status)) {
               setActiveIncidents(prev => [inc, ...prev])
             }
           } else if (msg.type === 'incident_updated') {
             const inc = msg.data
+            const prevSnap = incidentSnapRef.current.get(inc.fire_id)
+            incidentSnapRef.current.set(inc.fire_id, {
+              alarm: inc.alarm, status: inc.status, loc: inc.loc,
+            })
+            if (prevSnap) {
+              if (_alarmRank(inc.alarm) > _alarmRank(prevSnap.alarm)) {
+                pushNotif('escalation', {
+                  title: inc.loc,
+                  body: `Escalated ${prevSnap.alarm} → ${inc.alarm}`,
+                  fireId: inc.fire_id,
+                  severity: 'critical',
+                })
+              }
+              if (ACTIVE_STATUSES.has(prevSnap.status) && !ACTIVE_STATUSES.has(inc.status)) {
+                pushNotif('resolution', {
+                  title: inc.loc,
+                  body: `Incident ${inc.status}`,
+                  fireId: inc.fire_id,
+                })
+              }
+            }
             setActiveIncidents(prev => {
               const rest = prev.filter(i => i.fire_id !== inc.fire_id)
               return ACTIVE_STATUSES.has(inc.status) ? [inc, ...rest] : rest
@@ -256,6 +349,31 @@ export default function App() {
             if (!ACTIVE_STATUSES.has(inc.status)) {
               setDispatchRoutes(prev => prev.filter(r => r.fire_id !== inc.fire_id))
             }
+          } else if (msg.type === 'auto_dispatch_failed') {
+            // Payload carries only { fire_id, reason }; incident_created always
+            // precedes it, so the snapshot has the location by now. Name the
+            // place — "no unit for fire 41" is not actionable at 3am.
+            const { fire_id, reason } = msg.data
+            const loc = incidentSnapRef.current.get(fire_id)?.loc
+            pushNotif('autoDispatchFailed', {
+              title: loc ? `No unit available for ${loc}` : 'No unit available',
+              body: reason || 'Auto-dispatch found no available team.',
+              fireId: fire_id,
+              severity: 'critical',
+            })
+          } else if (msg.type === 'dispatch_arrived') {
+            const { fire_id, team_name } = msg.data
+            const loc = incidentSnapRef.current.get(fire_id)?.loc
+            pushNotif('onScene', {
+              title: `${team_name} on scene`,
+              body: loc ? `Arrived at ${loc}` : 'Unit marked arrival.',
+              fireId: fire_id,
+            })
+            setDispatches(prev => prev.map(d =>
+              d.dispatch_id === msg.data.dispatch_id
+                ? { ...d, dispatch_status: 'on_scene' }
+                : d
+            ))
           } else if (msg.type === 'reporter_location') {
             const { token: t, lat, lng, phone } = msg.data
             handleReporterLocationReceived({ token: t, coords: [lat, lng], mobile: phone || '' })
@@ -330,7 +448,9 @@ export default function App() {
     async function poll() {
       try {
         const rows = await fetchPersonnelLocations()
-        if (!cancelled) setLivePersonnelLocations(rows)
+        if (cancelled) return
+        detectNewlyOffline(rows)
+        setLivePersonnelLocations(rows)
       } catch { /* non-fatal */ }
     }
 
@@ -338,6 +458,24 @@ export default function App() {
     const id = setInterval(poll, 10_000)
     return () => { cancelled = true; clearInterval(id) }
   }, [route.view]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Alert only on the false → true edge of is_stale. The first poll after login
+  // just seeds the set: a tracker that went offline before the shift started is
+  // not news, and without this every login would open with a burst of alerts.
+  function detectNewlyOffline(rows) {
+    const nowStale = new Set(rows.filter(r => r.is_stale).map(r => r.per_id))
+    const seen = staleSeenRef.current
+    if (seen === null) { staleSeenRef.current = nowStale; return }
+    rows.forEach(r => {
+      if (r.is_stale && !seen.has(r.per_id)) {
+        pushNotif('deviceOffline', {
+          title: `${r.name || `Personnel ${r.per_id}`} tracker offline`,
+          body: `No location for ${Math.round(r.age_minutes)} min`,
+        })
+      }
+    })
+    staleSeenRef.current = nowStale
+  }
 
   function _parseWkt(wkt) {
     if (!wkt) return null
@@ -565,6 +703,12 @@ export default function App() {
   }
 
   function handleLogout() {
+    // Both are diff baselines, not data: a new session has to reseed them or it
+    // would alert on everything that changed while nobody was signed in.
+    incidentSnapRef.current = new Map()
+    staleSeenRef.current    = null
+    clearNotifs()
+    setShowAlerts(false)
     localStorage.removeItem('bfp_token')
     localStorage.removeItem('bfp_user')
     setRoute({ view: 'login' })
@@ -597,6 +741,9 @@ export default function App() {
         showingSettings={showSettings}
         user={route.user}
         onLogout={handleLogout}
+        unreadCount={unreadCount}
+        alertsOpen={showAlerts}
+        onToggleAlerts={toggleAlerts}
       />
       <main className="app-content" id="main-content">
       {showSettings ? (
@@ -608,6 +755,8 @@ export default function App() {
           onCompactNavChange={setCompactNav}
           animations={animations}
           onAnimationsChange={setAnimations}
+          notifPrefs={notifPrefs}
+          onNotifPrefChange={setNotifPref}
           onLogout={handleLogout}
           onAccountUpdate={handleAccountUpdate}
         />
@@ -678,6 +827,23 @@ export default function App() {
         </div>
       )}
       </main>
+
+      {showAlerts && (
+        <NotificationPanel
+          items={notifItems}
+          onClose={closeAlerts}
+          onDismiss={dismissNotif}
+          onClear={clearNotifs}
+        />
+      )}
+
+      {/* Rendered here rather than inside TopBar: the rail opens its own
+          stacking context, which would cap these below the map's layers. */}
+      <ToastStack
+        toasts={toasts}
+        onDismiss={hideToast}
+        onOpenPanel={() => setShowAlerts(true)}
+      />
 
       {pickedLocation && (
         <NewIncidentModal

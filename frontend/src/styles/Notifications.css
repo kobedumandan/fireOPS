@@ -1,0 +1,331 @@
+/* Toasts + the alert history panel.
+
+   Every colour here resolves through a token; per-kind accents come in as
+   --n-accent, which the components set to one of the --accent-*-rgb triplets.
+   The triplet form (rather than a solid token) is deliberate — it is the only
+   one every accent in the scale has, and tints written against it re-tone with
+   the theme instead of keeping a dark-mode hue over a light surface. */
+
+/* ── Toast stack ─────────────────────────────────────────────────────────── */
+
+/* Above --z-modal, not below it: a new-fire toast that a dispatcher cannot see
+   because a dialog happens to be open is worse than useless. Precedent is the
+   skip link in index.css. */
+.toast-stack {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: calc(var(--z-modal) + 1);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  width: 340px;
+  max-width: calc(100vw - 36px);
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid rgb(var(--n-accent));
+  background: var(--bg-card);
+  box-shadow: var(--shadow-md);
+  /* data-motion="off" in index.css already flattens this to a single frame,
+     so the preference needs no special handling here. */
+  animation: toastIn 0.22s ease-out;
+}
+
+.toast.critical {
+  background: linear-gradient(
+    90deg,
+    rgba(var(--n-accent), 0.14),
+    var(--bg-card) 60%
+  );
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(var(--n-accent), 0.14);
+  color: rgb(var(--n-accent));
+}
+.toast-icon-svg {
+  width: 17px;
+  height: 17px;
+}
+
+.toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-kind {
+  font-family: var(--font-condensed);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgb(var(--n-accent));
+}
+
+.toast-title {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.toast-sub {
+  font-family: var(--font-span);
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.toast-time {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-tertiary);
+  margin-top: 5px;
+}
+
+.toast-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.toast-close {
+  display: flex;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.toast-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.toast-close-svg {
+  width: 13px;
+  height: 13px;
+}
+
+.toast-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: var(--font-condensed);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.toast-link:hover {
+  color: var(--accent-fire);
+}
+
+/* ── History panel ───────────────────────────────────────────────────────── */
+
+/* Fixed and anchored beside the rail rather than nested in it, for the same
+   stacking-context reason the toasts are rendered at top level. */
+.notif-panel {
+  position: fixed;
+  left: 240px;
+  bottom: 18px;
+  z-index: var(--z-popover);
+  width: 330px;
+  max-width: calc(100vw - 260px);
+  max-height: min(520px, calc(100dvh - 36px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* The rail collapses to 56px, so the panel follows it in. */
+:root[data-nav="compact"] .notif-panel {
+  left: 66px;
+  max-width: calc(100vw - 86px);
+}
+
+.notif-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.notif-panel-title {
+  font-family: var(--font-condensed);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+
+.notif-panel-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notif-clear {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: var(--font-condensed);
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.notif-clear:hover {
+  color: var(--accent-fire);
+}
+
+.notif-panel-close,
+.notif-item-close {
+  display: flex;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.notif-panel-close:hover,
+.notif-item-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.notif-close-svg {
+  width: 13px;
+  height: 13px;
+}
+
+.notif-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.notif-empty {
+  padding: 26px 12px;
+  text-align: center;
+  font-family: var(--font-span);
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.notif-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+.notif-item:last-child {
+  border-bottom: none;
+}
+.notif-item:hover {
+  background: var(--bg-hover);
+}
+
+/* Unread is carried by a tinted left edge rather than a dot: the accent is
+   already per-kind, so the same strip does double duty. */
+.notif-item.unread {
+  box-shadow: inset 2px 0 0 rgb(var(--n-accent));
+  background: rgba(var(--n-accent), 0.05);
+}
+
+.notif-item-icon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: rgba(var(--n-accent), 0.14);
+  color: rgb(var(--n-accent));
+}
+.notif-item-svg {
+  width: 15px;
+  height: 15px;
+}
+
+.notif-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-item-kind {
+  font-family: var(--font-condensed);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgb(var(--n-accent));
+}
+
+.notif-item-title {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.notif-item-sub {
+  font-family: var(--font-span);
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.notif-item-time {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
