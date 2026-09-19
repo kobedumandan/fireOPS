@@ -288,6 +288,12 @@ def mark_arrived(
     if not membership:
         raise HTTPException(status_code=403, detail="You are not assigned to this dispatch.")
 
+    # Only the first arrival counts. A second tap (another crew member, or a
+    # retry) must not overwrite dispatch_arrived_at, which response-time
+    # metrics are measured against.
+    if dispatch.dispatch_status not in ("dispatched", "en_route"):
+        raise HTTPException(status_code=409, detail="This dispatch is already marked as arrived or has ended.")
+
     now = datetime.now(timezone.utc)
     dispatch.dispatch_status     = "on_scene"
     dispatch.dispatch_arrived_at = now
