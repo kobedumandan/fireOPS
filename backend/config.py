@@ -2,8 +2,18 @@
 
 Pure values only — importing this module must never pull in the database, the
 routing engine, or FastAPI, so every other module can depend on it freely.
+
+Every value below is read at import time, and this module is imported long
+before anything touches the database, so it cannot rely on database.py's
+load_dotenv() side effect to have populated the environment first. Without the
+explicit load here, a populated .env is silently ignored and every setting
+falls back to its default.
 """
 import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 JWT_SECRET      = os.getenv("JWT_SECRET", "change-me")

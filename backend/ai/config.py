@@ -27,6 +27,15 @@ byte the Panabo ones, i.e. the default path is unchanged.
 from pathlib import Path
 import os
 
+from dotenv import load_dotenv
+
+# REGION is resolved at import time, and this module is pulled in by
+# routing_pool -> routing_setup, which main.py imports before anything that
+# touches the database. database.py's load_dotenv() therefore runs too late to
+# help: without this call, REGION=... in backend/.env is silently ignored and
+# the server loads Panabo's network no matter what the .env says.
+load_dotenv()
+
 # backend/
 BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = BASE_DIR / "data"
