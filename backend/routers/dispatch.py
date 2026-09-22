@@ -26,6 +26,7 @@ from security import get_current_user
 from serializers import _incident_dict, _report_photo_url
 from services.dispatch import (
     _add_incident_to_heatmap, _complete_dispatch_and_release, _is_driver,
+    _released_payload,
     _normalize_role, _perform_dispatch,
 )
 from services.routing import (
@@ -264,6 +265,7 @@ def select_dispatch_route(
 @router.patch("/api/dispatch/{dispatch_id}/arrived")
 def mark_arrived(
     dispatch_id: int,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: Users = Depends(get_current_user),
 ):
@@ -287,6 +289,12 @@ def mark_arrived(
     if not membership:
         raise HTTPException(status_code=403, detail="You are not assigned to this dispatch.")
 
+    # Only the first arrival counts. A second tap (another crew member, or a
+    # retry) must not overwrite dispatch_arrived_at, which response-time
+    # metrics are measured against.
+    if dispatch.dispatch_status not in ("dispatched", "en_route"):
+        raise HTTPException(status_code=409, detail="This dispatch is already marked as arrived or has ended.")
+
     now = datetime.now(timezone.utc)
     dispatch.dispatch_status     = "on_scene"
     dispatch.dispatch_arrived_at = now
@@ -301,6 +309,26 @@ def mark_arrived(
         dispatch_truck.truck.truck_status = "on_scene"
 
     db.commit()
+
+    # Arrival used to commit silently, so the dashboard never learned a unit had
+    # reached the scene. This endpoint is sync (it is called from the mobile app
+    # and has no other awaits), so the broadcast goes through BackgroundTasks —
+    # the same pattern as the reroute broadcast above.
+    background_tasks.add_task(
+        manager.broadcast,
+        {
+            "type": "dispatch_arrived",
+            "data": {
+                "dispatch_id": dispatch.dispatch_id,
+                "fire_id":     dispatch.fire_id,
+                "team_id":     dispatch.team_id,
+                "team_name":   (dispatch.team.team_name if dispatch.team else None)
+                               or f"Team {dispatch.team_id}",
+                "arrived_at":  dispatch.dispatch_arrived_at.isoformat(),
+            },
+        },
+    )
+
     return {
         "dispatch_id":         dispatch.dispatch_id,
         "dispatch_status":     dispatch.dispatch_status,
@@ -493,6 +521,10 @@ async def submit_incident_report(
     )
     if not membership:
         raise HTTPException(status_code=403, detail="You are not assigned to this dispatch.")
+    # Filing closes the incident and completes the dispatch, so it is held to
+    # the same team-leader rule as marking the incident contained.
+    if _normalize_role(membership.member_role) != "team leader":
+        raise HTTPException(status_code=403, detail="Only the team leader can file the incident report.")
 
     inc = dispatch.fire_incident
     if not inc:
@@ -552,6 +584,7 @@ async def submit_incident_report(
     inc.fire_status = "closed"
     _complete_dispatch_and_release(dispatch, now)
     _add_incident_to_heatmap(db, inc, now)
+    released = _released_payload([dispatch])
 
     db.commit()
     db.refresh(report)
@@ -559,6 +592,8 @@ async def submit_incident_report(
 
     data = _incident_dict(inc)
     await manager.broadcast({"type": "incident_updated", "data": data})
+    # Same reason as the status-edit close path in routers/incidents.py.
+    await manager.broadcast(released)
     return {
         "report_id":   report.report_id,
         "fire_id":     inc.fire_id,
@@ -626,6 +661,21 @@ async def full_reroute(
     obs = _load_active_obstructions(db)
     route_results = state.routing_engine.compute_routes_multi_alpha(src_nodes[0][0], tgt_nodes[0][0], obstructions=obs)
     if not route_results:
+        # A closure that severs every path is a legitimate answer, not a
+        # failure, but the two are indistinguishable from an empty list. Re-run
+        # without the obstructions: if that finds a route, the closures are the
+        # reason, and the dispatcher needs to be told which situation they are
+        # in rather than reading "no results" and assuming the button is broken.
+        if obs and state.routing_engine.compute_routes_multi_alpha(
+            src_nodes[0][0], tgt_nodes[0][0]
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Active road obstructions leave no route to this incident. "
+                    "Remove or move one, then reroute."
+                ),
+            )
         raise HTTPException(status_code=422, detail="Route computation returned no results.")
 
     # Delete only THIS dispatch's existing routes (release FK first).
@@ -684,6 +734,11 @@ async def full_reroute(
                 "route_type":  r["route_type"],
                 "is_selected": r["is_selected"],
                 "eta_minutes": round(r["eta_seconds"] / 60, 2),
+                # The caller replaces its whole route set for this dispatch from
+                # this payload, so it needs the geometry too — without route_wkt
+                # there is nothing to draw and the map goes blank after a reroute.
+                "route_wkt":       r["route_wkt"],
+                "distance_meters": r.get("route_distance_meters"),
             }
             for ro, r in saved
         ],

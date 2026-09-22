@@ -118,7 +118,7 @@ function StatusPill({ status }) {
   );
 }
 
-export default function TrucksPage() {
+export default function TrucksPage({ refreshKey = 0 }) {
   const [trucks, setTrucks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -132,6 +132,10 @@ export default function TrucksPage() {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
 
+  // refreshKey is bumped by App when a dispatch completes, so a close that
+  // returns a crew to standby lands here without a reload. Deliberately does
+  // NOT set loading back to true — a refetch should update the rows in place,
+  // not flash the skeleton over a table the user is already reading.
   useEffect(() => {
     fetchTrucks()
       .then((t) => {
@@ -139,7 +143,7 @@ export default function TrucksPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [refreshKey]);
 
   const stats = useMemo(
     () => ({

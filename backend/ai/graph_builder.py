@@ -198,6 +198,100 @@ class RoadNetworkGraph:
             return None
         return best
 
+    def _edge_geometry_index(self):
+        """
+        Endpoint coordinates of every edge as parallel numpy arrays.
+
+        Cached and keyed on the edge count, the same way the routing engine
+        caches midpoints. snap_point runs on mouse movement while a dispatcher
+        is placing an obstruction, so it cannot afford nearest_edge's
+        per-call Python loop over the whole network.
+        """
+        n_edges = self.G.number_of_edges()
+        cache = getattr(self, "_edge_geom_cache", None)
+        if cache is not None and cache[0] == n_edges:
+            return cache[1]
+
+        us, vs, alat, alon, blat, blon = [], [], [], [], [], []
+        for u, v in self.G.edges():
+            a, b = self.G.nodes[u], self.G.nodes[v]
+            us.append(u)
+            vs.append(v)
+            alat.append(a["lat"])
+            alon.append(a["lon"])
+            blat.append(b["lat"])
+            blon.append(b["lon"])
+
+        index = tuple(
+            np.asarray(arr, dtype=dt)
+            for arr, dt in (
+                (us, np.int64), (vs, np.int64),
+                (alat, np.float64), (alon, np.float64),
+                (blat, np.float64), (blon, np.float64),
+            )
+        )
+        self._edge_geom_cache = (n_edges, index)
+        return index
+
+    def snap_point(
+        self, lat: float, lon: float, radius_km: float = 0.05
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Snap a coordinate onto the nearest road segment.
+
+        Same projection as :meth:`nearest_edge` -- a local planar frame in
+        metres, accurate at city scale -- but evaluated over all edges at once.
+
+        Returns the snapped point, the distance to it, and the bearing of the
+        road there (degrees clockwise from north, 0-180 since a road has no
+        inherent direction for this purpose). The bearing is what lets the map
+        draw a marker *across* the carriageway instead of a pin beside it.
+        Returns None when no road lies within ``radius_km``.
+        """
+        us, vs, alat, alon, blat, blon = self._edge_geometry_index()
+        if us.size == 0:
+            return None
+
+        D2R = np.pi / 180.0
+        R = 6_371_000.0
+        cos0 = np.cos(lat * D2R)
+
+        px, py = lon * D2R * cos0 * R, lat * D2R * R
+        ax, ay = alon * D2R * cos0 * R, alat * D2R * R
+        bx, by = blon * D2R * cos0 * R, blat * D2R * R
+
+        dx, dy = bx - ax, by - ay
+        seg_len2 = dx * dx + dy * dy
+        # Zero-length edges would divide by zero; park them at t=0 and let the
+        # distance test discard them naturally.
+        safe = np.where(seg_len2 == 0.0, 1.0, seg_len2)
+        t = np.clip(((px - ax) * dx + (py - ay) * dy) / safe, 0.0, 1.0)
+        t = np.where(seg_len2 == 0.0, 0.0, t)
+
+        ex = px - (ax + dx * t)
+        ey = py - (ay + dy * t)
+        dist_m = np.sqrt(ex * ex + ey * ey)
+
+        k = int(np.argmin(dist_m))
+        best_m = float(dist_m[k])
+        if best_m > radius_km * 1000.0:
+            return None
+
+        tk = float(t[k])
+        proj_lat = float(alat[k] + (blat[k] - alat[k]) * tk)
+        proj_lon = float(alon[k] + (blon[k] - alon[k]) * tk)
+
+        bearing = float(np.degrees(np.arctan2(float(dx[k]), float(dy[k]))) % 180.0)
+
+        return {
+            "latitude":    proj_lat,
+            "longitude":   proj_lon,
+            "distance_m":  round(best_m, 2),
+            "bearing_deg": round(bearing, 2),
+            "u": int(us[k]),
+            "v": int(vs[k]),
+        }
+
     # ── Statistics ────────────────────────────────────────────────────────────
 
     def summary(self) -> Dict[str, Any]:

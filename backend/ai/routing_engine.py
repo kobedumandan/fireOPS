@@ -153,9 +153,36 @@ def _congestion_schedule_for_feature(props: Dict[str, Any]) -> List[float]:
 
 
 NUM_LANDMARKS: int = 16   # number of ALT landmark nodes
-PENALTY_FACTOR: float = 3.0  # edge cost multiplier after each route is found
 
-OBSTRUCTION_RADIUS_KM: float = 0.05   # 50m — edges with both endpoints within this radius are affected
+# -- Alternative-route generation ---------------------------------------------
+# Alternatives come from the penalty method: re-run the search with the edges of
+# the routes found so far made more expensive. On its own that guarantees a
+# *different* path but says nothing about whether it is a *sensible* one, which
+# is how a crew ends up offered a scenic detour through half the municipality.
+# So every candidate has to pass the acceptance tests below before it is
+# offered, and if none pass we return fewer routes. Two good routes beat three
+# where one is nonsense.
+PENALTY_FACTOR: float = 1.5    # gentle nudge, not a push-away; the tests below filter
+MAX_ALT_STRETCH: float = 1.35  # an alternative may be at most 35% slower than the best
+MAX_ALT_SHARING: float = 0.75  # ...and must differ by >25% of an accepted route's driving time
+MAX_ALT_ATTEMPTS: int = 6      # searches to try before giving up on finding more
+
+# How far from a road an obstruction may sit and still be attached to it. Past
+# this it is treated as not on the network at all.
+OBSTRUCTION_SNAP_RADIUS_KM: float = 0.06
+
+# Extra reach around the snapped point, so a closure also takes the opposite
+# carriageway of a divided road and the stub segments either side of the exact
+# vertex it landed on.
+#
+# This used to be a flat 50m sweep over edge midpoints, which was far wider
+# than it sounds: OSM splits roads into ~18m segments, so one blockade removed
+# every approach to a junction in both directions -- about ten edges -- and on
+# a sparse rural network that regularly severed origin from destination
+# outright. Routing then correctly found no path, the reroute returned "no
+# results", and it looked like obstructions were being ignored when in fact
+# they were being applied far too aggressively.
+OBSTRUCTION_SPREAD_M: float = 12.0
 OBSTRUCTION_SEVERITY: Dict[str, float] = {
     "blockade":  float("inf"),   # fully blocked
     "flood":     float("inf"),   # impassable
@@ -196,6 +223,9 @@ class GeoAIRoutingEngine:
         # we hold the result and invalidate it in invalidate_landmarks() (the
         # single chokepoint every weight-mutating method already calls).
         self._edge_cost_cache: "Tuple[Dict[Tuple[int, int], float], Dict[int, float]] | None" = None
+        # Edge midpoint coordinates for obstruction lookups, built on first
+        # use and reused until the graph changes. See _edge_midpoint_index.
+        self._edge_mid_cache: "Tuple[int, Any] | None" = None
 
         # ── GNN model ─────────────────────────────────────────────────────────
         if gnn_type == "pmgcn":
@@ -427,6 +457,42 @@ class GeoAIRoutingEngine:
 
         return edge_costs, node_scores_map
 
+    def _edge_midpoint_index(self):
+        """
+        Per-edge (u, v, midpoint lat, midpoint lon) as parallel numpy arrays.
+
+        Built once and reused. apply_obstructions previously walked every edge
+        in the graph for every obstruction, which cost ~300ms per obstruction
+        on Panabo's 28k-edge network -- paid on every dispatch, every reroute
+        and every responder location ping that recomputes a connector. The
+        midpoints only move when the graph itself changes, so they are cached
+        here and the distance test is vectorised against them.
+
+        The cache is keyed on the edge count so a rebuilt graph cannot be
+        matched against stale coordinates; invalidate_landmarks() also clears it.
+        """
+        n_edges = self.graph.G.number_of_edges()
+        if self._edge_mid_cache is not None and self._edge_mid_cache[0] == n_edges:
+            return self._edge_mid_cache[1]
+
+        G = self.graph.G
+        us, vs, mlat, mlon = [], [], [], []
+        for u, v in G.edges():
+            un, vn = G.nodes[u], G.nodes[v]
+            us.append(u)
+            vs.append(v)
+            mlat.append((un["lat"] + vn["lat"]) / 2.0)
+            mlon.append((un["lon"] + vn["lon"]) / 2.0)
+
+        index = (
+            np.asarray(us, dtype=np.int64),
+            np.asarray(vs, dtype=np.int64),
+            np.asarray(mlat, dtype=np.float64),
+            np.asarray(mlon, dtype=np.float64),
+        )
+        self._edge_mid_cache = (n_edges, index)
+        return index
+
     def apply_obstructions(
         self,
         obstructions: List[Dict[str, Any]],
@@ -435,39 +501,76 @@ class GeoAIRoutingEngine:
         """
         Overlay obstruction penalties onto an existing edge-cost dict.
 
-        For each obstruction, find graph edges whose midpoint is within
-        OBSTRUCTION_RADIUS_KM. Multiply their cost by the severity factor
-        (or set to inf for full blocks).
+        Each obstruction is snapped to the road segment it sits on and that
+        segment is penalised in both directions, along with anything within
+        OBSTRUCTION_SPREAD_M of the snapped point. Severity comes from
+        OBSTRUCTION_SEVERITY: a multiplier, or inf for a full closure.
+
+        An obstruction with no road within OBSTRUCTION_SNAP_RADIUS_KM is
+        skipped and logged rather than applied to whatever is vaguely nearby.
 
         Returns the mutated edge_costs dict (same object, modified in place).
         """
         if not obstructions:
             return edge_costs
 
-        from .graph_builder import _haversine_km
+        us, vs, mlat, mlon = self._edge_midpoint_index()
+        if us.size == 0:
+            return edge_costs
 
+        G = self.graph.G
+        R_EARTH_KM = 6371.0088
         affected = 0
+        unplaced = 0
+
         for obs in obstructions:
-            olat, olon = obs["latitude"], obs["longitude"]
+            olat, olon = float(obs["latitude"]), float(obs["longitude"])
             severity = OBSTRUCTION_SEVERITY.get(obs.get("type", "repair"), 5.0)
 
-            for u, v, data in self.graph.G.edges(data=True):
-                u_data = self.graph.G.nodes[u]
-                v_data = self.graph.G.nodes[v]
-                mid_lat = (u_data["lat"] + v_data["lat"]) / 2
-                mid_lon = (u_data["lon"] + v_data["lon"]) / 2
-                dist = _haversine_km(olat, olon, mid_lat, mid_lon)
+            # Attach the obstruction to one specific road segment rather than
+            # to whatever happens to lie within a radius of it.
+            hit = self.graph.snap_point(
+                olat, olon, radius_km=OBSTRUCTION_SNAP_RADIUS_KM
+            )
+            if hit is None:
+                unplaced += 1
+                continue
 
-                if dist <= OBSTRUCTION_RADIUS_KM:
+            # The snapped segment, both ways: a closed road is closed in both
+            # directions unless something says otherwise.
+            targets = {(hit["u"], hit["v"]), (hit["v"], hit["u"])}
+
+            # ...plus anything within the (small) spread of the snapped point,
+            # measured from that point rather than the raw click.
+            lat1 = np.radians(hit["latitude"])
+            lat2 = np.radians(mlat)
+            dlat = lat2 - lat1
+            dlon = np.radians(mlon - hit["longitude"])
+            a = (np.sin(dlat / 2.0) ** 2
+                 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0) ** 2)
+            dist_m = 2.0 * R_EARTH_KM * 1000.0 * np.arcsin(np.sqrt(a))
+            for i in np.nonzero(dist_m <= OBSTRUCTION_SPREAD_M)[0]:
+                targets.add((int(us[i]), int(vs[i])))
+
+            for u, v in targets:
+                if not G.has_edge(u, v):
+                    continue
+                if severity == float("inf"):
+                    edge_costs[(u, v)] = float("inf")
+                else:
+                    data = G[u][v]
                     current = edge_costs.get(
                         (u, v), data.get("weight", data.get("travel_time_s", 60.0))
                     )
-                    if severity == float("inf"):
-                        edge_costs[(u, v)] = float("inf")
-                    else:
-                        edge_costs[(u, v)] = current * severity
-                    affected += 1
+                    edge_costs[(u, v)] = current * severity
+                affected += 1
 
+        if unplaced:
+            logger.warning(
+                "Obstructions: %d of %d are not within %.0f m of any road and "
+                "were ignored",
+                unplaced, len(obstructions), OBSTRUCTION_SNAP_RADIUS_KM * 1000,
+            )
         if affected:
             logger.info(
                 "Obstructions: %d active, %d edge-costs modified",
@@ -563,6 +666,7 @@ class GeoAIRoutingEngine:
         # Edge costs derive from the same weights as landmarks, so any change
         # that stales landmarks also stales the cached edge-cost dict.
         self._edge_cost_cache = None
+        self._edge_mid_cache = None
 
     def _precompute_landmarks(self, num_landmarks: int = NUM_LANDMARKS) -> None:
         """
@@ -814,6 +918,17 @@ class GeoAIRoutingEngine:
         if self._use_constraint_costs:
             self.apply_congestion(edge_costs)
 
+        # The second objective: pure travel time, model ignored. Obstructions
+        # still apply -- a blocked road is blocked whatever you are optimising
+        # for -- but the GAT multipliers and congestion schedule do not, so
+        # this is what the router would do with no model at all.
+        time_costs: Dict[Tuple[int, int], float] = {
+            (u, v): data.get("travel_time_s", 60.0)
+            for u, v, data in self.graph.G.edges(data=True)
+        }
+        if obstructions:
+            self.apply_obstructions(obstructions, time_costs)
+
         if not self._landmarks_valid:
             self._precompute_landmarks()
 
@@ -855,14 +970,26 @@ class GeoAIRoutingEngine:
         obstructions: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Generate up to 3 routes using ALT + the penalty method.
+        Generate up to 3 routes, each answering a different question.
 
-        Route 1 (recommended): optimal path on GNN-modulated costs.
-        Route 2–3 (alternative): edges from prior routes are multiplied by
-            PENALTY_FACTOR to force genuinely different paths.
+        Route "recommended": best path on the constraint-aware costs -- the
+            GAT model's risk multipliers and scheduled congestion included.
+            This is the one pre-selected for the crew.
+        Route "fastest": best path on raw travel_time_s, with the model's
+            opinion switched off entirely. Where this diverges from the
+            recommended route, the gap IS the model's contribution, which is
+            what makes it worth showing the dispatcher.
+        Route "alternative": fills any remaining slot via the penalty method.
 
-        ETA on every route is the sum of base travel_time_s values so times
-        are always comparable across routes.
+        Only genuinely useful routes are returned, so this can yield fewer
+        than 3 (see MAX_ALT_STRETCH / MAX_ALT_SHARING). Where no constraint
+        data is loaded -- New Corella is raw OSM -- the first two objectives
+        are identical by definition, the duplicate is dropped, and the result
+        degrades cleanly to penalty-based alternatives.
+
+        ETA on every route is the sum of base travel_time_s values, never the
+        scoring cost, so times stay comparable no matter which objective
+        produced the path.
         """
         from .graph_builder import _haversine_km
 
@@ -878,49 +1005,34 @@ class GeoAIRoutingEngine:
         if self._use_constraint_costs:
             self.apply_congestion(edge_costs)
 
+        # The second objective: pure travel time, model ignored. Obstructions
+        # still apply -- a blocked road is blocked whatever you are optimising
+        # for -- but the GAT multipliers and congestion schedule do not, so
+        # this is what the router would do with no model at all.
+        time_costs: Dict[Tuple[int, int], float] = {
+            (u, v): data.get("travel_time_s", 60.0)
+            for u, v, data in self.graph.G.edges(data=True)
+        }
+        if obstructions:
+            self.apply_obstructions(obstructions, time_costs)
+
         if not self._landmarks_valid:
             self._precompute_landmarks()
 
-        route_labels = [
-            (1, "recommended", True),
-            (2, "alternative", False),
-            (3, "alternative", False),
-        ]
+        def _edge_times(route_nodes: List[int]) -> Dict[Tuple[int, int], float]:
+            """Map each edge of a route to its base travel time."""
+            return {
+                (route_nodes[i], route_nodes[i + 1]):
+                    self.graph.G[route_nodes[i]][route_nodes[i + 1]].get("travel_time_s", 60.0)
+                for i in range(len(route_nodes) - 1)
+            }
 
-        results: List[Dict[str, Any]] = []
-        seen_wkts: set = set()
-        # working_costs is a mutable copy — penalties accumulate across iterations
-        working_costs: Dict[Tuple[int, int], float] = dict(edge_costs)
-
-        for rank, route_type, is_selected in route_labels:
-            try:
-                route_nodes, _ = self._alt_search(source_node, target_node, working_costs)
-            except ValueError as exc:
-                logger.warning("ALT route %d failed: %s", rank, exc)
-                continue
-
+        def _build(route_nodes: List[int]) -> Dict[str, Any]:
             coords = [
                 (self.graph.G.nodes[n]["lon"], self.graph.G.nodes[n]["lat"])
                 for n in route_nodes
             ]
-            wkt = "LINESTRING(" + ", ".join(f"{lon} {lat}" for lon, lat in coords) + ")"
-
-            # Always penalize so the next search is pushed onto a different path
-            for i in range(len(route_nodes) - 1):
-                u, v = route_nodes[i], route_nodes[i + 1]
-                working_costs[(u, v)] = working_costs.get(
-                    (u, v), self.graph.G[u][v].get("travel_time_s", 60.0)
-                ) * PENALTY_FACTOR
-
-            if wkt in seen_wkts:
-                logger.debug("Route %d is duplicate — skipped", rank)
-                continue
-            seen_wkts.add(wkt)
-
-            eta_seconds = float(sum(
-                self.graph.G[route_nodes[i]][route_nodes[i + 1]].get("travel_time_s", 60.0)
-                for i in range(len(route_nodes) - 1)
-            ))
+            times = _edge_times(route_nodes)
             distance_m = float(sum(
                 _haversine_km(
                     coords[i][1], coords[i][0],
@@ -929,23 +1041,127 @@ class GeoAIRoutingEngine:
                 for i in range(len(coords) - 1)
             ))
             avg_score = float(np.mean([node_scores_map.get(n, 0.5) for n in route_nodes]))
-            confidence = float(np.clip(avg_score * 100, 0, 100))
-
-            results.append({
+            return {
                 "route_nodes":           route_nodes,
-                "eta_seconds":           round(eta_seconds),
-                "gnn_confidence":        round(confidence, 1),
-                "route_wkt":             wkt,
+                "eta_seconds":           round(float(sum(times.values()))),
+                "gnn_confidence":        round(float(np.clip(avg_score * 100, 0, 100)), 1),
+                "route_wkt": "LINESTRING(" + ", ".join(
+                    f"{lon} {lat}" for lon, lat in coords
+                ) + ")",
                 "route_distance_meters": round(distance_m, 1),
-                "rank":                  rank,
-                "route_type":            route_type,
-                "is_selected":           is_selected,
-            })
+                "_edge_times":           times,
+                "_total_time":           float(sum(times.values())),
+            }
+
+        def _penalise(route_nodes: List[int]) -> None:
+            for i in range(len(route_nodes) - 1):
+                u, v = route_nodes[i], route_nodes[i + 1]
+                working_costs[(u, v)] = working_costs.get(
+                    (u, v), self.graph.G[u][v].get("travel_time_s", 60.0)
+                ) * PENALTY_FACTOR
+
+        # working_costs is a mutable copy - penalties accumulate across iterations
+        working_costs: Dict[Tuple[int, int], float] = dict(edge_costs)
+
+        accepted: List[Dict[str, Any]] = []
+        seen_wkts: set = set()
+        rejected = 0
+
+        def _distinct_enough(cand: Dict[str, Any]) -> bool:
+            """True when cand differs enough from every route already accepted."""
+            for prev in accepted:
+                shared = sum(
+                    t for e, t in cand["_edge_times"].items() if e in prev["_edge_times"]
+                )
+                if shared > prev["_total_time"] * MAX_ALT_SHARING:
+                    return False
+            return True
+
+        # ── Objective 1: constraint-aware (the recommended route) ─────────────
+        try:
+            best_nodes, _ = self._alt_search(source_node, target_node, working_costs)
+        except ValueError as exc:
+            logger.warning("ALT primary route failed: %s", exc)
+            return []
+
+        best = _build(best_nodes)
+        best["route_type"] = "recommended"
+        accepted.append(best)
+        seen_wkts.add(best["route_wkt"])
+        _penalise(best_nodes)
+
+        # ── Objective 2: fastest on raw travel time (model switched off) ──────
+        # Skipped when no constraint data is loaded, because the two objectives
+        # are then the same function and this is just the primary search again.
+        if self._use_constraint_costs:
+            try:
+                fast_nodes, _ = self._alt_search(source_node, target_node, time_costs)
+            except ValueError as exc:
+                logger.debug("Fastest-route objective failed: %s", exc)
+            else:
+                fast = _build(fast_nodes)
+                # No stretch test here: this route minimises travel time, so it
+                # can never be the slow detour that test exists to catch.
+                if fast["route_wkt"] in seen_wkts:
+                    logger.debug("Fastest route identical to recommended - dropped")
+                elif not _distinct_enough(fast):
+                    logger.debug("Fastest route too similar to recommended - dropped")
+                else:
+                    fast["route_type"] = "fastest"
+                    accepted.append(fast)
+                    seen_wkts.add(fast["route_wkt"])
+                    _penalise(fast_nodes)
+
+        # ── Remaining slots: penalty-based alternatives ───────────────────────
+        for _ in range(MAX_ALT_ATTEMPTS):
+            if len(accepted) >= 3:
+                break
+            try:
+                cand_nodes, _ = self._alt_search(source_node, target_node, working_costs)
+            except ValueError as exc:
+                logger.debug("No further alternative: %s", exc)
+                break
+
+            cand = _build(cand_nodes)
+            # Penalise regardless of the verdict, otherwise a rejected candidate
+            # is simply found again on the next attempt and the loop spins.
+            _penalise(cand_nodes)
+
+            if cand["route_wkt"] in seen_wkts:
+                continue
+
+            # Bounded stretch: never offer a detour that costs the crew real time.
+            if cand["_total_time"] > best["_total_time"] * MAX_ALT_STRETCH:
+                rejected += 1
+                logger.debug(
+                    "Alternative rejected (stretch %.2f > %.2f)",
+                    cand["_total_time"] / max(best["_total_time"], 1e-9),
+                    MAX_ALT_STRETCH,
+                )
+                continue
+
+            if not _distinct_enough(cand):
+                rejected += 1
+                logger.debug("Alternative rejected (shares too much with an accepted route)")
+                continue
+
+            cand["route_type"] = "alternative"
+            seen_wkts.add(cand["route_wkt"])
+            accepted.append(cand)
+
+        results: List[Dict[str, Any]] = []
+        for idx, r in enumerate(accepted):
+            r.pop("_edge_times", None)
+            r.pop("_total_time", None)
+            r["rank"] = idx + 1
+            r["is_selected"] = idx == 0
+            results.append(r)
 
         elapsed = (time.perf_counter() - t0) * 1000
         logger.info(
-            "Multi-route %d→%d: %d unique routes in %.1fms",
-            source_node, target_node, len(results), elapsed,
+            "Multi-route %d->%d: %d routes accepted (%s), %d rejected, in %.1fms",
+            source_node, target_node, len(results),
+            "/".join(r["route_type"] for r in results), rejected, elapsed,
         )
         return results
 

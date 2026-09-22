@@ -108,7 +108,7 @@ function MemberAvatar({ initials }) {
   );
 }
 
-export default function TeamsPage() {
+export default function TeamsPage({ refreshKey = 0 }) {
   const [teams, setTeams] = useState([]);
   const [search, setSearch] = useState("");
   const [activeStatus, setActiveStatus] = useState("all");
@@ -121,6 +121,10 @@ export default function TeamsPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [view, setView] = useState("list");
 
+  // refreshKey is bumped by App when a dispatch completes, so a close that
+  // returns a crew to standby lands here without a reload. Deliberately does
+  // NOT set loading back to true — a refetch should update the rows in place,
+  // not flash the skeleton over a table the user is already reading.
   useEffect(() => {
     fetchTeams()
       .then((data) => {
@@ -128,7 +132,7 @@ export default function TeamsPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [refreshKey]);
 
   const stats = useMemo(
     () => ({

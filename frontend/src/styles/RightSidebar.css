@@ -654,6 +654,44 @@
   /* letter-spacing: 0.5px; */
 }
 
+/* ── Force reroute (below the route list) ───────────────────── */
+.route-empty-note {
+  font-size: 9px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  background: rgba(var(--accent-amber-rgb), 0.07);
+  border: 1px solid rgba(var(--accent-amber-rgb), 0.25);
+  border-radius: 6px;
+  padding: 7px 8px;
+  margin-bottom: 6px;
+}
+.route-reroute-btn {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 9.8px;
+}
+.route-reroute-confirm {
+  margin-top: 6px;
+  padding: 9px;
+  border-radius: 6px;
+  background: rgba(var(--accent-fire-rgb), 0.08);
+  border: 1px solid rgba(var(--accent-fire-rgb), 0.3);
+}
+.route-reroute-warning {
+  color: var(--accent-fire);
+  font-size: 9.4px;
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+.route-reroute-actions {
+  display: flex;
+  gap: 8px;
+}
+.route-reroute-actions > button {
+  flex: 1;
+  font-size: 9.4px;
+}
+
 .detail-actions {
   padding: 12px 4px;
   border-top: 1px solid var(--border-dim);
@@ -719,4 +757,13 @@
 .skel {
   background: var(--border-bright);
   animation: skel-pulse 1.4s ease-in-out infinite;
+}
+
+/* Why this route exists, under its label — the tradeoff is the whole point
+   of showing more than one, so it has to be readable at a glance. */
+.route-option-hint {
+  font-size: 8.4px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  margin-top: 2px;
 }

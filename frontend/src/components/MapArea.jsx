@@ -21,6 +21,7 @@ import { useTheme, readCssVar } from "../hooks/useTheme";
 import {
   fetchHeatmap,
   fetchObstructions,
+  snapToRoad,
   createObstruction,
   deleteObstruction,
   fetchGnnConstraints,
@@ -82,6 +83,7 @@ function MapClickHandler({
   active,
   onPick,
   onObstructionPick,
+  onObstructionHover,
   obstructionActive,
 }) {
   useMapEvents({
@@ -89,6 +91,12 @@ function MapClickHandler({
       const latlng = [e.latlng.lat, e.latlng.lng];
       if (obstructionActive) onObstructionPick(latlng);
       else if (active) onPick(latlng);
+    },
+    mousemove(e) {
+      if (obstructionActive) onObstructionHover([e.latlng.lat, e.latlng.lng]);
+    },
+    mouseout() {
+      if (obstructionActive) onObstructionHover(null);
     },
   });
   return null;
@@ -261,22 +269,131 @@ function stationIcon() {
 }
 
 // ── Road obstruction types & icon ────────────────────────────────────────────
+// `blocks` mirrors OBSTRUCTION_SEVERITY in the routing engine: blockade and
+// flood are infinite cost (the truck cannot pass at all), repair and accident
+// are multipliers (it gets through, slowly). That is the distinction a
+// dispatcher has to read at a glance, so it drives the marker's shape --
+// solid = impassable, outlined = passable but slow -- not only its colour.
+//
+// `glyph` is static SVG markup, shared by the Leaflet divIcon (which needs an
+// HTML string) and <ObstructionGlyph> (which renders it in React). One source
+// of truth beats maintaining the same four icons twice, and it inherits
+// currentColor either way, so both follow the theme.
 const OBSTRUCTION_TYPES = [
-  { id: "repair", label: "Repair", color: "#facc15", symbol: "🔧" },
-  { id: "blockade", label: "Blockade", color: "#ef4444", symbol: "⛔" },
-  { id: "flood", label: "Flood", color: "#38bdf8", symbol: "🌊" },
-  { id: "accident", label: "Accident", color: "#fb923c", symbol: "⚠️" },
+  {
+    id: "blockade",
+    fallback: "#ef4444",
+    label: "Blockade",
+    token: "--accent-red",
+    blocks: true,
+    effect: "Impassable — routes around it",
+    glyph: '<circle cx="12" cy="12" r="8.5"/><line x1="7" y1="12" x2="17" y2="12"/>',
+  },
+  {
+    id: "flood",
+    fallback: "#38bdf8",
+    label: "Flood",
+    token: "--accent-cyan",
+    blocks: true,
+    effect: "Impassable — routes around it",
+    glyph:
+      '<path d="M3 15q2.75-3 5.5 0t5.5 0 5.5 0"/><path d="M3 9.5q2.75-3 5.5 0t5.5 0 5.5 0"/>',
+  },
+  {
+    id: "accident",
+    fallback: "#ff4d1a",
+    label: "Accident",
+    token: "--accent-fire",
+    blocks: false,
+    effect: "Slows traffic heavily",
+    glyph:
+      '<path d="M12 4.5 20.5 19H3.5Z"/><line x1="12" y1="10" x2="12" y2="13.5"/><line x1="12" y1="16.2" x2="12" y2="16.3"/>',
+  },
+  {
+    id: "repair",
+    fallback: "#ffb020",
+    label: "Repair",
+    token: "--accent-amber",
+    blocks: false,
+    effect: "Slows traffic",
+    glyph:
+      '<rect x="3" y="9" width="18" height="6" rx="1.2"/><line x1="8" y1="9" x2="5" y2="15"/><line x1="13" y1="9" x2="10" y2="15"/><line x1="18" y1="9" x2="15" y2="15"/>',
+  },
 ];
 
-function obstructionIcon(type) {
-  const info =
-    OBSTRUCTION_TYPES.find((t) => t.id === type) || OBSTRUCTION_TYPES[0];
+function obsInfo(type) {
+  return OBSTRUCTION_TYPES.find((t) => t.id === type) || OBSTRUCTION_TYPES[0];
+}
+
+// Inline SVG coloured by currentColor, so the caller sets the theme token.
+function ObstructionGlyph({ type, size = 14 }) {
+  const info = obsInfo(type);
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      // Static module constant above, never user input.
+      dangerouslySetInnerHTML={{ __html: info.glyph }}
+    />
+  );
+}
+
+// An obstruction is drawn as a bar laid across the carriageway rather than a
+// pin beside it, so there is no ambiguity about which road it closes. The bar
+// is perpendicular to the road's bearing and sized in metres, so it stays
+// glued to the road at every zoom instead of drifting off it.
+const OBS_BAR_HALF_M = 11;
+
+function obstructionBar(obs) {
+  if (obs.bearing_deg == null) return null;
+  const rad = ((obs.bearing_deg + 90) * Math.PI) / 180;
+  const dLat = (OBS_BAR_HALF_M * Math.cos(rad)) / 111320;
+  const dLon =
+    (OBS_BAR_HALF_M * Math.sin(rad)) /
+    (111320 * Math.cos((obs.latitude * Math.PI) / 180));
+  return [
+    [obs.latitude - dLat, obs.longitude - dLon],
+    [obs.latitude + dLat, obs.longitude + dLon],
+  ];
+}
+
+// Same marker, faded: shows where a click would actually drop the obstruction
+// once it has been snapped to the road.
+function obstructionGhostIcon(type) {
+  const info = obsInfo(type);
   return L.divIcon({
     className: "",
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    html: `<div class="obstruction-marker" style="border-color:${info.color};box-shadow:0 0 10px ${info.color}44">
-             <span style="font-size:14px;line-height:1">${info.symbol}</span>
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    html: `<div class="obstruction-marker obstruction-marker--ghost${
+      info.blocks ? " obstruction-marker--blocking" : ""
+    }" style="--obs:var(${info.token})">
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">${info.glyph}</svg>
+           </div>`,
+  });
+}
+
+function obstructionIcon(type) {
+  const info = obsInfo(type);
+  return L.divIcon({
+    className: "",
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    html: `<div class="obstruction-marker${
+      info.blocks ? " obstruction-marker--blocking" : ""
+    }" style="--obs:var(${info.token})">
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">${info.glyph}</svg>
            </div>`,
   });
 }
@@ -685,6 +802,171 @@ function DrawPreview({ points, color }) {
 }
 
 // ── Constraint editor panel (appears when GNN Constraints layer is active) ──
+// Bottom-right tool panel for normal view, twinned with ConstraintEditorPanel
+// below (GNN view). Obstruction state lives in MapArea rather than App, so the
+// panel is rendered here alongside it instead of in MapActions.
+// Bottom-right tool panel for the obstruction view, twinned with
+// ConstraintEditorPanel below (GNN view). Deliberately built to the same
+// pattern as MapActions -- same header, same collapse affordance, same type
+// scale -- so the two floating map panels read as one family.
+//
+// Obstruction state lives in MapArea rather than App, so the panel is rendered
+// here alongside it instead of in MapActions.
+function ObstructionPanel({
+  open,
+  onToggleOpen,
+  placingType,
+  onStartPlace,
+  onCancelPlace,
+  obstructions,
+  onDelete,
+}) {
+  if (!open) {
+    return (
+      <button
+        className="obstruction-float-btn"
+        onClick={onToggleOpen}
+        title="Expand obstructions"
+      >
+        <MaximizeIcon />
+        Obstructions
+      </button>
+    );
+  }
+
+  return (
+    <div className="obstruction-panel">
+      <div className="obstruction-panel-head">
+        <button
+          className="obstruction-collapse-btn"
+          onClick={onToggleOpen}
+          title="Collapse"
+          aria-label="Collapse obstructions"
+        >
+          <MinimizeIcon />
+        </button>
+        <div className="obstruction-panel-title">Obstructions</div>
+      </div>
+
+      <div className="obstruction-panel-body">
+        <div className="obstruction-panel-tools">
+          {placingType ? (
+            <>
+              <div className="obstruction-placing">
+                <span
+                  className="obstruction-chip-icon"
+                  style={{ "--obs": `var(${obsInfo(placingType).token})` }}
+                >
+                  <ObstructionGlyph type={placingType} size={12} />
+                </span>
+                Click a road
+              </div>
+              <button
+                className="obstruction-cancel-btn"
+                onClick={onCancelPlace}
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            OBSTRUCTION_TYPES.map((t) => (
+              <button
+                key={t.id}
+                className="obstruction-type-btn"
+                style={{ "--obs": `var(${t.token})` }}
+                onClick={() => onStartPlace(t.id)}
+                title={`${t.label} - ${t.effect}`}
+              >
+                <ObstructionGlyph type={t.id} size={13} />
+                {t.label}
+              </button>
+            ))
+          )}
+        </div>
+
+        {/* The list sits beside the tools rather than under them: it grows with
+            every obstruction placed, and stacking it would push the buttons up
+            the map as the shift wore on. */}
+        <div className="obstruction-panel-list">
+          <div className="obstruction-list-title">
+            Active ({obstructions.length})
+          </div>
+          {obstructions.length === 0 ? (
+            <div className="obstruction-list-empty">None placed</div>
+          ) : (
+            <div className="obstruction-list-scroll">
+              {obstructions.map((o) => {
+                const info = obsInfo(o.type);
+                return (
+                  <div key={o.id} className="obstruction-list-item">
+                    <span
+                      className="obstruction-chip-icon"
+                      style={{ "--obs": `var(${info.token})` }}
+                    >
+                      <ObstructionGlyph type={o.type} size={11} />
+                    </span>
+                    <span className="obstruction-item-name">
+                      {o.description || info.label}
+                    </span>
+                    <button
+                      className="obstruction-item-remove"
+                      onClick={() => onDelete(o.id)}
+                      title="Remove"
+                      aria-label={`Remove ${info.label}`}
+                    >
+                      <CloseIcon />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Same glyphs MapActions collapses with, so the two panels behave identically.
+function MinimizeIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="minimize_icon"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M440-440v240h-80v-160H200v-80h240Zm160-320v160h160v80H520v-240h80Z" />
+    </svg>
+  );
+}
+
+function MaximizeIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="maximize_icon"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M200-200v-240h80v160h160v80H200Zm480-320v-160H520v-80h240v240h-80Z" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"
+      aria-hidden="true">
+      <line x1="6" y1="6" x2="18" y2="18" />
+      <line x1="18" y1="6" x2="6" y2="18" />
+    </svg>
+  );
+}
+
 function ConstraintEditorPanel({
   drawingType,
   onStartDraw,
@@ -944,6 +1226,8 @@ export default function MapArea({
       ? new Set(["Heat Map"])
       : viewMode === "barangay"
       ? new Set(["Barangay"])
+      : viewMode === "obstructions"
+      ? new Set(["Obstructions"])
       : new Set(["Incidents", "Personnel", "Stations", "Routes"]);
   // The command map has no basemap switcher, so it follows the theme like the
   // metrics and planning maps do.
@@ -1046,7 +1330,13 @@ export default function MapArea({
   // ── Road obstructions ──────────────────────────────────────────────────────
   const [obstructions, setObstructions] = useState([]);
   const [placingType, setPlacingType] = useState(null);
-  const [showObstructions, setShowObstructions] = useState(true);
+  // The adder starts open; collapsing it leaves the pins and a way back.
+  const [adderOpen, setAdderOpen] = useState(true);
+  // Where the pending obstruction would land once snapped, or null when the
+  // pointer is too far from any road for it to be placeable.
+  const [ghost, setGhost] = useState(null);
+  const snapAbort = useRef(null);
+  const lastSnapAt = useRef(0);
 
   useEffect(() => {
     fetchObstructions()
@@ -1054,28 +1344,66 @@ export default function MapArea({
       .catch(() => {});
   }, []);
 
-  function handleObstructionPlace(latlng) {
+  // Snapping happens server-side (the client has no road network), so the
+  // pointer is throttled and each request supersedes the one before it --
+  // otherwise a fast drag queues dozens of round trips and the ghost lands on
+  // whichever reply happens to arrive last.
+  function handleObstructionHover(latlng) {
     if (!placingType) return;
+    if (latlng === null) {
+      setGhost(null);
+      return;
+    }
+    const now = Date.now();
+    if (now - lastSnapAt.current < 90) return;
+    lastSnapAt.current = now;
+
+    snapAbort.current?.abort();
+    const ctrl = new AbortController();
+    snapAbort.current = ctrl;
+    snapToRoad(latlng[0], latlng[1], ctrl.signal)
+      .then(setGhost)
+      .catch(() => {}); // aborted or offline: keep the last good ghost
+  }
+
+  // Leaving placement mode must clear the preview, however it was left.
+  useEffect(() => {
+    if (!placingType) {
+      snapAbort.current?.abort();
+      setGhost(null);
+    }
+  }, [placingType]);
+
+  function handleObstructionPlace() {
+    // Placement follows the ghost, not the raw click: what the dispatcher saw
+    // previewed is exactly what gets saved. No ghost means no road in range,
+    // and the banner is already saying so.
+    if (!placingType || !ghost) return;
     const temp = {
       id: `local-${Date.now()}`,
       type: placingType,
-      latitude: latlng[0],
-      longitude: latlng[1],
+      latitude: ghost.latitude,
+      longitude: ghost.longitude,
+      bearing_deg: ghost.bearing_deg,
       description: "",
       created_at: new Date().toISOString(),
     };
     setObstructions((prev) => [...prev, temp]);
     createObstruction({
       type: placingType,
-      latitude: latlng[0],
-      longitude: latlng[1],
+      latitude: ghost.latitude,
+      longitude: ghost.longitude,
     })
       .then((saved) => {
         setObstructions((prev) =>
           prev.map((o) => (o.id === temp.id ? { ...temp, ...saved } : o))
         );
       })
-      .catch(() => {});
+      .catch(() => {
+        // The save failed, so drop the optimistic marker rather than leaving a
+        // phantom obstruction that the router knows nothing about.
+        setObstructions((prev) => prev.filter((o) => o.id !== temp.id));
+      });
     setPlacingType(null);
   }
 
@@ -1086,6 +1414,18 @@ export default function MapArea({
 
   // Briefly raise the z-index of a personnel marker whenever its live
   // location changes, so the updated marker pops above its neighbors.
+  // Leaflet paints on a canvas, so obstruction colours have to be resolved
+  // from their tokens in JS and re-resolved whenever the theme flips.
+  const obsColors = useMemo(
+    () =>
+      Object.fromEntries(
+        OBSTRUCTION_TYPES.map((t) => [t.id, readCssVar(t.token, t.fallback)])
+      ),
+    // readCssVar reads off the DOM, so `theme` is the dependency that matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [theme]
+  );
+
   const [mapZoom, setMapZoom] = useState(ZOOM);
   const [recentlyUpdatedIds, setRecentlyUpdatedIds] = useState(() => new Set());
   const prevLiveRef = useRef(new Map());
@@ -1194,22 +1534,15 @@ export default function MapArea({
       {/* Obstruction placement banner */}
       {placingType && !pickingMode && (
         <div
-          className="map-pick-banner"
-          style={{
-            borderColor: OBSTRUCTION_TYPES.find((t) => t.id === placingType)
-              ?.color,
-          }}
+          className="map-pick-banner obstruction-banner"
+          style={{ "--obs": `var(${obsInfo(placingType).token})` }}
         >
-          {OBSTRUCTION_TYPES.find((t) => t.id === placingType)?.symbol} Click on
-          the map to place{" "}
-          {OBSTRUCTION_TYPES.find(
-            (t) => t.id === placingType
-          )?.label.toLowerCase()}
+          <ObstructionGlyph type={placingType} size={13} />
+          {ghost
+            ? `Click to place ${obsInfo(placingType).label.toLowerCase()}`
+            : "Move closer to a road \u2014 obstructions must sit on the network"}
           {"  ·  "}
-          <span
-            style={{ cursor: "pointer", textDecoration: "underline" }}
-            onClick={() => setPlacingType(null)}
-          >
+          <span className="banner-action" onClick={() => setPlacingType(null)}>
             Cancel
           </span>
         </div>
@@ -1239,6 +1572,7 @@ export default function MapArea({
           onPick={onLocationPicked}
           obstructionActive={!!placingType}
           onObstructionPick={handleObstructionPlace}
+          onObstructionHover={handleObstructionHover}
         />
         <DrawClickHandler active={isDrawing} onPoint={handleDrawPoint} />
         <CursorController active={pickingMode || !!placingType || isDrawing} />
@@ -1637,12 +1971,50 @@ export default function MapArea({
           <Marker position={pickedLocation} icon={newIncidentIcon()} />
         )}
 
-        {/* Road obstructions */}
-        {showObstructions &&
+        {/* Ghost preview of the pending obstruction, on its snapped position */}
+        {placingType && ghost && (
+          <Marker
+            position={[ghost.latitude, ghost.longitude]}
+            icon={obstructionGhostIcon(placingType)}
+            interactive={false}
+            zIndexOffset={500}
+          />
+        )}
+
+        {/* Outside the obstruction view an obstruction is a bar across the
+            road, not a pin: it stays legible without competing with the
+            incident and unit markers that view is actually about. */}
+        {viewMode !== "obstructions" &&
           obstructions.map((obs) => {
-            const info =
-              OBSTRUCTION_TYPES.find((t) => t.id === obs.type) ||
-              OBSTRUCTION_TYPES[0];
+            const bar = obstructionBar(obs);
+            if (!bar) return null;
+            const info = obsInfo(obs.type);
+            return (
+              <Polyline
+                key={`bar-${obs.id}`}
+                positions={bar}
+                pathOptions={{
+                  color: obsColors[obs.type],
+                  weight: 6,
+                  opacity: 0.95,
+                  lineCap: "butt",
+                  // Dashed for the types traffic can still crawl through,
+                  // solid for the ones that are genuinely shut.
+                  dashArray: info.blocks ? null : "4 3",
+                }}
+              >
+                <Tooltip direction="top" className="leaflet-dark-tooltip">
+                  <div className="tooltip-id">{info.label}</div>
+                  <div className="tooltip-sub">{info.effect}</div>
+                </Tooltip>
+              </Polyline>
+            );
+          })}
+
+        {/* Road obstructions */}
+        {viewMode === "obstructions" &&
+          obstructions.map((obs) => {
+            const info = obsInfo(obs.type);
             return (
               <Marker
                 key={obs.id}
@@ -1650,12 +2022,24 @@ export default function MapArea({
                 icon={obstructionIcon(obs.type)}
               >
                 <Popup className="obstruction-popup">
-                  <div className="obstruction-popup-inner">
+                  <div
+                    className="obstruction-popup-inner"
+                    style={{ "--obs": `var(${info.token})` }}
+                  >
                     <div className="obstruction-popup-header">
-                      <span>{info.symbol}</span>
-                      <strong style={{ color: info.color }}>
-                        {info.label}
-                      </strong>
+                      <span className="obstruction-popup-icon">
+                        <ObstructionGlyph type={obs.type} size={13} />
+                      </span>
+                      <strong>{info.label}</strong>
+                    </div>
+                    {/* What it does to routing, in the dispatcher's terms --
+                        the reason they placed it in the first place. */}
+                    <div
+                      className={`obstruction-popup-effect${
+                        info.blocks ? " obstruction-popup-effect--blocking" : ""
+                      }`}
+                    >
+                      {info.effect}
                     </div>
                     <div className="obstruction-popup-coords">
                       {obs.latitude.toFixed(5)}, {obs.longitude.toFixed(5)}
@@ -1674,10 +2058,8 @@ export default function MapArea({
                   </div>
                 </Popup>
                 <Tooltip direction="top" className="leaflet-dark-tooltip">
-                  <div className="tooltip-id">
-                    {info.symbol} {info.label}
-                  </div>
-                  <div className="tooltip-sub">Click for details</div>
+                  <div className="tooltip-id">{info.label}</div>
+                  <div className="tooltip-sub">{info.effect}</div>
                 </Tooltip>
               </Marker>
             );
@@ -1725,6 +2107,16 @@ export default function MapArea({
             customConstraints={customConstraints}
             onDelete={handleDeleteConstraint}
             onEdit={handleEditConstraint}
+          />
+        ) : viewMode === "obstructions" ? (
+          <ObstructionPanel
+            open={adderOpen}
+            onToggleOpen={() => setAdderOpen((v) => !v)}
+            placingType={placingType}
+            onStartPlace={setPlacingType}
+            onCancelPlace={() => setPlacingType(null)}
+            obstructions={obstructions}
+            onDelete={handleObstructionDelete}
           />
         ) : null}
       </div>

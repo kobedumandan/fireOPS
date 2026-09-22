@@ -22,6 +22,7 @@ from models import (
     DispatchRecord, FireIncident, ResponseTeam, ResponseTeamMember,
     Station, Truck,
 )
+from services.routing import _load_active_obstructions
 from shift_utils import current_shift_id
 
 logger = logging.getLogger(__name__)
@@ -131,7 +132,8 @@ def _recent_dispatch_count(db: Session, team_id: int, now: datetime) -> int:
 
 
 def _route_eta_seconds(routing_engine, origin_lat: float, origin_lng: float,
-                       dest_lat: float, dest_lng: float) -> float | None:
+                       dest_lat: float, dest_lng: float,
+                       obstructions: list | None = None) -> float | None:
     if not routing_engine:
         return None
     try:
@@ -139,7 +141,9 @@ def _route_eta_seconds(routing_engine, origin_lat: float, origin_lng: float,
         tgt = routing_engine.graph.nodes_near(dest_lat,   dest_lng,   radius_km=2.0)
         if not src or not tgt:
             return None
-        routes = routing_engine.compute_routes_multi_alpha(src[0][0], tgt[0][0])
+        routes = routing_engine.compute_routes_multi_alpha(
+            src[0][0], tgt[0][0], obstructions=obstructions
+        )
         selected = next((r for r in routes if r.get("is_selected")), None) or (routes[0] if routes else None)
         if not selected:
             return None
@@ -218,12 +222,17 @@ def _rank_teams(
     finalists = with_distance[:top_n]
 
     # Stages C + D + E: real ETA + workload tiebreaker -> final score.
+    # Loaded once for the whole comparison: a team whose approach is closed has
+    # a worse real ETA than the map suggests, and picking the "nearest" team
+    # while ignoring that is how the wrong crew gets sent.
+    obstructions = _load_active_obstructions(db)
     scored: list[dict[str, Any]] = []
     for team, hav_m in finalists:
         eta = _route_eta_seconds(
             routing_engine,
             team.station.station_latitude, team.station.station_longitude,
             incident.fire_latitude,        incident.fire_longitude,
+            obstructions=obstructions,
         )
         eta_source = "gnn"
         if eta is None:

@@ -360,6 +360,16 @@ export async function fetchObstructions() {
   return res.json()
 }
 
+// Snap a coordinate onto the road network. Returns null when nothing is in
+// range, which is the ordinary answer while the pointer is over open ground,
+// so callers treat it as a state rather than a failure.
+export async function snapToRoad(lat, lon, signal) {
+  const res = await apiFetch(`/api/routing/snap?lat=${lat}&lon=${lon}`, { signal })
+  if (!res.ok) throw new Error(`Failed to snap to road (${res.status})`)
+  const data = await res.json()
+  return data.snapped ?? null
+}
+
 export async function createObstruction(body) {
   const res = await apiFetch('/api/obstructions', { method: 'POST', body: JSON.stringify(body) })
   if (!res.ok) {
