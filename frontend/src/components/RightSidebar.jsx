@@ -167,6 +167,25 @@ function NormalViewIcon() {
   );
 }
 
+function ObstructionsViewIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="view-mode-icon"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2.5" y="8.5" width="19" height="7" rx="1.2" />
+      <line x1="8" y1="8.5" x2="5" y2="15.5" />
+      <line x1="13" y1="8.5" x2="10" y2="15.5" />
+      <line x1="18" y1="8.5" x2="15" y2="15.5" />
+    </svg>
+  );
+}
+
 function ConstraintsViewIcon() {
   return (
     <svg
@@ -244,6 +263,23 @@ function TimelineTabIcon() {
     </svg>
   );
 }
+
+// Statuses POST /api/dispatch/{id}/full-reroute accepts; anything else 409s,
+// so the button is hidden rather than offered and then refused.
+const REROUTABLE_STATUSES = new Set(["dispatched", "en_route", "on_scene"]);
+
+// Each route answers a different question, so the label has to say which one —
+// "Alt 1" tells the dispatcher nothing about why they would pick it.
+const ROUTE_LABELS = {
+  recommended: "Recommended",
+  fastest: "Fastest",
+  alternative: "Alternative",
+  fallback: "Direct line",
+};
+const ROUTE_HINTS = {
+  recommended: "Avoids roads the model flags as risky",
+  fastest: "Shortest travel time, model ignored",
+};
 
 const TABS = [
   { key: "Incident", Icon: IncidentTabIcon },
@@ -324,6 +360,11 @@ export default function RightSidebar({
       {[
         { key: "normal", label: "Normal", Icon: NormalViewIcon },
         { key: "gnn", label: "GNN Constraints", Icon: ConstraintsViewIcon },
+        {
+          key: "obstructions",
+          label: "Road Obstructions",
+          Icon: ObstructionsViewIcon,
+        },
         { key: "heatmap", label: "Heatmap", Icon: HeatmapViewIcon },
         { key: "barangay", label: "Barangays", Icon: BarangayViewIcon },
       ].map(({ key, label, Icon }) => (
@@ -349,6 +390,11 @@ export default function RightSidebar({
   const [showEscalate, setShowEscalate] = useState(false);
   const [rerouteConfirm, setRerouteConfirm] = useState(null); // dispatch_id awaiting confirm
   const [rerouteLoading, setRerouteLoading] = useState(false);
+  // Kept separate from rerouteConfirm above: that one belongs to the deviation
+  // panel, and a shared key would open both confirmations at once whenever a
+  // deviated unit is on the same dispatch.
+  const [forceRerouteConfirm, setForceRerouteConfirm] = useState(null);
+  const [forceRerouteBusy, setForceRerouteBusy] = useState(null);
 
   if (collapsed) {
     return (
@@ -462,71 +508,133 @@ export default function RightSidebar({
                   </>
                 )}
 
-                {incidentRoutes.length > 0 &&
-                  (() => {
-                    const byDispatch = incidentRoutes.reduce((acc, r) => {
-                      const key = r.dispatch_id;
-                      if (!acc[key]) acc[key] = [];
-                      acc[key].push(r);
-                      return acc;
-                    }, {});
+                {/* Routes are grouped per dispatch. We iterate the DISPATCHES
+                    rather than the routes so a dispatch that came back with no
+                    computed path still gets a block — that is exactly the case
+                    where the dispatcher needs the reroute button. */}
+                {incidentDispatches.map((d) => {
+                  const sorted = incidentRoutes
+                    .filter((r) => r.dispatch_id === d.dispatch_id)
+                    .sort((a, b) => a.rank - b.rank);
+                  const teamName = d.team_name || sorted[0]?.teamName || "";
+                  const canReroute = REROUTABLE_STATUSES.has(d.dispatch_status);
+                  // A fallback entry is the straight station→incident line the
+                  // map draws when routing produced nothing — not a real route.
+                  const hasRealRoute = sorted.some(
+                    (r) => r.routeType !== "fallback"
+                  );
+                  const confirming = forceRerouteConfirm === d.dispatch_id;
 
-                    return Object.entries(byDispatch).map(([dispId, routes]) => {
-                      const sorted = [...routes].sort((a, b) => a.rank - b.rank);
-                      const teamName = sorted[0].teamName;
-                      return (
-                        <div key={dispId}>
-                          <div className="detail-section-title">
-                            Routes · {teamName}
-                          </div>
-                          {sorted.map((r) => (
-                            <div
-                              key={r.id}
-                              className={`route-option${
-                                r.isSelected ? " route-option--selected" : ""
-                              }`}
-                            >
-                              <div className="route-option-info">
-                                <span className="route-option-label">
-                                  {r.routeType === "recommended"
-                                    ? "Recommended"
-                                    : `Alt ${r.rank - 1}`}
-                                </span>
-                                <div className="route-option-metrics">
-                                  {r.etaMinutes != null && (
-                                    <span className="route-option-eta">
-                                      ETA: ~{r.etaMinutes} min
-                                    </span>
-                                  )}
-                                  {r.distanceKm != null && (
-                                    <span className="route-option-dist">
-                                      Dist: {r.distanceKm.toFixed(2)} km
-                                    </span>
-                                  )}
-                                </div>
+                  return (
+                    <div key={d.dispatch_id}>
+                      <div className="detail-section-title">
+                        Routes · {teamName}
+                      </div>
+
+                      {sorted.map((r) => (
+                        <div
+                          key={r.id}
+                          className={`route-option${
+                            r.isSelected ? " route-option--selected" : ""
+                          }`}
+                        >
+                          <div className="route-option-info">
+                            <span className="route-option-label">
+                              {ROUTE_LABELS[r.routeType] ?? `Alt ${r.rank - 1}`}
+                            </span>
+                            {ROUTE_HINTS[r.routeType] && (
+                              <div className="route-option-hint">
+                                {ROUTE_HINTS[r.routeType]}
                               </div>
-                              {!r.isSelected && r.route_id != null && (
-                                <button
-                                  className="route-option-btn"
-                                  onClick={() =>
-                                    onSelectRoute?.(Number(dispId), r.route_id)
-                                  }
-                                >
-                                  <SwitchAltRouteIcon />
-                                  Switch
-                                </button>
+                            )}
+                            <div className="route-option-metrics">
+                              {r.etaMinutes != null && (
+                                <span className="route-option-eta">
+                                  ETA: ~{r.etaMinutes} min
+                                </span>
                               )}
-                              {r.isSelected && (
-                                <span className="route-option-active">
-                                  Active
+                              {r.distanceKm != null && (
+                                <span className="route-option-dist">
+                                  Dist: {r.distanceKm.toFixed(2)} km
                                 </span>
                               )}
                             </div>
-                          ))}
+                          </div>
+                          {!r.isSelected && r.route_id != null && (
+                            <button
+                              className="route-option-btn"
+                              onClick={() =>
+                                onSelectRoute?.(d.dispatch_id, r.route_id)
+                              }
+                            >
+                              <SwitchAltRouteIcon />
+                              Switch
+                            </button>
+                          )}
+                          {r.isSelected && (
+                            <span className="route-option-active">Active</span>
+                          )}
                         </div>
-                      );
-                    });
-                  })()}
+                      ))}
+
+                      {!hasRealRoute && (
+                        <div className="route-empty-note">
+                          No routed path was computed for this dispatch — the map
+                          is showing a straight line to the incident. Force a
+                          reroute to plan over the road network.
+                        </div>
+                      )}
+
+                      {canReroute &&
+                        (confirming ? (
+                          <div className="route-reroute-confirm">
+                            <div className="route-reroute-warning">
+                              ⚠ This replaces every route for this dispatch,
+                              planned from the crew's current position.
+                            </div>
+                            <div className="route-reroute-actions">
+                              <button
+                                className="btn-dispatch"
+                                disabled={forceRerouteBusy === d.dispatch_id}
+                                onClick={async () => {
+                                  setForceRerouteBusy(d.dispatch_id);
+                                  try {
+                                    await onFullReroute?.(
+                                      d.dispatch_id,
+                                      d.fire_id
+                                    );
+                                    setForceRerouteConfirm(null);
+                                  } finally {
+                                    setForceRerouteBusy(null);
+                                  }
+                                }}
+                              >
+                                {forceRerouteBusy === d.dispatch_id
+                                  ? "Rerouting…"
+                                  : "Confirm Reroute"}
+                              </button>
+                              <button
+                                className="btn-secondary"
+                                disabled={forceRerouteBusy === d.dispatch_id}
+                                onClick={() => setForceRerouteConfirm(null)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            className="btn-secondary route-reroute-btn"
+                            onClick={() =>
+                              setForceRerouteConfirm(d.dispatch_id)
+                            }
+                          >
+                            ↺ Force Reroute
+                          </button>
+                        ))}
+                    </div>
+                  );
+                })}
 
                 {deviatedPersonnel.map((p) => {
                   const dispatch = incidentDispatches.find(

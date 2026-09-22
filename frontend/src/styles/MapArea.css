@@ -504,19 +504,34 @@
 
 /* Obstruction map markers */
 .obstruction-marker {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: 2px solid;
-  background: var(--map-panel-grad);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.15s;
+  display: grid;
+  place-items: center;
+  color: var(--obs);
+  background: var(--bg-panel);
+  border: 1.5px solid var(--obs);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3),
+    0 0 0 3px color-mix(in srgb, var(--obs) 16%, transparent);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Impassable (blockade, flood) reads as a solid stop sign; the passable-but-
+   slow types stay outlined. Shape carries the meaning so it survives
+   greyscale, colour-blindness and a cluttered map. */
+.obstruction-marker--blocking {
+  background: var(--obs);
+  border-color: var(--obs);
+  color: var(--bg-panel);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.38),
+    0 0 0 4px color-mix(in srgb, var(--obs) 24%, transparent);
 }
 
 .obstruction-marker:hover {
-  transform: scale(1.15);
+  transform: scale(1.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4),
+    0 0 0 6px color-mix(in srgb, var(--obs) 22%, transparent);
 }
 
 /* Obstruction popup */
@@ -983,3 +998,280 @@
   margin-top: 2px;
   white-space: nowrap;
 }
+
+/* ── Obstruction panel (bottom-right, obstruction view) ────────────────
+   Mirrors .map-actions-panel so the two floating map panels match: same
+   surface, same header, same control sizes, same type scale. Positioning is
+   left to the .tile-switcher wrapper, which is the only reason this cannot
+   simply reuse those classes. */
+.obstruction-panel {
+  width: 320px;
+  padding: 0 11.8px 12px;
+  background: var(--page-default-base);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.obstruction-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  padding: 8.9px 0;
+}
+
+.obstruction-panel-title {
+  color: var(--text-secondary);
+  padding-right: 6px;
+  font-size: 11px;
+}
+
+.obstruction-collapse-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  width: 23px;
+  height: 23px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.obstruction-collapse-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.obstruction-float-btn {
+  max-width: fit-content;
+  height: 23px;
+  padding: 0 7px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 11px;
+  line-height: 1;
+  gap: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  pointer-events: auto;
+  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.obstruction-float-btn:hover {
+  background: var(--bg-hover);
+  box-shadow: var(--shadow-md);
+}
+
+/* Tools on the left, the running list on the right. */
+.obstruction-panel-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.obstruction-panel-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.obstruction-type-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5.8px 8px 4.8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: var(--font-condensed);
+  font-size: 9.8px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.obstruction-type-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--obs) 50%, transparent);
+}
+
+/* Only the glyph carries the type's colour; the label stays with the panel's
+   own text colour so the buttons read as one set. */
+.obstruction-type-btn svg {
+  color: var(--obs);
+  flex: none;
+}
+
+.obstruction-placing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5.8px 0 4.8px;
+  background: var(--accent-amber-dim);
+  border-radius: 4px;
+  color: var(--accent-amber);
+  font-family: var(--font-condensed);
+  font-size: 9.8px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+}
+
+.obstruction-cancel-btn {
+  width: 100%;
+  padding: 5.8px 0 4.8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: var(--font-condensed);
+  font-size: 9.8px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.obstruction-cancel-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.obstruction-panel-list {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.obstruction-list-title {
+  font-size: 9.4px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+
+.obstruction-list-empty {
+  font-size: 9.4px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  padding: 2px 0;
+}
+
+/* Capped so a long shift's worth of obstructions scrolls inside the panel
+   instead of growing it off the top of the map. */
+.obstruction-list-scroll {
+  max-height: 104px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.obstruction-list-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2.5px 0;
+  min-width: 0;
+}
+
+.obstruction-chip-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--obs);
+}
+
+.obstruction-item-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 9.8px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.obstruction-item-remove {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.obstruction-item-remove:hover {
+  background: rgba(var(--accent-red-rgb), 0.14);
+  color: var(--accent-red);
+}
+
+/* Placement banner + popup accents, both tinted by the active type's token. */
+.obstruction-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-color: var(--obs);
+  color: var(--obs);
+}
+
+.obstruction-popup-icon {
+  display: grid;
+  place-items: center;
+  color: var(--obs);
+}
+
+.obstruction-popup-header strong { color: var(--obs); }
+
+.obstruction-popup-effect {
+  font-size: 9.4px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  margin: 4px 0 2px;
+}
+
+.obstruction-popup-effect--blocking {
+  color: var(--obs);
+  font-weight: 500;
+}
+
+/* Ghost preview: the same marker at low opacity, so it reads as "this is where
+   it would land" rather than as an obstruction that already exists. */
+.obstruction-marker--ghost {
+  opacity: 0.45;
+  box-shadow: none;
+  border-style: dashed;
+  animation: obstruction-ghost-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes obstruction-ghost-pulse {
+  0%, 100% { opacity: 0.32; }
+  50%      { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .obstruction-marker--ghost { animation: none; }
+}
+
