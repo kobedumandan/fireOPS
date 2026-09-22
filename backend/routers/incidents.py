@@ -17,7 +17,7 @@ from security import get_current_user
 from serializers import _incident_dict, _report_dict
 from services.dispatch import (
     _add_incident_to_heatmap, _barangay_id_for_point,
-    _complete_dispatch_and_release, _perform_dispatch,
+    _complete_dispatch_and_release, _perform_dispatch, _released_payload,
 )
 from state import manager, report_session_phones, report_sessions
 
@@ -190,6 +190,7 @@ async def update_incident(
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found.")
     was_closed = inc.fire_status == "closed"
+    released = None
     for field, val in body.model_dump(exclude_unset=True).items():
         setattr(inc, field, val)
     # If this edit closes the incident, release any still-active dispatch crews
@@ -207,10 +208,16 @@ async def update_incident(
         for d in active_dispatches:
             _complete_dispatch_and_release(d, now)
         _add_incident_to_heatmap(db, inc, now)
+        # An incident can close with nothing dispatched to it; stay quiet then.
+        released = _released_payload(active_dispatches) if active_dispatches else None
     db.commit()
     db.refresh(inc)
     data = _incident_dict(inc)
     await manager.broadcast({"type": "incident_updated", "data": data})
+    # Tells the Teams/Trucks pages what just went back to standby; without it
+    # they stay stale until a reload.
+    if released:
+        await manager.broadcast(released)
     return data
 
 

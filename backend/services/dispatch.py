@@ -203,6 +203,41 @@ def _complete_dispatch_and_release(dispatch: DispatchRecord, now: datetime) -> N
         dt.manned_since     = None
 
 
+def _released_payload(dispatches) -> dict:
+    """WS payload naming everything _complete_dispatch_and_release just returned
+    to standby.
+
+    Closing an incident used to broadcast only `incident_updated`, whose payload
+    is the incident dict — it says nothing about teams or trucks. The database
+    was correct immediately, but the Teams and Trucks pages had no way to hear
+    about it and kept showing a released crew as dispatched until a reload, which
+    reads as "the close didn't work".
+
+    Build this BEFORE db.commit(), while the released rows are still loaded in
+    the session; afterwards the default expire-on-commit would re-query every
+    attribute touched here.
+    """
+    dispatch_ids, team_ids, truck_ids, per_ids = set(), set(), set(), set()
+    for d in dispatches:
+        dispatch_ids.add(d.dispatch_id)
+        if d.team_id:
+            team_ids.add(d.team_id)
+        for m in (d.team.members if d.team else []) or []:
+            per_ids.add(m.per_id)
+        for dt in d.dispatch_trucks or []:
+            if dt.truck_id:
+                truck_ids.add(dt.truck_id)
+    return {
+        "type": "dispatch_completed",
+        "data": {
+            "dispatch_ids": sorted(dispatch_ids),
+            "team_ids":     sorted(team_ids),
+            "truck_ids":    sorted(truck_ids),
+            "per_ids":      sorted(per_ids),
+        },
+    }
+
+
 # Severity → heatmap weight. Closed incidents become weighted points so the
 # fire-density heatmap accumulates from real history.
 _SEVERITY_WEIGHT = {"Minor": 0.4, "Moderate": 0.7, "Critical": 1.0}
