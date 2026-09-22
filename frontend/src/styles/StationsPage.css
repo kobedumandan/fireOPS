@@ -129,95 +129,9 @@
 }
 
 /* ── Stat cards ── */
+/* Grid + card styling come from KpiCard.css; the page only sets its spacing. */
 .sta-stat-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10.8px;
   margin-bottom: 16px;
-}
-
-.sta-stat-card {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 17px 12px 9.8px 17px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.sta-stat-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  order: 2;
-  margin-left: auto;
-}
-.sta-stat-icon .material-symbols-outlined {
-  font-size: 18px;
-}
-
-.sta-stat-card.amber .sta-stat-icon {
-  background: var(--accent-amber-dim);
-  color: var(--accent-amber);
-}
-.sta-stat-card.blue .sta-stat-icon {
-  background: var(--accent-blue-dim);
-  color: var(--accent-blue);
-}
-.sta-stat-card.purple .sta-stat-icon {
-  background: var(--accent-purple-dim);
-  color: var(--accent-purple);
-}
-.sta-stat-card.fire .sta-stat-icon {
-  background: var(--accent-fire-dim);
-  color: var(--accent-fire);
-}
-.sta-stat-card.green .sta-stat-icon {
-  background: var(--accent-green-dim);
-  color: var(--accent-green);
-}
-
-.sta-stat-content {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  text-align: left;
-  order: 1;
-}
-
-.sta-stat-label {
-  font-family: var(--font-condensed);
-  font-size: 9.8px;
-  font-weight: 600;
-  color: var(--text-primary);
-  text-transform: none;
-  letter-spacing: 0;
-}
-
-.sta-stat-value {
-  font-family: var(--font-condensed);
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  line-height: 1;
-}
-.sta-stat-card.amber  .sta-stat-value { color: var(--accent-amber); }
-.sta-stat-card.blue   .sta-stat-value { color: var(--accent-blue); }
-.sta-stat-card.purple .sta-stat-value { color: var(--accent-purple); }
-.sta-stat-card.fire   .sta-stat-value { color: var(--accent-fire); }
-.sta-stat-card.green  .sta-stat-value { color: var(--accent-green); }
-
-.sta-stat-sub {
-  font-family: var(--font-mono);
-  font-size: 8.8px;
-  letter-spacing: 0.5px;
-  color: var(--text-secondary);
-  margin-top: 0;
 }
 
 /* ── Status tabs (pill group) ── */
@@ -255,6 +169,7 @@
 }
 
 /* ── Toolbar ── */
+
 .sta-toolbar {
   display: flex;
   align-items: center;

@@ -121,80 +121,11 @@
   margin-bottom: 0;
 }
 
+/* Grid + card styling come from KpiCard.css; the page only sets its spacing. */
 .m-kpi-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10.8px;
   margin-bottom: 24px;
 }
 
-.m-kpi {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 11px 11px 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.m-kpi-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-}
-
-.m-kpi-label {
-  font-family: var(--font-condensed);
-  font-size: 9.8px;
-  font-weight: 600;
-  /* letter-spacing: -0.1px; */
-  /* text-transform: uppercase; */
-  color: var(--text-primary);
-}
-
-.m-kpi-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.kpi-icon-svg { width: 16px; height: 16px; }
-.m-kpi-icon-blue { background: var(--accent-blue-dim); color: var(--accent-blue); }
-.m-kpi-icon-amber { background: var(--accent-amber-dim); color: var(--accent-amber); }
-.m-kpi-icon-fire { background: var(--bg-hover); color: var(--text-primary); }
-.m-kpi-icon-green { background: var(--accent-green-dim); color: var(--accent-green); }
-
-.m-kpi-value {
-  font-family: var(--font-condensed);
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  line-height: 1;
-  margin-bottom: 5.8px;
-}
-.m-kpi-value-blue { color: var(--accent-blue); }
-.m-kpi-value-amber { color: var(--accent-amber); }
-.m-kpi-value-fire { color: var(--accent-fire); }
-.m-kpi-value-green { color: var(--accent-green); }
-
-.m-kpi-sub {
-  letter-spacing: -0.1px;
-  font-size: 8.8px;
-  margin-left: 6px;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.m-kpi-trend {
-  font-family: var(--font-mono);
-  font-size: 8.8px;
-  letter-spacing: 0.5px;
-}
-.trend-up { color: var(--accent-trend-up); }
-.trend-down { color: var(--accent-trend-down); }
 
 .m-grid {
   display: grid;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import "../styles/IncidentsPage.css";
+import KpiCard from "../components/KpiCard";
 import LogIncidentModal from "../components/LogIncidentModal";
 import EditIncidentModal from "../components/EditIncidentModal";
 import ConfirmModal from "../components/ConfirmModal";
@@ -326,67 +327,51 @@ export default function IncidentsPage() {
         </div>
 
         {/* STAT CARDS */}
-        <div className="inc-stat-row">
-          {loading
-            ? ["fire", "amber", "green", "blue"].map((cls) => (
-                <div key={cls} className={`inc-stat-card ${cls}`}>
-                  <div className="inc-stat-head">
-                    <span
-                      className="inc-sk"
-                      style={{ width: 60, height: 10 }}
-                    />
-                    <span
-                      className="inc-sk inc-sk-circle"
-                      style={{ width: 32, height: 32 }}
-                    />
-                  </div>
-                  <span className="inc-sk" style={{ width: 48, height: 24 }} />
-                  <span className="inc-sk" style={{ width: 90, height: 8 }} />
-                </div>
-              ))
-            : [
-                {
-                  cls: "fire",
-                  icon: "local_fire_department",
-                  label: "Pending",
-                  value: stats.pending,
-                  sub: "Awaiting Dispatch",
-                },
-                {
-                  cls: "amber",
-                  icon: "fire_truck",
-                  label: "Dispatched",
-                  value: stats.dispatched,
-                  sub: "Units En Route",
-                },
-                {
-                  cls: "green",
-                  icon: "check_circle",
-                  label: "Contained",
-                  value: stats.contained,
-                  sub: "Fire Suppressed",
-                },
-                {
-                  cls: "blue",
-                  icon: "inventory_2",
-                  label: "Closed",
-                  value: stats.closed,
-                  sub: "This Period",
-                },
-              ].map((c) => (
-                <div key={c.cls} className={`inc-stat-card ${c.cls}`}>
-                  <div className="inc-stat-head">
-                    <div className="inc-stat-label">{c.label}</div>
-                    <div className="inc-stat-icon">
-                      <span className="material-symbols-outlined">
-                        {c.icon}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="inc-stat-value">{c.value}</div>
-                  <div className="inc-stat-sub">{c.sub}</div>
-                </div>
-              ))}
+        <div className="kpi-row inc-stat-row">
+          {[
+            {
+              key: "pending",
+              accent: "fire",
+              icon: "local_fire_department",
+              label: "Pending",
+              value: stats.pending,
+              sub: "Awaiting Dispatch",
+            },
+            {
+              key: "dispatched",
+              accent: "amber",
+              icon: "fire_truck",
+              label: "Dispatched",
+              value: stats.dispatched,
+              sub: "Units En Route",
+            },
+            {
+              key: "contained",
+              accent: "green",
+              icon: "check_circle",
+              label: "Contained",
+              value: stats.contained,
+              sub: "Fire Suppressed",
+            },
+            {
+              key: "closed",
+              accent: "blue",
+              icon: "inventory_2",
+              label: "Closed",
+              value: stats.closed,
+              sub: "This Period",
+            },
+          ].map((c) => (
+            <KpiCard
+              key={c.key}
+              accent={c.accent}
+              icon={<span className="material-symbols-outlined">{c.icon}</span>}
+              label={c.label}
+              value={c.value}
+              sub={c.sub}
+              loading={loading}
+            />
+          ))}
         </div>
       </div>
 

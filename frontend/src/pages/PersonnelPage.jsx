@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import "../styles/PersonnelPage.css";
+import KpiCard from "../components/KpiCard";
 import AddPersonnelModal from "../components/AddPersonnelModal";
 import EditPersonnelModal from "../components/EditPersonnelModal";
 import ConfirmModal from "../components/ConfirmModal";
@@ -399,99 +400,24 @@ export default function PersonnelPage({ onShowOnMap, livePersonnelLocations = []
           </div>
 
           {/* STAT CARDS */}
-          <div className="per-stat-row">
-            {loading ? (
-              ["fire", "amber", "blue", "purple", "green"].map((cls) => (
-                <div key={cls} className={`per-stat-card ${cls}`}>
-                  <div className="per-stat-icon">
-                    <div
-                      className="per-skel"
-                      style={{ width: 28, height: 28, borderRadius: "50%" }}
-                    />
-                  </div>
-                  <div
-                    className="per-stat-content"
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-end",
-                      gap: 6,
-                    }}
-                  >
-                    <div
-                      className="per-skel"
-                      style={{ width: 52, height: 10 }}
-                    />
-                    <div
-                      className="per-skel"
-                      style={{ width: 36, height: 28 }}
-                    />
-                    <div
-                      className="per-skel"
-                      style={{ width: 80, height: 8 }}
-                    />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <>
-                <div className="per-stat-card fire">
-                  <div className="per-stat-icon">
-                    <span className="material-symbols-outlined">
-                      local_fire_department
-                    </span>
-                  </div>
-                  <div className="per-stat-content">
-                    <div className="per-stat-label">Dispatched</div>
-                    <div className="per-stat-value">{stats.dispatched}</div>
-                    <div className="per-stat-sub">En Route Now</div>
-                  </div>
-                </div>
-                <div className="per-stat-card amber">
-                  <div className="per-stat-icon">
-                    <span className="material-symbols-outlined">
-                      location_on
-                    </span>
-                  </div>
-                  <div className="per-stat-content">
-                    <div className="per-stat-label">On Scene</div>
-                    <div className="per-stat-value">{stats.onscene}</div>
-                    <div className="per-stat-sub">At Incident Site</div>
-                  </div>
-                </div>
-                <div className="per-stat-card blue">
-                  <div className="per-stat-icon">
-                    <span className="material-symbols-outlined">shield</span>
-                  </div>
-                  <div className="per-stat-content">
-                    <div className="per-stat-label">Standby</div>
-                    <div className="per-stat-value">{stats.standby}</div>
-                    <div className="per-stat-sub">Ready to Deploy</div>
-                  </div>
-                </div>
-                <div className="per-stat-card purple">
-                  <div className="per-stat-icon">
-                    <span className="material-symbols-outlined">bedtime</span>
-                  </div>
-                  <div className="per-stat-content">
-                    <div className="per-stat-label">Off Duty</div>
-                    <div className="per-stat-value">{stats.offduty}</div>
-                    <div className="per-stat-sub">Not Available</div>
-                  </div>
-                </div>
-                <div className="per-stat-card green">
-                  <div className="per-stat-icon">
-                    <span className="material-symbols-outlined">sensors</span>
-                  </div>
-                  <div className="per-stat-content">
-                    <div className="per-stat-label">Live Tracking</div>
-                    <div className="per-stat-value">{stats.iot}</div>
-                    <div className="per-stat-sub">Online</div>
-                  </div>
-                </div>
-              </>
-            )}
+          <div className="kpi-row per-stat-row">
+            {[
+              { key: "dispatched", accent: "fire", icon: "local_fire_department", label: "Dispatched", value: stats.dispatched, sub: "En Route Now" },
+              { key: "onscene", accent: "amber", icon: "location_on", label: "On Scene", value: stats.onscene, sub: "At Incident Site" },
+              { key: "standby", accent: "blue", icon: "shield", label: "Standby", value: stats.standby, sub: "Ready to Deploy" },
+              { key: "offduty", accent: "purple", icon: "bedtime", label: "Off Duty", value: stats.offduty, sub: "Not Available" },
+              { key: "iot", accent: "green", icon: "sensors", label: "Live Tracking", value: stats.iot, sub: "Online" },
+            ].map((c) => (
+              <KpiCard
+                key={c.key}
+                accent={c.accent}
+                icon={<span className="material-symbols-outlined">{c.icon}</span>}
+                label={c.label}
+                value={c.value}
+                sub={c.sub}
+                loading={loading}
+              />
+            ))}
           </div>
         </div>
 
