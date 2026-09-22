@@ -4,14 +4,39 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+import state
 from database import get_db
 from models import RoadObstruction, Users
+from routers.routing import SNAP_RADIUS_M
 from schemas import ObstructionCreate
 from security import get_current_user
 from state import manager
 
 
 router = APIRouter(tags=["obstructions"])
+
+
+def _serialise(r: RoadObstruction) -> dict:
+    return {
+        "id":          r.obstruction_id,
+        "type":        r.type,
+        "latitude":    r.latitude,
+        "longitude":   r.longitude,
+        "bearing_deg": r.bearing_deg,
+        "description": r.description or "",
+        "is_active":   r.is_active,
+        "created_at":  r.created_at.isoformat() if r.created_at else None,
+        "expires_at":  r.expires_at.isoformat() if r.expires_at else None,
+    }
+
+
+def _snap(lat: float, lon: float) -> dict | None:
+    """Snap to the road network, or None when the engine is down or nothing is near."""
+    if state.routing_engine is None:
+        return None
+    return state.routing_engine.graph.snap_point(
+        lat, lon, radius_km=SNAP_RADIUS_M / 1000.0
+    )
 
 
 @router.get("/api/obstructions")
@@ -25,19 +50,20 @@ def get_obstructions(
         .order_by(RoadObstruction.created_at.desc())
         .all()
     )
-    return [
-        {
-            "id":          r.obstruction_id,
-            "type":        r.type,
-            "latitude":    r.latitude,
-            "longitude":   r.longitude,
-            "description": r.description or "",
-            "is_active":   r.is_active,
-            "created_at":  r.created_at.isoformat() if r.created_at else None,
-            "expires_at":  r.expires_at.isoformat() if r.expires_at else None,
-        }
-        for r in rows
-    ]
+    # Rows predating the snapping behaviour carry no bearing, so the map has no
+    # angle to draw them at. Fill it in once, here, rather than leaving them
+    # permanently undrawable or forcing a one-off migration script.
+    dirty = False
+    for r in rows:
+        if r.bearing_deg is None:
+            hit = _snap(r.latitude, r.longitude)
+            if hit:
+                r.bearing_deg = hit["bearing_deg"]
+                dirty = True
+    if dirty:
+        db.commit()
+
+    return [_serialise(r) for r in rows]
 
 
 @router.post("/api/obstructions", status_code=201)
@@ -56,10 +82,23 @@ async def create_obstruction(
         except ValueError:
             raise HTTPException(status_code=422, detail="expires_at must be ISO 8601.")
 
+    # An obstruction only means something if it sits on an edge the router
+    # actually traverses -- one placed in a field costs nothing and silently
+    # does nothing -- so it is snapped to the network here and refused when
+    # there is no road to snap to. The client previews the same snap while
+    # placing, so a rejection should already be visible before saving.
+    hit = _snap(body.latitude, body.longitude)
+    if hit is None:
+        raise HTTPException(
+            status_code=422,
+            detail=f"No road within {SNAP_RADIUS_M:.0f} m of that point.",
+        )
+
     obs = RoadObstruction(
         type=body.type,
-        latitude=body.latitude,
-        longitude=body.longitude,
+        latitude=hit["latitude"],
+        longitude=hit["longitude"],
+        bearing_deg=hit["bearing_deg"],
         description=body.description,
         expires_at=exp,
         created_by=_auth.user_id,
@@ -68,16 +107,7 @@ async def create_obstruction(
     db.commit()
     db.refresh(obs)
 
-    data = {
-        "id":          obs.obstruction_id,
-        "type":        obs.type,
-        "latitude":    obs.latitude,
-        "longitude":   obs.longitude,
-        "description": obs.description or "",
-        "is_active":   obs.is_active,
-        "created_at":  obs.created_at.isoformat() if obs.created_at else None,
-        "expires_at":  obs.expires_at.isoformat() if obs.expires_at else None,
-    }
+    data = _serialise(obs)
     await manager.broadcast({"type": "obstruction_created", "data": data})
     return data
 

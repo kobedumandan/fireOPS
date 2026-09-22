@@ -193,3 +193,28 @@ def nearest_station(lat: float, lon: float):
         raise HTTPException(status_code=404, detail="No station node found near that location.")
     node_data = state.routing_engine.graph.G.nodes[node_id]
     return {"node_id": node_id, "lat": node_data["lat"], "lon": node_data["lon"]}
+
+
+# Default catch radius for snapping a dispatcher's click onto a road. Wide
+# enough to forgive an imprecise click at city zoom, tight enough that a click
+# on open ground is rejected rather than dragged onto some distant street.
+SNAP_RADIUS_M: float = 60.0
+
+
+@router.get("/api/routing/snap")
+def snap_to_road(lat: float, lon: float, radius_m: float = SNAP_RADIUS_M):
+    """
+    Snap a coordinate onto the nearest road segment.
+
+    Called on pointer movement while an obstruction is being placed, so the
+    map can show where the marker would actually land, and again on save so a
+    stored obstruction always sits on the network the router uses.
+
+    Returns ``{"snapped": null}`` rather than 404 when nothing is in range:
+    "no road here" is the normal answer to a hover over open ground, not an
+    error worth logging on every mouse move.
+    """
+    if state.routing_engine is None:
+        raise HTTPException(status_code=503, detail="Routing engine unavailable.")
+    hit = state.routing_engine.graph.snap_point(lat, lon, radius_km=radius_m / 1000.0)
+    return {"snapped": hit}

@@ -438,6 +438,10 @@ class RoadObstruction(Base):
     latitude       = Column(Float, nullable=False)
     longitude      = Column(Float, nullable=False)
     description    = Column(Text, nullable=True)
+    # Orientation of the road this was snapped to, degrees clockwise from north
+    # in [0, 180). The map draws the obstruction as a bar across the road, which
+    # needs the road's angle; storing it avoids re-snapping on every render.
+    bearing_deg    = Column(Float, nullable=True)
     is_active      = Column(Boolean, nullable=False, default=True)
     created_at     = Column(DateTime(timezone=True), default=_now)
     expires_at     = Column(DateTime(timezone=True), nullable=True)
