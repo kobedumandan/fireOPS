@@ -6,8 +6,9 @@ outside the routers.
 """
 import logging
 import math
+from datetime import datetime, timezone
 
-from sqlalchemy import text
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
 import routing_pool
@@ -25,9 +26,16 @@ logger = logging.getLogger(__name__)
 
 
 def _load_active_obstructions(db: Session) -> list:
+    # expires_at is honoured here rather than by a sweeper: an obstruction that
+    # has lapsed must stop affecting routing immediately, and nothing else in
+    # the system clears it. Without this an hour-long closure keeps blocking
+    # roads indefinitely, and the dispatcher has no way to see why.
+    now = datetime.now(timezone.utc)
     rows = (
         db.query(RoadObstruction)
         .filter(RoadObstruction.is_active == True)
+        .filter(or_(RoadObstruction.expires_at.is_(None),
+                    RoadObstruction.expires_at > now))
         .all()
     )
     return [
