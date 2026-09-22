@@ -37,6 +37,77 @@ const WS_URL = 'ws://localhost:8000/ws'
 const ALARM_ORDER = { '1st Alarm': 1, '2nd Alarm': 2, '3rd Alarm': 3, 'General Alarm': 4 }
 function _alarmRank(level) { return ALARM_ORDER[level] ?? 0 }
 
+function _parseWkt(wkt) {
+  if (!wkt) return null
+  const match = wkt.match(/LINESTRING\s*\(([^)]+)\)/)
+  if (!match) return null
+  // Split on any run of whitespace: some rows come back "lon lat", others with
+  // padding, and a single-space split silently yields NaN on the padded ones.
+  return match[1].split(',').map(pair => {
+    const [lon, lat] = pair.trim().split(/\s+/).map(Number)
+    return [lat, lon]
+  })
+}
+
+/**
+ * Map /api/dispatch rows onto the flat route shape the map renders.
+ *
+ * This existed twice — once for the initial load and once for the refetch after
+ * a successful auto-dispatch — and the copies drifted: the auto-dispatch one
+ * never set `isGnn`, so MapArea read it as falsy and drew a real GNN route with
+ * the dashed "straight-line fallback" style. One builder, one shape.
+ */
+function _routesFromDispatchRows(rows) {
+  return rows.flatMap(r => {
+    // Skip completed/cancelled dispatches (e.g. closed incidents) so their
+    // routes don't reappear on the map after a page reload.
+    if (!ACTIVE_DISPATCH_STATUSES.has(r.dispatch_status)) return []
+
+    if (r.routes && r.routes.length > 0) {
+      return r.routes.flatMap(rt => {
+        const positions = _parseWkt(rt.route_wkt)
+        if (!positions) return []
+        return [{
+          id: `${r.dispatch_id}_${rt.route_id}`,
+          route_id: rt.route_id,
+          dispatch_id: r.dispatch_id,
+          fire_id: r.fire_id,
+          positions,
+          teamName: r.team_name ?? '',
+          isGnn: true,
+          isSelected: rt.is_selected,
+          rank: rt.rank,
+          routeType: rt.route_type,
+          etaMinutes: rt.eta_minutes,
+          distanceKm: rt.distance_meters != null ? rt.distance_meters / 1000 : null,
+        }]
+      })
+    }
+
+    // No routed path came back — fall back to a station→incident straight line,
+    // which is what the dashed style actually means.
+    if (r.station_latitude && r.station_longitude && r.incident_latitude && r.incident_longitude) {
+      return [{
+        id: `${r.dispatch_id}_fallback`,
+        route_id: null,
+        dispatch_id: r.dispatch_id,
+        fire_id: r.fire_id,
+        positions: [
+          [r.station_latitude, r.station_longitude],
+          [r.incident_latitude, r.incident_longitude],
+        ],
+        teamName: r.team_name ?? '',
+        isGnn: false,
+        isSelected: true,
+        rank: 1,
+        routeType: 'fallback',
+        etaMinutes: null,
+      }]
+    }
+    return []
+  })
+}
+
 function getInitialRoute() {
   const hash = window.location.hash
   if (hash.startsWith('#/report/')) {
@@ -76,6 +147,11 @@ export default function App() {
   // animations do, so there is no account-level store to migrate.
   const [notifPrefs, setNotifPrefs]               = useState(readNotifPrefs)
   const [showAlerts, setShowAlerts]               = useState(false)
+  // Bumped when a dispatch completes, so the Teams and Trucks pages refetch
+  // their rosters. App owns the only WebSocket in the app, so a counter passed
+  // down as a prop is how a page hears about a server event without opening a
+  // second socket of its own.
+  const [rosterNonce, setRosterNonce]             = useState(0)
   const [leftCollapsed, setLeftCollapsed]         = useState(false)
   // Start collapsed; the Incident View only auto-opens once there's an active
   // incident to show (see the effect below).
@@ -101,8 +177,6 @@ export default function App() {
   const [livePersonnelLocations, setLivePersonnelLocations] = useState([])
   const [pendingReporterToken, setPendingReporterToken] = useState(null)
   const [reporterReceivedData, setReporterReceivedData] = useState(null)
-  const wsRef                  = useRef(null)
-  const wsDestroyRef           = useRef(false)
   const pendingReporterTokenRef = useRef(null)
 
   // ── Alert plumbing ───────────────────────────────────────────────────────
@@ -227,55 +301,7 @@ export default function App() {
 
     fetchDispatches().then(rows => {
       setDispatches(rows)
-      const routes = rows.flatMap(r => {
-        // Skip completed/cancelled dispatches (e.g. closed incidents) so their
-        // routes don't reappear on the map after a page reload.
-        if (!ACTIVE_DISPATCH_STATUSES.has(r.dispatch_status)) return []
-        if (r.routes && r.routes.length > 0) {
-          return r.routes.flatMap(rt => {
-            const match = rt.route_wkt?.match(/LINESTRING\s*\(([^)]+)\)/)
-            if (!match) return []
-            const positions = match[1].split(',').map(pair => {
-              const [lon, lat] = pair.trim().split(' ').map(Number)
-              return [lat, lon]
-            })
-            return [{
-              id: `${r.dispatch_id}_${rt.route_id}`,
-              route_id: rt.route_id,
-              dispatch_id: r.dispatch_id,
-              fire_id: r.fire_id,
-              positions,
-              teamName: r.team_name,
-              isGnn: true,
-              isSelected: rt.is_selected,
-              rank: rt.rank,
-              routeType: rt.route_type,
-              etaMinutes: rt.eta_minutes,
-              distanceKm: rt.distance_meters != null ? rt.distance_meters / 1000 : null,
-            }]
-          })
-        }
-        if (r.station_latitude && r.station_longitude && r.incident_latitude && r.incident_longitude) {
-          return [{
-            id: `${r.dispatch_id}_fallback`,
-            route_id: null,
-            dispatch_id: r.dispatch_id,
-            fire_id: r.fire_id,
-            positions: [
-              [r.station_latitude, r.station_longitude],
-              [r.incident_latitude, r.incident_longitude],
-            ],
-            teamName: r.team_name,
-            isGnn: false,
-            isSelected: true,
-            rank: 1,
-            routeType: 'fallback',
-            etaMinutes: null,
-          }]
-        }
-        return []
-      })
-      setDispatchRoutes(routes)
+      setDispatchRoutes(_routesFromDispatchRows(rows))
     }).catch(() => {})
   }, [route.view]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -284,13 +310,24 @@ export default function App() {
     if (route.view !== 'dashboard') return
 
     const token = localStorage.getItem('bfp_token')
-    wsDestroyRef.current = false
-    let pingId = null
+
+    // These are per-run locals, NOT refs, and that distinction is the whole
+    // point. StrictMode mounts this effect twice in dev: run 1 connects, its
+    // cleanup sets the destroy flag and closes the socket, then run 2 connects
+    // again — and, with a shared ref, run 2 reset the flag that run 1's cleanup
+    // had just set. Socket 1's close event then arrived to find the flag false
+    // and scheduled a reconnect nobody owned, leaving two live sockets and
+    // every broadcast delivered twice. Harmless while every handler was an
+    // idempotent merge; not harmless once a handler fires a notification.
+    let destroyed = false
+    let socket    = null
+    let pingId    = null
+    let retryId   = null
 
     function connect() {
-      if (wsDestroyRef.current) return
+      if (destroyed) return
       const ws = new WebSocket(`${WS_URL}?token=${token}`)
-      wsRef.current = ws
+      socket = ws
 
       ws.onopen = () => {
         pingId = setInterval(() => {
@@ -374,6 +411,15 @@ export default function App() {
                 ? { ...d, dispatch_status: 'on_scene' }
                 : d
             ))
+          } else if (msg.type === 'dispatch_completed') {
+            // The crew and truck are back on standby server-side. Drop the
+            // finished dispatches from local state and nudge the roster pages
+            // to refetch — otherwise both keep showing the unit as committed
+            // until a reload, which reads as the close having failed.
+            const ids = new Set(msg.data.dispatch_ids || [])
+            setDispatches(prev => prev.filter(d => !ids.has(d.dispatch_id)))
+            setDispatchRoutes(prev => prev.filter(r => !ids.has(r.dispatch_id)))
+            setRosterNonce(n => n + 1)
           } else if (msg.type === 'reporter_location') {
             const { token: t, lat, lng, phone } = msg.data
             handleReporterLocationReceived({ token: t, coords: [lat, lng], mobile: phone || '' })
@@ -423,7 +469,7 @@ export default function App() {
 
       ws.onclose = () => {
         clearInterval(pingId)
-        if (!wsDestroyRef.current) setTimeout(connect, 3_000)
+        if (!destroyed) retryId = setTimeout(connect, 3_000)
       }
 
       ws.onerror = () => ws.close()
@@ -431,12 +477,16 @@ export default function App() {
 
     connect()
 
-    // Cleanup only runs when route.view leaves 'dashboard' (i.e. logout)
-    // — navigating between inner pages (activeNav) never triggers this
+    // In production this runs only when route.view leaves 'dashboard' (i.e.
+    // logout) — navigating between inner pages (activeNav) never triggers it.
+    // In dev StrictMode also runs it once immediately after the first mount,
+    // which is what the per-run locals above are there to survive.
     return () => {
-      wsDestroyRef.current = true
+      destroyed = true
       clearInterval(pingId)
-      wsRef.current?.close()
+      // Without this a reconnect already in flight would outlive the cleanup.
+      clearTimeout(retryId)
+      socket?.close()
     }
   }, [route.view]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -475,16 +525,6 @@ export default function App() {
       }
     })
     staleSeenRef.current = nowStale
-  }
-
-  function _parseWkt(wkt) {
-    if (!wkt) return null
-    const match = wkt.match(/LINESTRING\s*\(([^)]+)\)/)
-    if (!match) return null
-    return match[1].split(',').map(pair => {
-      const [lon, lat] = pair.trim().split(' ').map(Number)
-      return [lat, lon]
-    })
   }
 
   function handleDispatched({ team, dispatchId, routes }) {
@@ -553,33 +593,47 @@ export default function App() {
     }).catch(console.error)
   }
 
-  function handleFullReroute(dispatchId) {
-    fullReroute(dispatchId).then(result => {
+  // fireId is passed explicitly: a dispatch whose routing failed has only the
+  // straight-line fallback entry (or nothing at all), so deriving the incident
+  // from the existing routes is not reliable. Returns the promise so the caller
+  // can keep its button in a pending state until the reroute lands.
+  function handleFullReroute(dispatchId, fireId = null) {
+    return fullReroute(dispatchId).then(result => {
       // Replace all routes for this dispatch with the newly computed ones
       setDispatchRoutes(prev => {
         const kept = prev.filter(r => r.dispatch_id !== dispatchId)
+        const existing = prev.find(p => p.dispatch_id === dispatchId)
+        const resolvedFireId = fireId
+          ?? existing?.fire_id
+          ?? dispatches.find(d => d.dispatch_id === dispatchId)?.fire_id
+          ?? null
+        const teamName = existing?.teamName
+          ?? dispatches.find(d => d.dispatch_id === dispatchId)?.team_name
+          ?? ''
         const newRoutes = (result.routes ?? []).flatMap(r => {
           const positions = _parseWkt(r.route_wkt)
           if (!positions) return []
-          const fireId = prev.find(p => p.dispatch_id === dispatchId)?.fire_id ?? null
           return [{
             id: `${dispatchId}_${r.route_id}`,
             route_id: r.route_id,
             dispatch_id: dispatchId,
-            fire_id: fireId,
+            fire_id: resolvedFireId,
             positions,
-            teamName: prev.find(p => p.dispatch_id === dispatchId)?.teamName ?? '',
+            teamName,
             isGnn: true,
             isSelected: r.is_selected,
             rank: r.rank,
             routeType: r.route_type,
             etaMinutes: r.eta_minutes,
-            distanceKm: null,
+            distanceKm: r.distance_meters != null ? r.distance_meters / 1000 : null,
           }]
         })
+        // Nothing parseable came back — keep what was on screen rather than
+        // clearing the map and leaving the dispatcher with no line at all.
+        if (newRoutes.length === 0) return prev
         return [...kept, ...newRoutes]
       })
-    }).catch(console.error)
+    }).catch(err => { console.error(err); throw err })
   }
 
   function handleSelectIncident(id) {
@@ -640,36 +694,10 @@ export default function App() {
     if (ad?.status === 'dispatched') {
       fetchDispatches().then(rows => {
         setDispatches(rows)
-        const routes = rows.flatMap(r => {
-          // Skip completed/cancelled dispatches (e.g. closed incidents) so their
-          // routes don't reappear on the map after a page reload.
-          if (!ACTIVE_DISPATCH_STATUSES.has(r.dispatch_status)) return []
-          if (r.routes && r.routes.length > 0) {
-            return r.routes.flatMap(rt => {
-              const match = rt.route_wkt?.match(/LINESTRING\s*\(([^)]+)\)/)
-              if (!match) return []
-              const positions = match[1].split(',').map(pair => {
-                const [lng, lat] = pair.trim().split(/\s+/).map(Number)
-                return [lat, lng]
-              })
-              return [{
-                id: `${r.dispatch_id}_${rt.route_id}`,
-                route_id: rt.route_id,
-                dispatch_id: r.dispatch_id,
-                fire_id: r.fire_id,
-                teamName: r.team_name ?? '',
-                positions,
-                isSelected: rt.is_selected,
-                rank: rt.rank,
-                routeType: rt.route_type,
-                etaMinutes: rt.eta_minutes,
-                distanceKm: rt.distance_meters != null ? rt.distance_meters / 1000 : null,
-              }]
-            })
-          }
-          return []
-        })
-        setDispatchRoutes(routes)
+        // Same builder as the initial load — this used to be a hand-copied
+        // duplicate that forgot isGnn, which is why auto-dispatched routes
+        // rendered with the dashed fallback style.
+        setDispatchRoutes(_routesFromDispatchRows(rows))
       }).catch(() => {})
       setAutoDispatchResult(result)
     } else if (ad?.status === 'no_team_available') {
@@ -775,11 +803,11 @@ export default function App() {
           }}
         />
       ) : activeNav === 'Teams' ? (
-        <TeamsPage />
+        <TeamsPage refreshKey={rosterNonce} />
       ) : activeNav === 'Stations' ? (
         <StationsPage />
       ) : activeNav === 'Trucks' ? (
-        <TrucksPage />
+        <TrucksPage refreshKey={rosterNonce} />
       ) : (
         <div className="main">
           <MapArea
