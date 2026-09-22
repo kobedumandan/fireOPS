@@ -405,11 +405,23 @@ export async function fetchMetricsSummary(period = '1m') {
 }
 
 // ── Response Coverage (reachability isochrones) ─────────────────────────────
-export async function fetchCoverageIsochrones() {
+/* `refresh` forces the backend to recompute the whole coverage result rather
+   than serve its process-wide cache — it is what makes the Planning page
+   reflect a station that was just added, moved or taken offline. Since one
+   recompute refreshes every band at once, the local cache is dropped wholesale
+   so the minute tabs don't keep serving pre-refresh rows. */
+export function clearCoverageCache() {
+  for (const key of Object.keys(_cache)) {
+    if (key.startsWith('coverage-')) delete _cache[key]
+  }
+}
+
+export async function fetchCoverageIsochrones({ refresh = false } = {}) {
+  if (refresh) clearCoverageCache()
   const cached = _cacheGet('coverage-isochrones')
   if (cached) return cached
 
-  const res = await apiFetch('/api/coverage/isochrones')
+  const res = await apiFetch(`/api/coverage/isochrones${refresh ? '?refresh=true' : ''}`)
   if (!res.ok) throw new Error(`Failed to fetch coverage isochrones (${res.status})`)
   const data = await res.json()
   _cacheSet('coverage-isochrones', data)
