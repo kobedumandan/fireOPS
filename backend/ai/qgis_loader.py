@@ -224,6 +224,7 @@ def load_roads_gpkg(
 
     coord_to_id: dict[tuple[float, float], int] = {}
     next_id = 0
+    oneway_count = 0
     rng = RoadNetworkGraph()
 
     def _get_or_create_node(lon: float, lat: float) -> int:
@@ -269,6 +270,15 @@ def load_roads_gpkg(
             except (ValueError, TypeError):
                 pass
 
+        # One-way streets. osmnx has already normalised direction by the time
+        # fetch_osm_roads.py writes the file (it reverses the geometry of
+        # oneway=-1 ways), so the vertex order here is the legal direction of
+        # travel and we only need to decide whether to add the reverse edge.
+        # A network exported without this column -- the hand-digitised Panabo
+        # one -- has no direction data at all, so it stays bidirectional.
+        oneway_raw = str(row.get("oneway", "")).strip().lower()
+        is_oneway = oneway_raw in ("true", "yes", "1", "t")
+
         prev_nid = _get_or_create_node(coords[0][0], coords[0][1])
         # Update speed_limit on the start node
         rng._node_features[prev_nid][5] = float(speed)
@@ -282,14 +292,24 @@ def load_roads_gpkg(
                     v=cur_nid,
                     road_name=road_name,
                     lanes=lanes,
-                    bidirectional=True,
+                    bidirectional=not is_oneway,
                 )
             prev_nid = cur_nid
+        if is_oneway:
+            oneway_count += 1
 
     logger.info(
-        "Roads GPKG graph built: %d nodes, %d edges (from %d LineStrings)",
+        "Roads GPKG graph built: %d nodes, %d edges (from %d LineStrings, "
+        "%d one-way)",
         rng.G.number_of_nodes(),
         rng.G.number_of_edges(),
         len(gdf),
+        oneway_count,
     )
+    if oneway_count == 0 and "oneway" not in gdf.columns:
+        logger.warning(
+            "%s has no 'oneway' column -- every road is treated as two-way. "
+            "Re-export it with the oneway attribute to enforce one-way rules.",
+            gpkg_path,
+        )
     return rng
