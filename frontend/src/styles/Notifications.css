@@ -31,21 +31,22 @@
   padding: 11px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
-  border-left: 3px solid rgb(var(--n-accent));
-  background: var(--bg-card);
+  /* The accent is a hairline marker, not a slab — the icon tile and the kind
+     label already carry the colour, so the edge only has to point at them. */
+  border-left: 2px solid rgb(var(--n-accent));
+  /* Flat --bg-base, deliberately. An accent-tinted gradient behind the text
+     fought the icon tile for the same signal and dropped body copy toward the
+     tint's contrast floor; the surface stays neutral and the accent stays in
+     the two places that are meant to carry it. */
+  background: var(--bg-base);
   box-shadow: var(--shadow-md);
   /* data-motion="off" in index.css already flattens this to a single frame,
      so the preference needs no special handling here. */
   animation: toastIn 0.22s ease-out;
 }
 
-.toast.critical {
-  background: linear-gradient(
-    90deg,
-    rgba(var(--n-accent), 0.14),
-    var(--bg-card) 60%
-  );
-}
+/* .critical is still meaningful in JS — it selects role="alert" and suppresses
+   the auto-dismiss timer — it just no longer paints anything of its own. */
 
 @keyframes toastIn {
   from {
