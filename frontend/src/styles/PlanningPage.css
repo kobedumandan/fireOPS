@@ -10,7 +10,7 @@
 .plan-header {
   background: transparent;
   border-bottom: 1px solid var(--border-dim);
-  padding: 19px 20px 12px;
+  padding: 19px 20px 8px;
   flex-shrink: 0;
 }
 
@@ -19,6 +19,16 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Title + unfold icon sit in a bare wrapper, exactly as on Metrics, so the two
+   headers line up pixel-for-pixel when navigating between the pages. */
+.plan-title-row > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  align-content: center;
+  gap: 4px;
 }
 
 .plan-title {
@@ -26,30 +36,30 @@
   font-size: 14.8px;
   font-weight: 600;
   color: var(--text-primary);
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
 }
+
 
 .plan-unfold-icon {
   width: 16.8px;
   height: 16.8px;
 }
 
-/* Header actions (Export) — mirrors .inc-header-actions / .inc-btn-secondary. */
+/* ── Header actions ──────────────────────────────────────────────────────── */
 .plan-header-actions {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.plan-export-btn {
-  display: flex;
+.plan-btn {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5.8px 12px 2.8px;
+  padding: 6.5px 12px;
   background: var(--page-default-base);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: 8px;
   color: var(--text-secondary);
   font-family: var(--font-condensed);
   text-transform: uppercase;
@@ -57,14 +67,22 @@
   font-size: 9.8px;
   font-weight: 500;
   cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease,
+    transform 0.16s ease;
 }
 
-.plan-export-btn:hover {
+.plan-btn:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--text-primary);
+  border-color: var(--border-bright);
+  transform: translateY(-1px);
 }
 
-.plan-export-btn:disabled {
+.plan-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.plan-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
@@ -72,6 +90,45 @@
 .plan-btn-icon {
   width: 13px;
   height: 13px;
+  display: block;
+}
+
+.plan-spin-icon {
+  display: inline-flex;
+  animation: plan-spin 0.9s linear infinite;
+}
+
+/* Band selector — same control as the Metrics period group. */
+.plan-seg {
+  display: flex;
+  gap: 4px;
+  background: var(--page-default-base);
+  border: 1px solid var(--border);
+  border-radius: 9.8px;
+  padding: 2px 6px;
+}
+
+.plan-seg-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-condensed);
+  font-size: 10.8px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.plan-seg-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.plan-seg-btn.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 /* ── Body ─────────────────────────────────────────────────────────────────
@@ -83,7 +140,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 16px 20px;
+  padding: 20px;
   overflow: hidden;
 }
 
@@ -97,98 +154,27 @@
   flex-shrink: 0;
 }
 
-/* ── KPI row (mirrors .m-kpi) ─────────────────────────────────────────────── */
-.plan-kpi-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10.8px;
-  flex-shrink: 0;
-}
-
-.plan-kpi {
-  background: var(--bg-panel);
-  border: 1px solid var(--border-dim);
-  border-radius: 10px;
-  padding: 11px 11px 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.plan-kpi-head {
+/* Caption + band selector above the KPI row — mirrors Metrics' section row. */
+.plan-section-row {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 8px;
-}
-
-.plan-kpi-label {
-  font-family: var(--font-condensed);
-  font-size: 9.8px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.plan-kpi-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: -4px;
   flex-shrink: 0;
 }
 
-.plan-kpi-icon-svg {
-  width: 16px;
-  height: 16px;
-}
-
-.plan-kpi-icon-blue {
-  background: var(--accent-blue-dim);
-  color: var(--accent-blue);
-}
-.plan-kpi-icon-amber {
-  background: var(--accent-amber-dim);
-  color: var(--accent-amber);
-}
-.plan-kpi-icon-green {
-  background: var(--accent-green-dim);
-  color: var(--accent-green);
-}
-.plan-kpi-icon-fire {
-  background: var(--bg-hover);
-  color: var(--accent-fire);
-}
-
-.plan-kpi-value {
+.plan-section-label {
   font-family: var(--font-condensed);
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  line-height: 1;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.plan-kpi-value-blue {
-  color: var(--accent-blue);
-}
-.plan-kpi-value-amber {
-  color: var(--accent-amber);
-}
-.plan-kpi-value-green {
-  color: var(--accent-green);
-}
-.plan-kpi-value-fire {
-  color: var(--accent-fire);
-}
-
-.plan-kpi-sub {
-  font-family: var(--font-condensed);
-  font-size: 9.8px;
+  font-size: 11.8px;
   font-weight: 500;
   color: var(--text-secondary);
+}
+
+/* Grid + card styling come from KpiCard.css; the page only sets its spacing. */
+.plan-kpi-row {
+  flex-shrink: 0;
 }
 
 /* ── Map + gaps grid: fills remaining height ─────────────────────────────── */
@@ -196,7 +182,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: 1.45fr 1fr;
   gap: 14px;
   align-items: stretch;
 }
@@ -204,7 +190,7 @@
 .plan-card {
   background: var(--bg-panel);
   border: 1px solid var(--border-dim);
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -216,22 +202,31 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 11px 14px;
   border-bottom: 1px solid var(--border-dim);
   flex-shrink: 0;
   flex-wrap: wrap;
 }
 
 .plan-card-title {
-  font-size: 13px;
+  font-family: var(--font-condensed);
+  font-size: 12.5px;
   font-weight: 600;
+  letter-spacing: 0.1px;
   color: var(--text-primary);
+}
+
+.plan-head-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 /* ── Map ───────────────────────────────────────────────────────────────── */
 .plan-map-legend {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -239,15 +234,49 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-secondary);
 }
 
 .plan-legend-swatch {
-  width: 16px;
-  height: 10px;
-  border-radius: 2px;
+  width: 14px;
+  height: 8px;
+  border-radius: 3px;
   display: inline-block;
+}
+
+.plan-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-secondary);
+  font-family: var(--font-condensed);
+  font-size: 9.6px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  padding: 4.5px 9px;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.plan-toggle:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.plan-toggle.active {
+  color: var(--accent-cyan);
+  border-color: rgba(var(--accent-cyan-rgb), 0.45);
+  background: rgba(var(--accent-cyan-rgb), 0.1);
+}
+
+.plan-toggle-icon {
+  width: 12px;
+  height: 12px;
 }
 
 .plan-map-wrap {
@@ -260,6 +289,21 @@
   height: 100%;
   width: 100%;
   background: var(--surface-sunken);
+}
+
+/* Leaflet tooltip restyled to match the panels rather than its own default. */
+.plan-map-tip.leaflet-tooltip {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 7px;
+  font-size: 11px;
+  padding: 4px 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.plan-map-tip.leaflet-tooltip::before {
+  display: none;
 }
 
 .plan-map-loading {
@@ -285,7 +329,7 @@
   height: 34px;
   border-radius: 50%;
   border: 3px solid var(--border-dim);
-  border-top-color: var(--accent-blue);
+  border-top-color: var(--accent-fire);
   animation: plan-spin 0.8s linear infinite;
 }
 
@@ -295,45 +339,173 @@
   }
 }
 
-/* ── Gaps table ────────────────────────────────────────────────────────── */
-/* Minute filter — segmented control, styled like the Metrics period filter. */
-.plan-minutes {
+/* Provenance strip under the map — what the numbers were computed from. */
+.plan-provenance {
   display: flex;
-  gap: 4px;
-  background: var(--page-default-base);
-  border: 1px solid var(--border);
-  border-radius: 9.8px;
-  padding: 2px 6px;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border-dim);
+  font-family: var(--font-condensed);
+  font-size: 10.2px;
+  letter-spacing: 0.2px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
 }
 
-.plan-min-btn {
+.plan-provenance > span:not(.plan-dot-sep) {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.plan-prov-icon {
+  width: 11px;
+  height: 11px;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.plan-provenance b {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-dot-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  display: inline-block;
+}
+
+/* ── Gaps table ────────────────────────────────────────────────────────── */
+.plan-filters {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.plan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   background: transparent;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   color: var(--text-secondary);
   font-family: var(--font-condensed);
-  font-size: 10.8px;
+  font-size: 9.8px;
   font-weight: 500;
-  padding: 3px 8px;
-  border-radius: 7px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  padding: 4px 9px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
 }
 
-.plan-min-btn:hover {
+.plan-chip:hover {
   color: var(--text-primary);
   background: var(--bg-hover);
 }
 
-.plan-min-btn.active {
+.plan-chip-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+
+.plan-chip.active {
   background: var(--bg-hover);
   color: var(--text-primary);
+  border-color: var(--border-bright);
+}
+
+.plan-chip.active .plan-chip-count {
+  color: var(--text-secondary);
+}
+
+.plan-chip-gap.active {
+  color: var(--accent-red);
+  border-color: rgba(var(--accent-red-rgb), 0.45);
+  background: rgba(var(--accent-red-rgb), 0.1);
+}
+.plan-chip-partial.active {
+  color: var(--accent-amber);
+  border-color: rgba(var(--accent-amber-rgb), 0.45);
+  background: rgba(var(--accent-amber-rgb), 0.1);
+}
+.plan-chip-covered.active {
+  color: var(--accent-emerald);
+  border-color: rgba(var(--accent-emerald-rgb), 0.45);
+  background: rgba(var(--accent-emerald-rgb), 0.1);
 }
 
 .plan-gaps-sub {
-  font-size: 11px;
-  color: var(--text-secondary);
-  padding: 16px 16px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 11px 14px 10px;
   flex-shrink: 0;
+}
+
+.plan-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 150px;
+  background: var(--page-default-base);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 8px;
+  color: var(--text-tertiary);
+  transition: border-color 0.16s ease;
+}
+
+.plan-search:focus-within {
+  border-color: var(--accent-fire-focus);
+}
+
+.plan-search-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.plan-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 11.5px;
+}
+
+.plan-search input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.plan-search-clear {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.plan-search-clear:hover {
+  color: var(--text-primary);
+}
+
+.plan-gaps-hint {
+  font-size: 10.5px;
+  color: var(--text-secondary);
 }
 
 /* The scroll area: takes remaining card height, scrolls on the y-axis.
@@ -376,6 +548,10 @@
   box-shadow: inset 0 -1px 0 var(--border-dim);
 }
 
+.plan-table thead th.th-right {
+  text-align: right;
+}
+
 .plan-table thead th:hover {
   color: var(--text-secondary);
 }
@@ -394,9 +570,27 @@
 }
 
 .plan-table tbody td {
-  padding: 7px 10px;
+  padding: 8px 10px;
   border-top: 1px solid var(--border-dim);
   color: var(--text-primary);
+}
+
+.plan-row {
+  cursor: pointer;
+  transition: background 0.14s ease;
+}
+
+.plan-row:hover td {
+  background: var(--bg-hover);
+}
+
+/* Selected row is the table's half of the row <-> map link. */
+.plan-row.selected td {
+  background: rgba(var(--accent-fire-rgb), 0.09);
+}
+
+.plan-row.selected td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent-fire);
 }
 
 .plan-td-name {
@@ -410,17 +604,25 @@
   min-width: 130px;
 }
 
+.plan-td-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
 .plan-bar {
   flex: 1;
   height: 6px;
-  border-radius: 3px;
+  border-radius: 999px;
   background: var(--bg-hover);
   overflow: hidden;
 }
 
 .plan-bar-fill {
   height: 100%;
-  border-radius: 3px;
+  border-radius: 999px;
+  transition: width 0.4s ease;
 }
 
 .plan-pct-num {
@@ -430,8 +632,18 @@
   text-align: right;
 }
 
+/* Status reads as a tinted chip rather than a coloured dot — easier to scan
+   down a column and it keeps its meaning without relying on colour alone. */
 .plan-status {
-  font-size: 11px;
+  display: inline-block;
+  font-family: var(--font-condensed);
+  font-size: 9.4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
   white-space: nowrap;
 }
 
@@ -468,11 +680,17 @@
   border-radius: 50%;
 }
 
+/* ── Keyboard focus ──────────────────────────────────────────────────────── */
+.plan-btn:focus-visible,
+.plan-seg-btn:focus-visible,
+.plan-chip:focus-visible,
+.plan-toggle:focus-visible {
+  outline: 2px solid var(--accent-fire-focus);
+  outline-offset: 1px;
+}
+
 /* ── Narrow screens: stack the grid and let the body scroll ─────────────── */
 @media (max-width: 1100px) {
-  .plan-kpi-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
   .plan-body {
     overflow-y: auto;
   }
@@ -486,5 +704,18 @@
   }
   .plan-gaps-card {
     max-height: 70vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-btn,
+  .plan-row,
+  .plan-bar-fill {
+    transition: none;
+  }
+  .plan-sk,
+  .plan-spinner,
+  .plan-spin-icon {
+    animation: none;
   }
 }

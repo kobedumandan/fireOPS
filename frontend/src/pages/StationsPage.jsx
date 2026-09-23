@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import "../styles/StationsPage.css";
+import KpiCard from "../components/KpiCard";
 import { fetchStations, createStation, deleteStation, fetchPersonnel, fetchTeams, fetchTrucks } from "../api";
 import AddStationModal from "../components/AddStationModal";
 import EditStationModal from "../components/EditStationModal";
@@ -683,54 +684,22 @@ export default function StationsPage() {
         </div>
 
         {/* STAT CARDS — 3 cards: Main, Sub, Personnel */}
-        <div className="sta-stat-row">
-          {loading ? (
-            ['amber', 'blue', 'purple'].map(cls => (
-              <div key={cls} className={`sta-stat-card ${cls}`}>
-                <div className="sta-stat-content" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div className="sta-skel" style={{ width: 80, height: 10 }} />
-                  <div className="sta-skel" style={{ width: 50, height: 26 }} />
-                  <div className="sta-skel" style={{ width: 100, height: 8 }} />
-                </div>
-                <div className="sta-stat-icon">
-                  <div className="sta-skel" style={{ width: 32, height: 32, borderRadius: '50%' }} />
-                </div>
-              </div>
-            ))
-          ) : (
-            <>
-              <div className="sta-stat-card amber">
-                <div className="sta-stat-content">
-                  <div className="sta-stat-label">Main Stations</div>
-                  <div className="sta-stat-value">{stats.main}</div>
-                  <div className="sta-stat-sub">Command Hubs</div>
-                </div>
-                <div className="sta-stat-icon">
-                  <span className="material-symbols-outlined">apartment</span>
-                </div>
-              </div>
-              <div className="sta-stat-card blue">
-                <div className="sta-stat-content">
-                  <div className="sta-stat-label">Sub-Stations</div>
-                  <div className="sta-stat-value">{stats.sub}</div>
-                  <div className="sta-stat-sub">Satellite Units</div>
-                </div>
-                <div className="sta-stat-icon">
-                  <span className="material-symbols-outlined">location_on</span>
-                </div>
-              </div>
-              <div className="sta-stat-card purple">
-                <div className="sta-stat-content">
-                  <div className="sta-stat-label">Total Personnel</div>
-                  <div className="sta-stat-value">{stats.personnel}</div>
-                  <div className="sta-stat-sub">Across All Stations</div>
-                </div>
-                <div className="sta-stat-icon">
-                  <span className="material-symbols-outlined">groups</span>
-                </div>
-              </div>
-            </>
-          )}
+        <div className="kpi-row sta-stat-row">
+          {[
+            { key: "main", accent: "amber", icon: "apartment", label: "Main Stations", value: stats.main, sub: "Command Hubs" },
+            { key: "sub", accent: "blue", icon: "location_on", label: "Sub-Stations", value: stats.sub, sub: "Satellite Units" },
+            { key: "personnel", accent: "purple", icon: "groups", label: "Total Personnel", value: stats.personnel, sub: "Across All Stations" },
+          ].map((c) => (
+            <KpiCard
+              key={c.key}
+              accent={c.accent}
+              icon={<span className="material-symbols-outlined">{c.icon}</span>}
+              label={c.label}
+              value={c.value}
+              sub={c.sub}
+              loading={loading}
+            />
+          ))}
         </div>
       </div>
 

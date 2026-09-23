@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "../styles/MetricsPage.css";
 import { fetchMetricsSummary, fetchBarangays } from "../api";
+import KpiCard, { KPI_EMPTY } from "../components/KpiCard";
 import { useTheme } from "../hooks/useTheme";
 import { MAP_CENTER, tileLayersFor } from "../data/mapConfig";
 
@@ -108,30 +109,6 @@ function MapIcon() {
     <svg viewBox="0 -960 960 960" fill="currentColor" className="kpi-icon-svg">
       <path d="m600-120-240-84-186 72q-20 8-37-4.5T120-170v-560q0-13 7.5-23t20.5-15l186-72q11-4 21-4t21 4l240 84 186-72q20-8 37 4.5t17 33.5v560q0 13-7.5 23T828-192l-186 72q-11 4-21 4t-21-4Z" />
     </svg>
-  );
-}
-
-function KpiCard({ icon, label, value, sub, trend, accent }) {
-  return (
-    <div className="m-kpi">
-      <div className="m-kpi-head">
-        <div className="m-kpi-label">{label}</div>
-        <div className={`m-kpi-icon m-kpi-icon-${accent}`}>{icon}</div>
-      </div>
-      <div className={`m-kpi-value m-kpi-value-${accent}`}>
-        {value}
-        {sub && <span className="m-kpi-sub">{sub}</span>}
-      </div>
-      {trend && (
-        <div
-          className={`m-kpi-trend ${
-            trend.dir === "up" ? "trend-up" : "trend-down"
-          }`}
-        >
-          {trend.dir === "up" ? "▲" : "▼"} {trend.text}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -477,32 +454,36 @@ export default function MetricsPage() {
             ))}
           </div>
         </div>
-        <div className="m-kpi-row">
+        <div className="kpi-row m-kpi-row">
           <KpiCard
             icon={<PhoneIcon />}
             label="Calls Responded"
-            value={loading ? "…" : total.toLocaleString()}
+            value={total.toLocaleString()}
+            loading={loading}
             trend={trendOf(deltas.total)}
             accent="fire"
           />
           <KpiCard
             icon={<ClockIcon />}
             label="Average Response Time"
-            value={avgResponse != null ? avgResponse : "—"}
+            value={avgResponse != null ? avgResponse : KPI_EMPTY}
+            loading={loading}
             sub={avgResponse != null ? "min" : "not yet tracked"}
             accent="fire"
           />
           <KpiCard
             icon={<AlertIcon />}
             label="Critical Incidents"
-            value={loading ? "…" : (severity.Critical ?? 0).toLocaleString()}
+            value={(severity.Critical ?? 0).toLocaleString()}
+            loading={loading}
             trend={trendOf(deltas.critical)}
             accent="fire"
           />
           <KpiCard
             icon={<MapIcon />}
             label="Contained / Closed"
-            value={loading ? "…" : contained.toLocaleString()}
+            value={contained.toLocaleString()}
+            loading={loading}
             trend={trendOf(deltas.contained)}
             accent="fire"
           />

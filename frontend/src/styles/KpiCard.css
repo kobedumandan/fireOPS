@@ -1,0 +1,183 @@
+/* Shared KPI/stat card — see components/KpiCard.jsx.
+   Pages apply `.kpi-row` to the container and let their own row class carry
+   nothing but the trailing margin, so the grid stays identical everywhere. */
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(228px, 1fr));
+  gap: 12px;
+}
+
+.kpi-card {
+  position: relative;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-dim);
+  border-radius: 12px;
+  padding: 12px 14px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.kpi-card:hover {
+  border-color: var(--border);
+  transform: translateY(-1px);
+}
+
+.kpi-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.kpi-card-label {
+  font-family: var(--font-condensed);
+  font-size: 9.8px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--text-primary);
+  padding-top: 3px;
+}
+
+/* The only place colour is allowed to vary between cards. */
+.kpi-card-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-card-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.kpi-card-icon .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.kpi-card-icon-fire {
+  background: var(--accent-fire-dim);
+  color: var(--accent-fire);
+}
+.kpi-card-icon-amber {
+  background: var(--accent-amber-dim);
+  color: var(--accent-amber);
+}
+.kpi-card-icon-blue {
+  background: var(--accent-blue-dim);
+  color: var(--accent-blue);
+}
+.kpi-card-icon-green {
+  background: var(--accent-green-dim);
+  color: var(--accent-green);
+}
+.kpi-card-icon-purple {
+  background: var(--accent-purple-dim);
+  color: var(--accent-purple);
+}
+.kpi-card-icon-cyan {
+  background: var(--accent-cyan-dim);
+  color: var(--accent-cyan);
+}
+.kpi-card-icon-gold {
+  background: var(--accent-gold-dim);
+  color: var(--accent-gold);
+}
+.kpi-card-icon-muted {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+/* One colour for every figure: the tinted icon puck already tells the cards
+   apart, and several accent numerals in a row fight for attention. */
+.kpi-card-value {
+  font-family: var(--font-condensed);
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  line-height: 1;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Placeholder figure (no data yet, or none available): keep the layout stable
+   but drop it well below the real numbers in the scanning order. */
+.kpi-card-value.is-empty {
+  opacity: 0.32;
+  font-weight: 500;
+}
+
+.kpi-card-sub {
+  font-family: var(--font-condensed);
+  font-size: 9.8px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.kpi-card-trend {
+  font-family: var(--font-mono);
+  font-size: 8.8px;
+  letter-spacing: 0.5px;
+}
+
+.kpi-card-trend.trend-up {
+  color: var(--accent-trend-up);
+}
+.kpi-card-trend.trend-down {
+  color: var(--accent-trend-down);
+}
+
+/* ── Skeleton ─────────────────────────────────────────────────────────────
+   Built in so pages don't each hand-roll a shimmer that drifts out of step. */
+@keyframes kpi-sk-shimmer {
+  0% {
+    background-position: -600px 0;
+  }
+  100% {
+    background-position: 600px 0;
+  }
+}
+
+.kpi-sk {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 25%,
+    var(--bg-hover) 50%,
+    var(--bg-card) 75%
+  );
+  background-size: 1200px 100%;
+  animation: kpi-sk-shimmer 1.5s ease-in-out infinite;
+  border-radius: 3px;
+  display: block;
+}
+
+.kpi-sk-circle {
+  border-radius: 10px;
+}
+
+/* Narrow screens: two per row rather than letting auto-fit squeeze to one. */
+@media (max-width: 1100px) {
+  .kpi-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kpi-card {
+    transition: none;
+  }
+  .kpi-card:hover {
+    transform: none;
+  }
+  .kpi-sk {
+    animation: none;
+  }
+}

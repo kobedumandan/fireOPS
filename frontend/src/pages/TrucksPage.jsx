@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import "../styles/TrucksPage.css";
+import KpiCard from "../components/KpiCard";
 import AddTruckModal from "../components/AddTruckModal";
 import EditTruckModal from "../components/EditTruckModal";
 import ConfirmModal from "../components/ConfirmModal";
@@ -272,91 +273,23 @@ export default function TrucksPage({ refreshKey = 0 }) {
           </div>
 
           {/* STAT CARDS */}
-          <div className="trk-stat-row">
-            {loading ? (
-              ["blue", "green", "amber", "fire"].map((cls) => (
-                <div key={cls} className={`trk-stat-card ${cls}`}>
-                  <div className="trk-stat-icon">
-                    <div
-                      className="trk-skel"
-                      style={{ width: 28, height: 28, borderRadius: "50%" }}
-                    />
-                  </div>
-                  <div
-                    className="trk-stat-content"
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-end",
-                      gap: 6,
-                    }}
-                  >
-                    <div
-                      className="trk-skel"
-                      style={{ width: 52, height: 10 }}
-                    />
-                    <div
-                      className="trk-skel"
-                      style={{ width: 36, height: 28 }}
-                    />
-                    <div
-                      className="trk-skel"
-                      style={{ width: 80, height: 8 }}
-                    />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <>
-                <div className="trk-stat-card blue">
-                  <div className="trk-stat-icon">
-                    <span className="material-symbols-outlined">
-                      local_shipping
-                    </span>
-                  </div>
-                  <div className="trk-stat-content">
-                    <div className="trk-stat-label">Total</div>
-                    <div className="trk-stat-value">{stats.total}</div>
-                    <div className="trk-stat-sub">Fleet Size</div>
-                  </div>
-                </div>
-                <div className="trk-stat-card green">
-                  <div className="trk-stat-icon">
-                    <span className="material-symbols-outlined">
-                      check_circle
-                    </span>
-                  </div>
-                  <div className="trk-stat-content">
-                    <div className="trk-stat-label">Available</div>
-                    <div className="trk-stat-value">{stats.available}</div>
-                    <div className="trk-stat-sub">Ready to Deploy</div>
-                  </div>
-                </div>
-                <div className="trk-stat-card amber">
-                  <div className="trk-stat-icon">
-                    <span className="material-symbols-outlined">
-                      local_fire_department
-                    </span>
-                  </div>
-                  <div className="trk-stat-content">
-                    <div className="trk-stat-label">Dispatched</div>
-                    <div className="trk-stat-value">{stats.dispatched}</div>
-                    <div className="trk-stat-sub">En Route Now</div>
-                  </div>
-                </div>
-                <div className="trk-stat-card fire">
-                  <div className="trk-stat-icon">
-                    <span className="material-symbols-outlined">build</span>
-                  </div>
-                  <div className="trk-stat-content">
-                    <div className="trk-stat-label">Maintenance</div>
-                    <div className="trk-stat-value">{stats.maintenance}</div>
-                    <div className="trk-stat-sub">Under Repair</div>
-                  </div>
-                </div>
-              </>
-            )}
+          <div className="kpi-row trk-stat-row">
+            {[
+              { key: "total", accent: "blue", icon: "local_shipping", label: "Total", value: stats.total, sub: "Fleet Size" },
+              { key: "available", accent: "green", icon: "check_circle", label: "Available", value: stats.available, sub: "Ready to Deploy" },
+              { key: "dispatched", accent: "amber", icon: "local_fire_department", label: "Dispatched", value: stats.dispatched, sub: "En Route Now" },
+              { key: "maintenance", accent: "fire", icon: "build", label: "Maintenance", value: stats.maintenance, sub: "Under Repair" },
+            ].map((c) => (
+              <KpiCard
+                key={c.key}
+                accent={c.accent}
+                icon={<span className="material-symbols-outlined">{c.icon}</span>}
+                label={c.label}
+                value={c.value}
+                sub={c.sub}
+                loading={loading}
+              />
+            ))}
           </div>
         </div>
 

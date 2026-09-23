@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import "../styles/TeamsPage.css";
+import KpiCard from "../components/KpiCard";
 import { fetchTeams, deleteTeam } from "../api";
 import { isOnCurrentShift } from "../utils/shift";
 import AddTeamModal from "../components/AddTeamModal";
@@ -267,89 +268,23 @@ export default function TeamsPage({ refreshKey = 0 }) {
           </div>
 
           {/* STAT CARDS */}
-          <div className="tea-stat-row">
-            {loading ? (
-              ["blue", "green", "amber", "muted"].map((cls) => (
-                <div key={cls} className={`tea-stat-card ${cls}`}>
-                  <div className="tea-stat-icon">
-                    <div
-                      className="tea-skel"
-                      style={{ width: 28, height: 28, borderRadius: "50%" }}
-                    />
-                  </div>
-                  <div
-                    className="tea-stat-content"
-                    style={{
-                      flex: 1,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-end",
-                      gap: 6,
-                    }}
-                  >
-                    <div
-                      className="tea-skel"
-                      style={{ width: 52, height: 10 }}
-                    />
-                    <div
-                      className="tea-skel"
-                      style={{ width: 36, height: 28 }}
-                    />
-                    <div
-                      className="tea-skel"
-                      style={{ width: 80, height: 8 }}
-                    />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <>
-                <div className="tea-stat-card blue">
-                  <div className="tea-stat-icon">
-                    <span className="material-symbols-outlined">groups</span>
-                  </div>
-                  <div className="tea-stat-content">
-                    <div className="tea-stat-label">Total Teams</div>
-                    <div className="tea-stat-value">{stats.total}</div>
-                    <div className="tea-stat-sub">All Teams</div>
-                  </div>
-                </div>
-                <div className="tea-stat-card blue">
-                  <div className="tea-stat-icon">
-                    <span className="material-symbols-outlined">
-                      pause_circle
-                    </span>
-                  </div>
-                  <div className="tea-stat-content">
-                    <div className="tea-stat-label">Standby</div>
-                    <div className="tea-stat-value">{stats.standby}</div>
-                    <div className="tea-stat-sub">Ready</div>
-                  </div>
-                </div>
-                <div className="tea-stat-card amber">
-                  <div className="tea-stat-icon">
-                    <span className="material-symbols-outlined">
-                      local_shipping
-                    </span>
-                  </div>
-                  <div className="tea-stat-content">
-                    <div className="tea-stat-label">Dispatched</div>
-                    <div className="tea-stat-value">{stats.dispatched}</div>
-                    <div className="tea-stat-sub">In Field</div>
-                  </div>
-                </div>
-                <div className="tea-stat-card muted">
-                  <div className="tea-stat-icon">
-                    <span className="material-symbols-outlined">block</span>
-                  </div>
-                  <div className="tea-stat-content">
-                    <div className="tea-stat-label">Inactive</div>
-                    <div className="tea-stat-value">{stats.inactive}</div>
-                    <div className="tea-stat-sub">Disabled</div>
-                  </div>
-                </div>
-              </>
-            )}
+          <div className="kpi-row tea-stat-row">
+            {[
+              { key: "total", accent: "blue", icon: "groups", label: "Total Teams", value: stats.total, sub: "All Teams" },
+              { key: "standby", accent: "blue", icon: "pause_circle", label: "Standby", value: stats.standby, sub: "Ready" },
+              { key: "dispatched", accent: "amber", icon: "local_shipping", label: "Dispatched", value: stats.dispatched, sub: "In Field" },
+              { key: "inactive", accent: "muted", icon: "block", label: "Inactive", value: stats.inactive, sub: "Disabled" },
+            ].map((c) => (
+              <KpiCard
+                key={c.key}
+                accent={c.accent}
+                icon={<span className="material-symbols-outlined">{c.icon}</span>}
+                label={c.label}
+                value={c.value}
+                sub={c.sub}
+                loading={loading}
+              />
+            ))}
           </div>
         </div>
 
