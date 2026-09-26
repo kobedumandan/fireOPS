@@ -87,6 +87,30 @@ class Personnel(Base):
     devices          = relationship("Device",             back_populates="personnel")
     team_memberships = relationship("ResponseTeamMember", back_populates="personnel")
     shift            = relationship("Shift",              back_populates="personnel")
+    push_tokens      = relationship(
+        "PushToken", back_populates="personnel", cascade="all, delete-orphan",
+    )
+
+
+class PushToken(Base):
+    """An Expo push token for one of a responder's phones.
+
+    Keyed by the token itself: a phone has exactly one, and if a different
+    account signs in on the same phone the row is reassigned rather than
+    duplicated, so the previous user stops receiving that phone's alerts.
+    """
+    __tablename__ = "push_tokens"
+
+    token         = Column(String(255), primary_key=True)
+    per_id        = Column(Integer, ForeignKey("personnel.per_id", ondelete="CASCADE"),
+                           nullable=False, index=True)
+    platform      = Column(String(20))
+    # Picks the Android channel: "dispatch" (siren-style) or "dispatch-silent".
+    sound_enabled = Column(Boolean, nullable=False, default=True)
+    created_at    = Column(DateTime(timezone=True), default=_now)
+    last_seen_at  = Column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    personnel = relationship("Personnel", back_populates="push_tokens")
 
 
 class Device(Base):

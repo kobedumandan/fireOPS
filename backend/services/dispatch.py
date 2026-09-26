@@ -14,6 +14,7 @@ from models import (
     ResponseTeam, ResponseTeamMember, Route,
 )
 from serializers import _incident_dict
+from services.push import notify_dispatch_assigned
 from services.routing import _haversine_meters, _load_active_obstructions
 from state import manager
 
@@ -158,6 +159,14 @@ async def _perform_dispatch(
                     db.commit()
         except Exception as exc:
             logger.warning("Route computation failed (dispatch will proceed): %s", exc)
+
+    # Wake the crew's phones. Sent after the routes are saved so the app has a
+    # route to show when the responder opens the alert; the send itself runs in
+    # the background and can never fail the dispatch.
+    try:
+        notify_dispatch_assigned(db, dispatch, incident, team)
+    except Exception as exc:
+        logger.warning("Dispatch alert could not be queued: %s", exc)
 
     def _route_dict(ro, r):
         return {

@@ -214,6 +214,16 @@ class LocationUpdateBody(BaseModel):
     battery:     int | None = None
 
 
+class PushTokenBody(BaseModel):
+    token:         str = Field(..., min_length=10, max_length=255)
+    platform:      str | None = Field(None, max_length=20)
+    sound_enabled: bool = True
+
+
+class PushTokenRef(BaseModel):
+    token: str = Field(..., min_length=10, max_length=255)
+
+
 class TruckManningBody(BaseModel):
     manning: bool
 
