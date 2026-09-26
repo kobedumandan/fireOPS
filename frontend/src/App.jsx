@@ -22,6 +22,7 @@ import ToastStack from './components/ToastStack'
 import NotificationPanel from './components/NotificationPanel'
 import { useNotifications, readNotifPrefs, NOTIF_STORAGE_KEY } from './hooks/useNotifications'
 import { fetchActiveIncidents, fetchPersonnel, fetchStations, fetchDispatches, selectRoute, fetchPersonnelLocations, fullReroute, createIncident, fetchReporterSessions, WS_URL } from './api'
+import { readMapLayerPrefs, MAP_LAYER_STORAGE_KEY } from './utils/mapLayers'
 import './App.css'
 
 const ACTIVE_STATUSES = new Set(['pending', 'active', 'dispatched', 'contained'])
@@ -146,6 +147,7 @@ export default function App() {
   // animations do, so there is no account-level store to migrate.
   const [notifPrefs, setNotifPrefs]               = useState(readNotifPrefs)
   const [showAlerts, setShowAlerts]               = useState(false)
+  const [mapLayerPrefs, setMapLayerPrefs]         = useState(() => readMapLayerPrefs())
   // Bumped when a dispatch completes, so the Teams and Trucks pages refetch
   // their rosters. App owns the only WebSocket in the app, so a counter passed
   // down as a prop is how a page hears about a server event without opening a
@@ -199,6 +201,10 @@ export default function App() {
     setNotifPrefs(prev => ({ ...prev, [key]: value }))
   }
 
+  function setMapLayerPref(key, value) {
+    setMapLayerPrefs(prev => ({ ...prev, [key]: value }))
+  }
+
   // Read is marked on CLOSE, not on open: marking on open would wipe the unread
   // strips in the same frame the dispatcher started reading them. Doing it here
   // rather than inside a setShowAlerts updater keeps the side effect out of a
@@ -237,6 +243,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifPrefs))
   }, [notifPrefs])
+
+  useEffect(() => {
+    localStorage.setItem(MAP_LAYER_STORAGE_KEY, JSON.stringify(mapLayerPrefs))
+  }, [mapLayerPrefs])
 
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') cancelPicking() }
@@ -784,6 +794,8 @@ export default function App() {
           onAnimationsChange={setAnimations}
           notifPrefs={notifPrefs}
           onNotifPrefChange={setNotifPref}
+          mapLayerPrefs={mapLayerPrefs}
+          onMapLayerPrefChange={setMapLayerPref}
           onLogout={handleLogout}
           onAccountUpdate={handleAccountUpdate}
         />
@@ -828,6 +840,7 @@ export default function App() {
             leftCollapsed={leftCollapsed}
             rightCollapsed={rightCollapsed}
             viewMode={viewMode}
+            layerPrefs={mapLayerPrefs}
             focusedPersonnel={focusedPersonnel}
           />
           <MapActions

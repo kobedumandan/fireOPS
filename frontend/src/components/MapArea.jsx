@@ -18,6 +18,7 @@ import "../styles/MapArea.css";
 
 import { MAP_CENTER, MAP_ZOOM, tileLayersFor, REGION_BOUNDARY } from "../data/mapConfig";
 import { useTheme, readCssVar } from "../hooks/useTheme";
+import { activeLayersFor } from "../utils/mapLayers";
 import {
   fetchHeatmap,
   fetchObstructions,
@@ -1210,6 +1211,7 @@ export default function MapArea({
   leftCollapsed = false,
   rightCollapsed = false,
   viewMode = "normal",
+  layerPrefs = null,
   focusedPersonnel = null,
 }) {
   const leftOffset = leftCollapsed ? 52 + 12 : 280 + 12;
@@ -1219,16 +1221,7 @@ export default function MapArea({
   const [mapMotion] = useState(
     () => document.documentElement.dataset.motion !== "off"
   );
-  const activeLayers =
-    viewMode === "gnn"
-      ? new Set(["GNN Constraints"])
-      : viewMode === "heatmap"
-      ? new Set(["Heat Map"])
-      : viewMode === "barangay"
-      ? new Set(["Barangay"])
-      : viewMode === "obstructions"
-      ? new Set(["Obstructions"])
-      : new Set(["Incidents", "Personnel", "Stations", "Routes"]);
+  const activeLayers = activeLayersFor(viewMode, layerPrefs);
   // The command map has no basemap switcher, so it follows the theme like the
   // metrics and planning maps do.
   const theme = useTheme();
