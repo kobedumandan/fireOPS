@@ -1,4 +1,7 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+// Same host as the REST API (http→ws, https→wss), so pointing
+// VITE_API_BASE_URL at a tunnel moves the socket with it.
+export const WS_URL = `${BASE_URL.replace(/^http/, 'ws')}/ws`
 
 export async function apiFetch(path, options = {}) {
   const token = localStorage.getItem('bfp_token')

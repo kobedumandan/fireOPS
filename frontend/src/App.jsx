@@ -21,14 +21,13 @@ import LoginPage from './pages/LoginPage'
 import ToastStack from './components/ToastStack'
 import NotificationPanel from './components/NotificationPanel'
 import { useNotifications, readNotifPrefs, NOTIF_STORAGE_KEY } from './hooks/useNotifications'
-import { fetchActiveIncidents, fetchPersonnel, fetchStations, fetchDispatches, selectRoute, fetchPersonnelLocations, fullReroute, createIncident, fetchReporterSessions } from './api'
+import { fetchActiveIncidents, fetchPersonnel, fetchStations, fetchDispatches, selectRoute, fetchPersonnelLocations, fullReroute, createIncident, fetchReporterSessions, WS_URL } from './api'
 import './App.css'
 
 const ACTIVE_STATUSES = new Set(['pending', 'active', 'dispatched', 'contained'])
 // Dispatch statuses whose routes are still relevant on the map. A closed
 // incident's dispatch is "completed", so its routes are excluded on (re)load.
 const ACTIVE_DISPATCH_STATUSES = new Set(['dispatched', 'en_route', 'on_scene'])
-const WS_URL = 'ws://localhost:8000/ws'
 
 // Alarm levels are stored as free text, so "did this escalate?" is an ordering
 // question, not a string comparison. Mirrors ALARM_UNIT_TARGETS in
