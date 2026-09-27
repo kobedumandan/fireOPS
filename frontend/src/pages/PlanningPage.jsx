@@ -303,9 +303,9 @@ export default function PlanningPage() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [selected, setSelected] = useState(null);
-  const [showBarangays, setShowBarangays] = useState(true);
-  // Default matches the backend order: least-covered barangays first.
-  const [sort, setSort] = useState({ key: "covered_pct", dir: "asc" });
+  const [showBarangays, setShowBarangays] = useState(false);
+  // Best-covered first, so the list reads covered → partial → gap top to bottom.
+  const [sort, setSort] = useState({ key: "covered_pct", dir: "desc" });
   // Picks the basemap out of TILE_OPTIONS; re-renders the layer on a flip.
   const theme = useTheme();
   const rowRefs = useRef({});
@@ -608,10 +608,10 @@ export default function PlanningPage() {
                   className={`plan-toggle${showBarangays ? " active" : ""}`}
                   onClick={() => setShowBarangays((v) => !v)}
                   aria-pressed={showBarangays}
-                  title="Tint barangay boundaries by their coverage status"
+                  aria-label="Barangays"
+                  data-label="Tint barangays by coverage status"
                 >
                   <LayersIcon />
-                  Barangays
                 </button>
               </div>
             </div>
@@ -711,9 +711,6 @@ export default function PlanningPage() {
                   </button>
                 )}
               </label>
-              <span className="plan-gaps-hint">
-                Reachable within {minutes} min — click a row to locate it
-              </span>
             </div>
 
             <div className="plan-table-wrap">
@@ -799,7 +796,6 @@ export default function PlanningPage() {
                                 style={{
                                   color: st.color,
                                   background: `rgba(${st.rgb}, 0.12)`,
-                                  borderColor: `rgba(${st.rgb}, 0.3)`,
                                 }}
                               >
                                 {st.label}

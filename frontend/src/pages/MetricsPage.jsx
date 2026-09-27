@@ -394,8 +394,7 @@ export default function MetricsPage() {
     donutTotal > 0 ? donutData : donutData.map((d) => ({ ...d, value: 1 }));
   const donutChartTotal = donutTotal > 0 ? donutTotal : donutChartData.length;
 
-  // Incidents-per-month over the last 12 months (real). Replaces the former
-  // hardcoded response-time line until response times are captured.
+  // Incidents-per-month over the last 12 months (real).
   const monthNames = (summary?.monthly ?? []).map((p) => p.month);
   const linePoints = (summary?.monthly ?? []).map((p) => p.count);
 
@@ -468,7 +467,8 @@ export default function MetricsPage() {
             label="Average Response Time"
             value={avgResponse != null ? avgResponse : KPI_EMPTY}
             loading={loading}
-            sub={avgResponse != null ? "min" : "not yet tracked"}
+            sub={avgResponse != null ? "min, call to arrival" : "no arrivals recorded"}
+            trend={trendOf(deltas.response)}
             accent="fire"
           />
           <KpiCard
