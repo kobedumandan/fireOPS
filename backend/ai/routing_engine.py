@@ -63,6 +63,10 @@ _SEVERITY_TO_CONGESTION: Dict[int, float] = {0: 0.0, 1: 0.4, 2: 0.7, 3: 0.95}
 _FLAGGED_BASE_CONGESTION: float = 0.4
 
 
+# ALT search state: (previous node or None at the source, current node).
+_SearchState = Tuple[Optional[int], int]
+
+
 def _bucket_index_for_hour(hour: int) -> int:
     """Map a 24h clock hour to its index in _TRAFFIC_BUCKETS."""
     minute = hour * 60
@@ -357,15 +361,19 @@ class GeoAIRoutingEngine:
 
         SNAP = 6  # must match qgis_loader.load_roads_gpkg SNAP_DECIMALS
 
-        # Build a (lon, lat) → node_id lookup from current graph nodes.
-        coord_to_node: Dict[Tuple[float, float], int] = {}
+        # Build a (lon, lat) → node_ids lookup from current graph nodes. A
+        # coordinate can hold two nodes where the loader split a carriageway
+        # U-turn (see qgis_loader._block_carriageway_uturns).
+        coord_to_nodes: Dict[Tuple[float, float], List[int]] = {}
         for n, nd in self.graph.G.nodes(data=True):
-            coord_to_node[(round(nd["lon"], SNAP), round(nd["lat"], SNAP))] = n
+            coord_to_nodes.setdefault(
+                (round(nd["lon"], SNAP), round(nd["lat"], SNAP)), []
+            ).append(n)
 
-        def _edge_pair(lon1, lat1, lon2, lat2):
-            u = coord_to_node.get((round(lon1, SNAP), round(lat1, SNAP)))
-            v = coord_to_node.get((round(lon2, SNAP), round(lat2, SNAP)))
-            return u, v
+        def _edge_pairs(lon1, lat1, lon2, lat2):
+            us = coord_to_nodes.get((round(lon1, SNAP), round(lat1, SNAP)), ())
+            vs = coord_to_nodes.get((round(lon2, SNAP), round(lat2, SNAP)), ())
+            return [(u, v) for u in us for v in vs]
 
         applied = 0
         for feat in features:
@@ -396,11 +404,10 @@ class GeoAIRoutingEngine:
             for i in range(len(coords) - 1):
                 lon1, lat1 = coords[i][0], coords[i][1]
                 lon2, lat2 = coords[i + 1][0], coords[i + 1][1]
-                u, v = _edge_pair(lon1, lat1, lon2, lat2)
-                if u is None or v is None:
-                    continue
-                # roads_panabo edges are bidirectional → update both directions
-                for a, b in ((u, v), (v, u)):
+                # Update both directions; one-way roads only have one, and
+                # has_edge skips the missing reverse.
+                pairs = _edge_pairs(lon1, lat1, lon2, lat2)
+                for a, b in pairs + [(v, u) for u, v in pairs]:
                     if not self.graph.G.has_edge(a, b):
                         continue
                     data = self.graph.G[a][b]
@@ -765,7 +772,17 @@ class GeoAIRoutingEngine:
         weight_overrides: Optional[Dict[Tuple[int, int], float]] = None,
     ) -> Tuple[List[int], float]:
         """
-        A* search guided by the ALT heuristic.
+        A* search guided by the ALT heuristic, with U-turns forbidden.
+
+        The search is edge-based: a state is (previous node, node), so it
+        knows which way it arrived and can refuse to go straight back to the
+        point it just left -- a fire truck cannot reverse mid-road, least of
+        all on a flyover. "The point it just left" includes a node's twin at
+        the same coordinate (qgis_loader splits carriageway junctions into
+        such twins), which is what makes that split U-turn-proof.
+
+        The node-based ALT heuristic stays admissible and consistent: banning
+        transitions only removes paths, it never makes one cheaper.
 
         weight_overrides: per-edge cost map; used to carry GNN modulation and
                           cumulative penalties across multi-route calls.
@@ -777,6 +794,7 @@ class GeoAIRoutingEngine:
 
         G = self.graph.G
         node_features = self.graph._node_features
+        twins = self._colocated_nodes()
 
         def edge_cost(u: int, v: int) -> float:
             if weight_overrides and (u, v) in weight_overrides:
@@ -784,32 +802,38 @@ class GeoAIRoutingEngine:
             data = G[u][v]
             return data.get("weight", data.get("travel_time_s", 60.0))
 
+        start: _SearchState = (None, source)
         h0 = self._alt_heuristic(source, target) if self._landmarks_valid else 0.0
-        # heap entries: (f_score, g_score, node_id)
-        heap: List[Tuple[float, float, int]] = [(h0, 0.0, source)]
-        g_score: Dict[int, float] = {source: 0.0}
-        came_from: Dict[int, int] = {}
+        # heap entries: (f_score, g_score, tiebreak, state)
+        counter = 0
+        heap: List[Tuple[float, float, int, _SearchState]] = [(h0, 0.0, counter, start)]
+        g_score: Dict[_SearchState, float] = {start: 0.0}
+        came_from: Dict[_SearchState, _SearchState] = {}
         closed: set = set()
 
         while heap:
-            _, g, node = heapq.heappop(heap)
+            _, g, _, state = heapq.heappop(heap)
 
-            if node in closed:
+            if state in closed:
                 continue
-            closed.add(node)
+            closed.add(state)
+            prev, node = state
 
             if node == target:
                 path: List[int] = []
-                cur = target
-                while cur != source:
-                    path.append(cur)
+                cur = state
+                while cur != start:
+                    path.append(cur[1])
                     cur = came_from[cur]
                 path.append(source)
                 path.reverse()
                 return path, g
 
             for nb in G.successors(node):
-                if nb in closed:
+                if prev is not None and (nb == prev or nb in twins.get(prev, ())):
+                    continue  # U-turn
+                nxt: _SearchState = (node, nb)
+                if nxt in closed:
                     continue
                 feats = node_features.get(nb)
                 if feats is not None and feats[4] >= 1.0:
@@ -817,13 +841,34 @@ class GeoAIRoutingEngine:
 
                 w = edge_cost(node, nb)
                 new_g = g + w
-                if new_g < g_score.get(nb, float("inf")):
-                    g_score[nb] = new_g
-                    came_from[nb] = node
+                if new_g < g_score.get(nxt, float("inf")):
+                    g_score[nxt] = new_g
+                    came_from[nxt] = state
                     h = self._alt_heuristic(nb, target) if self._landmarks_valid else 0.0
-                    heapq.heappush(heap, (new_g + h, new_g, nb))
+                    counter += 1
+                    heapq.heappush(heap, (new_g + h, new_g, counter, nxt))
 
         raise ValueError(f"ALT search could not reach node {target} from {source}")
+
+    def _colocated_nodes(self) -> Dict[int, Tuple[int, ...]]:
+        """{node: other nodes at the exact same coordinate}, only for nodes that
+        have any. Cached per graph size; the graph topology is fixed after load.
+        """
+        G = self.graph.G
+        key = G.number_of_nodes()
+        cached = getattr(self, "_twins_cache", None)
+        if cached is not None and cached[0] == key:
+            return cached[1]
+        by_coord: Dict[Tuple[float, float], List[int]] = {}
+        for n, nd in G.nodes(data=True):
+            by_coord.setdefault((nd["lat"], nd["lon"]), []).append(n)
+        twins = {
+            n: tuple(m for m in group if m != n)
+            for group in by_coord.values() if len(group) > 1
+            for n in group
+        }
+        self._twins_cache = (key, twins)
+        return twins
 
     # ── GNN edge cost computation ─────────────────────────────────────────────
 
@@ -1223,10 +1268,14 @@ class GeoAIRoutingEngine:
 
         # 3. Route from whichever endpoint of the snapped segment yields the
         #    cheaper path to the target, so the connector doesn't backtrack
-        #    along the segment the driver is standing on.
+        #    along the segment the driver is standing on. nearest_edge returns
+        #    a directed edge, so on a one-way street (no v→u edge) only the
+        #    downstream end is legal — never send the driver back against
+        #    traffic.
+        entries = (edge_u, edge_v) if self.graph.G.has_edge(edge_v, edge_u) else (edge_v,)
         best_route: Optional[List[int]] = None
         best_cost = float("inf")
-        for entry in (edge_u, edge_v):
+        for entry in entries:
             try:
                 route_nodes, cost = self._alt_search(entry, target_node, edge_costs)
             except ValueError:

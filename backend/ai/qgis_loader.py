@@ -197,6 +197,90 @@ _SPEED_DEFAULTS = {
     "pedestrian": 10, "construction": 10,
 }
 
+# A turn sharper than this from the inbound carriageway onto the outbound one
+# is a reversal through the median, not a road you can actually take. Real
+# divided-road splits in Panabo measure 114-157 deg; the sharpest genuine
+# junction matching the same pattern is a 91 deg street corner.
+_UTURN_MIN_DEG = 110.0
+
+
+def _block_carriageway_uturns(
+    rng: RoadNetworkGraph, ways: list[tuple[list[int], bool]]
+) -> int:
+    """Stop routes U-turning where a two-way road splits into carriageways.
+
+    OSM draws a divided road (a flyover, a boulevard) as two one-way ways
+    that meet a single two-way way at one shared node:
+
+        IN (one-way) ──►  n  ──► OUT (one-way)
+                          │
+                          W (two-way, e.g. the flyover ramp)
+
+    The graph is node-based, so IN → n → OUT is a legal path: arrive
+    northbound, leave southbound -- a U-turn through the median barrier.
+    Routes happily take it to shave a few hundred metres.
+
+    Fix: give OUT its own copy n' of the node and point W's inbound edge at
+    n' instead of n. IN now only reaches W, and W only reaches OUT; the turn
+    IN → OUT no longer exists. Returns the number of nodes split.
+    """
+    import math
+
+    G = rng.G
+    ends: dict[int, list[tuple[list[int], bool, str]]] = {}
+    mids: set[int] = set()
+    for nids, oneway in ways:
+        ends.setdefault(nids[0], []).append((nids, oneway, "start"))
+        ends.setdefault(nids[-1], []).append((nids, oneway, "end"))
+        mids.update(nids[1:-1])
+
+    def heading(a: int, b: int) -> float:
+        na, nb = G.nodes[a], G.nodes[b]
+        dx = (nb["lon"] - na["lon"]) * math.cos(math.radians(na["lat"]))
+        return math.degrees(math.atan2(nb["lat"] - na["lat"], dx))
+
+    next_id = max(G.nodes) + 1
+    split = 0
+    for n, touching in ends.items():
+        # Only a clean three-way split point; anything busier is a junction.
+        if n in mids or len(touching) != 3:
+            continue
+        two_way = [t for t in touching if not t[1]]
+        inbound = [t for t in touching if t[1] and t[2] == "end"]
+        outbound = [t for t in touching if t[1] and t[2] == "start"]
+        if not (len(two_way) == len(inbound) == len(outbound) == 1):
+            continue
+
+        w_nids, _, w_side = two_way[0]
+        in_nids, out_nids = inbound[0][0], outbound[0][0]
+        w1 = w_nids[1] if w_side == "start" else w_nids[-2]
+        p, q = in_nids[-2], out_nids[1]
+        if len({w1, p, q}) < 3:
+            continue
+
+        turn = abs((heading(p, n) - heading(n, q) + 180.0) % 360.0 - 180.0)
+        if turn < _UTURN_MIN_DEG:
+            continue
+        if not (G.has_edge(w1, n) and G.has_edge(n, q)):
+            continue
+
+        nd = G.nodes[n]
+        n2 = next_id
+        next_id += 1
+        rng.add_node(node_id=n2, lat=nd["lat"], lon=nd["lon"])
+        rng._node_features[n2][5] = rng._node_features[n][5]
+
+        w_attrs = dict(G[w1][n])
+        G.remove_edge(w1, n)
+        G.add_edge(w1, n2, **w_attrs)
+
+        out_attrs = dict(G[n][q])
+        G.remove_edge(n, q)
+        G.add_edge(n2, q, **out_attrs)
+        split += 1
+
+    return split
+
 
 def load_roads_gpkg(
     gpkg_path: str | Path,
@@ -225,6 +309,7 @@ def load_roads_gpkg(
     coord_to_id: dict[tuple[float, float], int] = {}
     next_id = 0
     oneway_count = 0
+    ways: list[tuple[list[int], bool]] = []  # (node ids in travel order, is_oneway)
     rng = RoadNetworkGraph()
 
     def _get_or_create_node(lon: float, lat: float) -> int:
@@ -270,18 +355,21 @@ def load_roads_gpkg(
             except (ValueError, TypeError):
                 pass
 
-        # One-way streets. osmnx has already normalised direction by the time
-        # fetch_osm_roads.py writes the file (it reverses the geometry of
-        # oneway=-1 ways), so the vertex order here is the legal direction of
-        # travel and we only need to decide whether to add the reverse edge.
-        # A network exported without this column -- the hand-digitised Panabo
-        # one -- has no direction data at all, so it stays bidirectional.
+        # One-way streets. Both producers normalise direction before writing
+        # the file -- osmnx for fetch_osm_roads.py, enrich_oneway.py for the
+        # Panabo QGIS export -- so the vertex order here is the legal direction
+        # of travel and we only need to decide whether to add the reverse edge.
+        # A raw OSM "-1" (travel against vertex order) is still honoured in
+        # case a file is re-exported straight from QGIS with the tag intact.
         oneway_raw = str(row.get("oneway", "")).strip().lower()
-        is_oneway = oneway_raw in ("true", "yes", "1", "t")
+        is_oneway = oneway_raw in ("true", "yes", "1", "t", "-1", "reverse")
+        if oneway_raw in ("-1", "reverse"):
+            coords.reverse()
 
         prev_nid = _get_or_create_node(coords[0][0], coords[0][1])
         # Update speed_limit on the start node
         rng._node_features[prev_nid][5] = float(speed)
+        way_nids = [prev_nid]
 
         for lon, lat, *_ in coords[1:]:
             cur_nid = _get_or_create_node(lon, lat)
@@ -294,22 +382,28 @@ def load_roads_gpkg(
                     lanes=lanes,
                     bidirectional=not is_oneway,
                 )
+                way_nids.append(cur_nid)
             prev_nid = cur_nid
+        if len(way_nids) >= 2:
+            ways.append((way_nids, is_oneway))
         if is_oneway:
             oneway_count += 1
 
+    uturns_blocked = _block_carriageway_uturns(rng, ways)
+
     logger.info(
         "Roads GPKG graph built: %d nodes, %d edges (from %d LineStrings, "
-        "%d one-way)",
+        "%d one-way, %d carriageway U-turns blocked)",
         rng.G.number_of_nodes(),
         rng.G.number_of_edges(),
         len(gdf),
         oneway_count,
+        uturns_blocked,
     )
     if oneway_count == 0 and "oneway" not in gdf.columns:
         logger.warning(
             "%s has no 'oneway' column -- every road is treated as two-way. "
-            "Re-export it with the oneway attribute to enforce one-way rules.",
+            "Run `python enrich_oneway.py` to add it from OSM.",
             gpkg_path,
         )
     return rng
