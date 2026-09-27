@@ -54,3 +54,10 @@ backend/cache/osmnx/
 # Loose Overpass/Nominatim payloads written to the cache root by older
 # fetch_osm_roads.py runs, before the osmnx cache_folder was pinned above.
 backend/cache/*.json
+
+# Tests + test tooling (kept local)
+backend/tests/
+backend/requirements-dev.txt
+frontend/src/**/*.test.js
+# Local backups of regenerated data
+backend/data/*.bak.gpkg
