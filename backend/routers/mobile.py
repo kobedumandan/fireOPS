@@ -332,7 +332,6 @@ def location_update(
                 "recorded_at": recorded_at.isoformat(),
                 "age_minutes": 0.0,
                 "is_stale":    False,
-                "battery":     body.battery,
                 "is_deviated": dispatch.is_deviated,
                 "dispatch_id": dispatch.dispatch_id,
                 "connector_geojson":     dispatch.deviation_connector_geojson if dispatch.is_deviated else None,
