@@ -5,10 +5,16 @@
 // context that would trap any descendant below the map's own layers no matter
 // how large a z-index it asked for.
 import { kindMeta, CloseIcon } from "./notificationUi";
-import { formatLoginStamp } from "../utils/session";
+import { TOAST_MS } from "../hooks/useNotifications";
 import "../styles/Notifications.css";
 
-export default function ToastStack({ toasts, onDismiss, onOpenPanel }) {
+export default function ToastStack({
+  toasts,
+  onDismiss,
+  onOpenPanel,
+  onOpenIncident,
+  activeFireIds,
+}) {
   if (toasts.length === 0) return null;
 
   return (
@@ -16,11 +22,17 @@ export default function ToastStack({ toasts, onDismiss, onOpenPanel }) {
       {toasts.map((n) => {
         const { Icon, accent, label } = kindMeta(n.kind);
         const critical = n.severity === "critical";
+        const openable = Boolean(
+          onOpenIncident && n.fireId != null && activeFireIds?.has(n.fireId),
+        );
         return (
           <div
             key={n.id}
             className={`toast${critical ? " critical" : ""}`}
-            style={{ "--n-accent": `var(--accent-${accent}-rgb)` }}
+            style={{
+              "--n-accent": `var(--accent-${accent}-rgb)`,
+              "--toast-ms": `${TOAST_MS}ms`,
+            }}
             /* Critical alerts interrupt a screen reader; the rest wait for a
                pause. Matches how adm-banner announces itself. */
             role={critical ? "alert" : "status"}
@@ -30,24 +42,42 @@ export default function ToastStack({ toasts, onDismiss, onOpenPanel }) {
               <Icon className="toast-icon-svg" />
             </div>
             <div className="toast-body">
-              <div className="toast-kind">{label}</div>
+              <div className="toast-meta">
+                <span className="toast-kind">{label}</span>
+                {critical && <span className="toast-crit">Critical</span>}
+                <span className="toast-time">Just now</span>
+              </div>
               <div className="toast-title">{n.title}</div>
               {n.body && <div className="toast-sub">{n.body}</div>}
-              <div className="toast-time">{formatLoginStamp(n.at)}</div>
+              <div className="toast-actions">
+                {openable && (
+                  <button
+                    type="button"
+                    className="toast-btn toast-btn-primary"
+                    onClick={() => {
+                      onDismiss(n.id);
+                      onOpenIncident(n.fireId);
+                    }}
+                  >
+                    View on map
+                  </button>
+                )}
+                <button type="button" className="toast-btn" onClick={onOpenPanel}>
+                  All alerts
+                </button>
+              </div>
             </div>
-            <div className="toast-actions">
-              <button
-                type="button"
-                className="toast-close"
-                onClick={() => onDismiss(n.id)}
-                aria-label="Dismiss alert"
-              >
-                <CloseIcon className="toast-close-svg" />
-              </button>
-              <button type="button" className="toast-link" onClick={onOpenPanel}>
-                View all
-              </button>
-            </div>
+            <button
+              type="button"
+              className="toast-close"
+              onClick={() => onDismiss(n.id)}
+              aria-label="Dismiss alert"
+            >
+              <CloseIcon className="toast-close-svg" />
+            </button>
+            {/* Critical toasts stay until dismissed, so only the rest get a
+                countdown. */}
+            {!critical && <div className="toast-timer" aria-hidden="true" />}
           </div>
         );
       })}

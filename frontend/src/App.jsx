@@ -10,7 +10,6 @@ import PersonnelPage from './pages/PersonnelPage'
 import NewIncidentModal from './components/NewIncidentModal'
 import AutoDispatchModal from './components/AutoDispatchModal'
 import LocationRequestModal from './components/LocationRequestModal'
-import ReporterPage from './pages/ReporterPage'
 import StationsPage from './pages/StationsPage'
 import TeamsPage from './pages/TeamsPage'
 import TrucksPage from './pages/TrucksPage'
@@ -109,10 +108,6 @@ function _routesFromDispatchRows(rows) {
 }
 
 function getInitialRoute() {
-  const hash = window.location.hash
-  if (hash.startsWith('#/report/')) {
-    return { view: 'reporter', token: hash.slice('#/report/'.length) }
-  }
   const token = localStorage.getItem('bfp_token')
   const user  = localStorage.getItem('bfp_user')
   if (token && user) {
@@ -166,6 +161,7 @@ export default function App() {
   const [ripplingId, setRipplingId]               = useState(null)
   const [incidentFocusNonce, setIncidentFocusNonce] = useState(0)
   const [focusedPersonnel, setFocusedPersonnel]   = useState(null) // { per_id, nonce }
+  const [mapFocus, setMapFocus]                   = useState(null) // { lat, lng, nonce }
   const [showLocationRequest, setShowLocationRequest] = useState(false)
   const [reporterLocations, setReporterLocations] = useState([])
   const [activeIncidents, setActiveIncidents]     = useState([])
@@ -217,6 +213,24 @@ export default function App() {
   function toggleAlerts() {
     if (showAlerts) closeAlerts()
     else setShowAlerts(true)
+  }
+
+  // An alert row for an incident still on the board jumps to it: back to the
+  // map, incident selected and centred — the same path Incidents' "show on
+  // map" takes.
+  // Which alerts can still be jumped to — shared by the panel and the toasts.
+  const activeFireIds = new Set(activeIncidents.map(i => i.fire_id))
+
+  function openAlertIncident(fireId) {
+    const inc = activeIncidents.find(i => i.fire_id === fireId)
+    if (!inc) return
+    closeAlerts()
+    setShowSettings(false)
+    setActiveNav('Command')
+    handleSelectIncident(inc.id)
+    if (inc.latitude != null && inc.longitude != null) {
+      setMapFocus({ lat: inc.latitude, lng: inc.longitude, nonce: Date.now() })
+    }
   }
 
   // Keep ref in sync so the WS onmessage handler never reads a stale value
@@ -377,6 +391,15 @@ export default function App() {
                   severity: 'critical',
                 })
               }
+              // 'contained' is still an active status, so it needs its own edge
+              // check — the resolution one below only sees the later close.
+              if (inc.status === 'contained' && prevSnap.status !== 'contained') {
+                pushNotif('contained', {
+                  title: inc.loc,
+                  body: 'Fire marked contained. Crew remains on scene for overhaul.',
+                  fireId: inc.fire_id,
+                })
+              }
               if (ACTIVE_STATUSES.has(prevSnap.status) && !ACTIVE_STATUSES.has(inc.status)) {
                 pushNotif('resolution', {
                   title: inc.loc,
@@ -420,6 +443,18 @@ export default function App() {
                 ? { ...d, dispatch_status: 'on_scene' }
                 : d
             ))
+          } else if (msg.type === 'report_submitted') {
+            // Sent just before the incident_updated that closes the fire, so the
+            // snapshot still has the place name.
+            const { fire_id, team_name, filed_by, photo_count } = msg.data
+            const loc = incidentSnapRef.current.get(fire_id)?.loc
+            const who = [filed_by, team_name && `(${team_name})`].filter(Boolean).join(' ')
+            const photos = photo_count ? ` · ${photo_count} photo${photo_count === 1 ? '' : 's'}` : ''
+            pushNotif('reportFiled', {
+              title: loc ? `Report filed for ${loc}` : 'Incident report filed',
+              body: `${who ? `Filed by ${who}` : 'After-action report submitted'}${photos}. Incident closed.`,
+              fireId: fire_id,
+            })
           } else if (msg.type === 'dispatch_completed') {
             // The crew and truck are back on standby server-side. Drop the
             // finished dispatches from local state and nudge the roster pages
@@ -756,11 +791,6 @@ export default function App() {
     return <LoginPage onLogin={handleLogin} />
   }
 
-  // ── Reporter page — render in isolation, no chrome ───────────────────────
-  if (route.view === 'reporter') {
-    return <ReporterPage token={route.token} />
-  }
-
   // ── Dashboard ─────────────────────────────────────────────────────────────
   const selectedInc = activeIncidents.find(i => i.id === selectedIncident) || null
 
@@ -771,7 +801,7 @@ export default function App() {
       </a>
       <TopBar
         activeNav={activeNav}
-        onNavChange={nav => { setActiveNav(nav); setShowSettings(false); setFocusedPersonnel(null) }}
+        onNavChange={nav => { setActiveNav(nav); setShowSettings(false); setFocusedPersonnel(null); setMapFocus(null) }}
         theme={theme}
         onThemeToggle={toggleTheme}
         onOpenSettings={() => setShowSettings(s => !s)}
@@ -804,7 +834,13 @@ export default function App() {
       ) : activeNav === 'Planning' ? (
         <PlanningPage />
       ) : activeNav === 'Incidents' ? (
-        <IncidentsPage />
+        <IncidentsPage
+          onShowOnMap={(inc) => {
+            setActiveNav('Command')
+            handleSelectIncident(inc.id)
+            setMapFocus({ lat: inc.latitude, lng: inc.longitude, nonce: Date.now() })
+          }}
+        />
       ) : activeNav === 'Personnel' ? (
         <PersonnelPage
           livePersonnelLocations={livePersonnelLocations}
@@ -816,9 +852,20 @@ export default function App() {
       ) : activeNav === 'Teams' ? (
         <TeamsPage refreshKey={rosterNonce} />
       ) : activeNav === 'Stations' ? (
-        <StationsPage />
+        <StationsPage
+          onShowOnMap={(s) => {
+            setActiveNav('Command')
+            setMapFocus({ lat: s.latitude, lng: s.longitude, nonce: Date.now() })
+          }}
+        />
       ) : activeNav === 'Trucks' ? (
-        <TrucksPage refreshKey={rosterNonce} />
+        <TrucksPage
+          refreshKey={rosterNonce}
+          onShowOnMap={(t) => {
+            setActiveNav('Command')
+            setMapFocus({ lat: t.truck_latitude, lng: t.truck_longitude, nonce: Date.now() })
+          }}
+        />
       ) : (
         <div className="main">
           <MapArea
@@ -842,6 +889,7 @@ export default function App() {
             viewMode={viewMode}
             layerPrefs={mapLayerPrefs}
             focusedPersonnel={focusedPersonnel}
+            mapFocus={mapFocus}
           />
           <MapActions
             pickingMode={pickingMode}
@@ -874,6 +922,8 @@ export default function App() {
           onClose={closeAlerts}
           onDismiss={dismissNotif}
           onClear={clearNotifs}
+          activeFireIds={activeFireIds}
+          onOpenIncident={openAlertIncident}
         />
       )}
 
@@ -883,6 +933,8 @@ export default function App() {
         toasts={toasts}
         onDismiss={hideToast}
         onOpenPanel={() => setShowAlerts(true)}
+        activeFireIds={activeFireIds}
+        onOpenIncident={openAlertIncident}
       />
 
       {pickedLocation && (

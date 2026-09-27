@@ -894,6 +894,28 @@ function SectionNotifications({ prefs, onPrefChange }) {
         </div>
         <div className="block-row">
           <div className="row-left">
+            <div className="row-label">Fire Contained</div>
+            <div className="row-sub">
+              Alert when a team leader marks a fire contained
+            </div>
+          </div>
+          <div className="row-right">
+            <Toggle {...bind("contained")} />
+          </div>
+        </div>
+        <div className="block-row">
+          <div className="row-left">
+            <div className="row-label">Incident Reports</div>
+            <div className="row-sub">
+              Alert when an after-action report is filed from the field
+            </div>
+          </div>
+          <div className="row-right">
+            <Toggle {...bind("reportFiled")} />
+          </div>
+        </div>
+        <div className="block-row">
+          <div className="row-left">
             <div className="row-label">Incident Resolution</div>
             <div className="row-sub">Alert when an incident is closed</div>
           </div>

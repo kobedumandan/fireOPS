@@ -112,6 +112,8 @@ function dbToStation(s) {
     personnelList: [],
     teamsList: [],
     trucksList: [],
+    latitude: s.station_latitude ?? null,
+    longitude: s.station_longitude ?? null,
   };
 }
 
@@ -124,7 +126,7 @@ const TAB_LABELS = {
 
 const P_STATUS_MAP = {
   dispatched: { cls: "sta-hb-amber", label: "Dispatched" },
-  onscene: { cls: "sta-hb-amber", label: "On Scene" },
+  onscene: { cls: "sta-hb-fire", label: "On Scene" },
   standby: { cls: "sta-hb-blue", label: "Standby" },
   offduty: { cls: "sta-hb-muted", label: "Off Duty" },
 };
@@ -206,7 +208,7 @@ function StationListItem({ s, stations, selected, onSelect }) {
   );
 }
 
-function StationDetail({ s, stations, onSelectStation, onEdit, onDelete }) {
+function StationDetail({ s, stations, onSelectStation, onEdit, onDelete, onViewOnMap }) {
   if (!s) {
     return (
       <div className="sta-no-selection">
@@ -468,7 +470,7 @@ function StationDetail({ s, stations, onSelectStation, onEdit, onDelete }) {
                     p.status === "dispatched"
                       ? "pav-amber"
                       : p.status === "onscene"
-                      ? "pav-amber"
+                      ? "pav-fire"
                       : "pav-normal"
                   }`}
                 >
@@ -488,7 +490,13 @@ function StationDetail({ s, stations, onSelectStation, onEdit, onDelete }) {
       {/* Actions */}
       <div className="sta-detail-actions">
         {/* <button className="sta-btn-dispatch">Dispatch From This Station</button> */}
-        <button className="sta-btn-sec">View on Map</button>
+        <button
+          className="sta-btn-sec"
+          onClick={onViewOnMap}
+          disabled={s.latitude == null || s.longitude == null}
+        >
+          View on Map
+        </button>
         <button className="sta-btn-sec">Incident History</button>
         <button className="sta-btn-sec action_btn" onClick={onEdit}>
           <EditIcon />
@@ -501,7 +509,7 @@ function StationDetail({ s, stations, onSelectStation, onEdit, onDelete }) {
   );
 }
 
-export default function StationsPage() {
+export default function StationsPage({ onShowOnMap }) {
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
@@ -782,6 +790,7 @@ export default function StationsPage() {
             onSelectStation={handleSelectStation}
             onEdit={() => setShowEditModal(true)}
             onDelete={() => setDeleting(selected)}
+            onViewOnMap={() => onShowOnMap?.(selected)}
           />
         </div>
       </div>

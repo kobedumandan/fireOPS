@@ -151,6 +151,21 @@ function MapResizeWatcher() {
   return null;
 }
 
+// Flies to an arbitrary point (an incident or station opened from a details
+// page). `mapFocus` is { lat, lng, zoom?, nonce }; a new nonce re-fires it.
+function MapFocuser({ mapFocus }) {
+  const map = useMap();
+  useEffect(() => {
+    if (mapFocus?.lat == null || mapFocus?.lng == null) return;
+    const animate = document.documentElement.dataset.motion !== "off";
+    map.flyTo([mapFocus.lat, mapFocus.lng], mapFocus.zoom ?? 17, {
+      animate,
+      duration: animate ? 0.9 : 0,
+    });
+  }, [mapFocus?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
+
 function PersonnelFocuser({ focusedPersonnel, livePersonnelLocations }) {
   const map = useMap();
   useEffect(() => {
@@ -1213,6 +1228,7 @@ export default function MapArea({
   viewMode = "normal",
   layerPrefs = null,
   focusedPersonnel = null,
+  mapFocus = null,
 }) {
   const leftOffset = leftCollapsed ? 52 + 12 : 280 + 12;
   const rightOffset = rightCollapsed ? 32 + 12 : 300 + 12;
@@ -1575,6 +1591,7 @@ export default function MapArea({
           focusedPersonnel={focusedPersonnel}
           livePersonnelLocations={livePersonnelLocations}
         />
+        <MapFocuser mapFocus={mapFocus} />
 
         {/* Live preview of constraint being drawn */}
         {isDrawing && <DrawPreview points={drawPoints} color={drawColor} />}
