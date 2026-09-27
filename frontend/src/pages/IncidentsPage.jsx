@@ -54,7 +54,7 @@ const PERIODS = [
   { key: "year", label: "This Year" },
 ];
 
-export default function IncidentsPage() {
+export default function IncidentsPage({ onShowOnMap }) {
   const [incidents, setIncidents] = useState([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState({
@@ -276,6 +276,7 @@ export default function IncidentsPage() {
           onBack={() => setDetailsIncident(null)}
           onEdit={setEditingIncident}
           onDelete={setDeletingIncident}
+          onViewOnMap={onShowOnMap}
         />
         {renderModals()}
       </>

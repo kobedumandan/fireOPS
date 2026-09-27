@@ -293,8 +293,8 @@ export async function fetchIncidentReport(fireId) {
 }
 
 // ── Dispatch ──────────────────────────────────────────────────────────────────
-export async function fetchDispatches() {
-  const res = await apiFetch('/api/dispatch')
+export async function fetchDispatches(fireId) {
+  const res = await apiFetch(fireId != null ? `/api/dispatch?fire_id=${fireId}` : '/api/dispatch')
   if (!res.ok) throw new Error(`Failed to fetch dispatches (${res.status})`)
   return res.json()
 }

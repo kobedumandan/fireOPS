@@ -1,51 +1,614 @@
-/* Incident details page — composed on top of the generic DetailsLayout. */
+/* Incident details page — composed on top of the generic DetailsLayout.
+   Visual grammar follows the Stations/Trucks detail panes: a hero card with a
+   tinted icon puck, stat tiles, titled sections, pill badges. */
 
-/* Heading + actions row pinned at the top of the "Incident Details" card,
-   divided from the detail grid below it. */
-.idp-head {
+/* ── Tone helpers ────────────────────────────────────────────────────────── */
+.idp-tile-fire  { background: var(--accent-fire-dim);  color: var(--accent-fire); }
+.idp-tile-amber { background: var(--accent-amber-dim); color: var(--accent-amber); }
+.idp-tile-blue  { background: var(--accent-blue-dim);  color: var(--accent-blue); }
+
+.idp-text-amber { color: var(--accent-amber); }
+
+.idp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-family: var(--font-span);
+  font-size: 8.8px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.idp-tone-fire  { background: var(--accent-fire-dim);  color: var(--accent-fire); }
+.idp-tone-amber { background: var(--accent-amber-dim); color: var(--accent-amber); }
+.idp-tone-blue  { background: var(--accent-blue-dim);  color: var(--accent-blue); }
+.idp-tone-green { background: var(--accent-green-dim); color: var(--accent-green); }
+.idp-tone-muted { background: var(--chip-muted-bg);    color: var(--chip-muted-fg); }
+
+.idp-pill-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: idp-blink 1s ease-in-out infinite;
+}
+@keyframes idp-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+.idp-hero {
+  position: relative;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-dim);
+  border-radius: 14px;
+  padding: 18px;
+  overflow: hidden;
+}
+
+/* A soft wash of the severity colour in the top-left corner — enough to tell
+   a critical fire from a minor one at a glance without a coloured slab. */
+.idp-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.7;
+}
+.idp-hero-fire::before  { background: radial-gradient(520px 180px at 0% 0%, rgba(var(--accent-fire-rgb), 0.1), transparent 70%); }
+.idp-hero-amber::before { background: radial-gradient(520px 180px at 0% 0%, rgba(var(--accent-amber-rgb), 0.1), transparent 70%); }
+.idp-hero-blue::before  { background: radial-gradient(520px 180px at 0% 0%, rgba(var(--accent-blue-rgb), 0.1), transparent 70%); }
+
+.idp-hero > * { position: relative; }
+
+.idp-hero-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border-dim);
 }
-
-.idp-head-info {
+.idp-hero-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
   min-width: 0;
 }
 
+.idp-hero-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.idp-hero-svg {
+  width: 30px;
+  height: 30px;
+}
+
+.idp-hero-text { min-width: 0; }
+
+.idp-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.idp-title {
+  font-family: var(--font-condensed);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.idp-addr {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+.idp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.idp-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Stat tiles ──────────────────────────────────────────────────────────── */
+.idp-stats,
+.idp-report-stats {
+  display: grid;
+  gap: 10px;
+}
+.idp-stats {
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 18px;
+}
+.idp-report-stats {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.idp-stat {
+  background: var(--bg-base);
+  border: 1px solid var(--border-dim);
+  border-radius: 10px;
+  padding: 12px 14px;
+  min-width: 0;
+}
+.idp-stat-label {
+  font-family: var(--font-condensed);
+  font-size: 8.8px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.idp-stat-value {
+  font-family: var(--font-condensed);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.2px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.idp-report-stats .idp-stat-value {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.1px;
+}
+.idp-stat-sub {
+  font-family: var(--font-mono);
+  font-size: 8.8px;
+  color: var(--text-tertiary);
+  margin-top: 5px;
+}
+
+/* ── Progress stepper ────────────────────────────────────────────────────── */
+.idp-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.idp-step { min-width: 0; }
+
+.idp-step-track {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.idp-step-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1.5px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--on-accent);
+}
+.idp-step-dot .material-symbols-outlined {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.idp-step-line {
+  flex: 1;
+  height: 2px;
+  margin: 0 6px;
+  border-radius: 1px;
+  background: var(--border-dim);
+}
+
+.idp-step.is-done .idp-step-dot {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+}
+.idp-step.is-done .idp-step-line {
+  background: rgba(var(--accent-green-rgb), 0.5);
+}
+.idp-step.is-current .idp-step-dot {
+  border-color: var(--accent-fire);
+  box-shadow: 0 0 0 4px rgba(var(--accent-fire-rgb), 0.15);
+}
+.idp-step.is-current .idp-step-dot::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-fire);
+}
+/* A closed incident has nothing left to do, so its last step reads as done. */
+.idp-step.is-current:last-child .idp-step-dot {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  box-shadow: none;
+}
+.idp-step.is-current:last-child .idp-step-dot::after {
+  background: var(--on-accent);
+}
+
+.idp-step-label {
+  font-family: var(--font-condensed);
+  font-size: 10.8px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.idp-step.is-todo .idp-step-label {
+  color: var(--text-secondary);
+}
+.idp-step-time {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.idp-step.is-todo .idp-step-time {
+  color: var(--text-tertiary);
+}
+
+/* ── Aside ───────────────────────────────────────────────────────────────── */
+.idp-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.idp-aside-state {
+  font-family: var(--font-ui);
+  font-size: 8.8px;
+  letter-spacing: -0.2px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  text-align: center;
+}
+.idp-aside-empty,
+.idp-report-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0 6px;
+}
+.idp-report-empty { padding: 22px 0 14px; }
+.idp-aside-empty-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+.idp-aside-empty-icon .material-symbols-outlined { font-size: 22px; }
+
+.idp-report-state {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+/* Responding unit cards */
+.idp-units {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.idp-unit {
+  background: var(--bg-base);
+  border: 1px solid var(--border-dim);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.idp-unit-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.idp-unit-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.idp-unit-icon .material-symbols-outlined { font-size: 18px; }
+.idp-unit-info { flex: 1; min-width: 0; }
+.idp-unit-name {
+  font-size: 11.8px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.idp-unit-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.idp-unit-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-dim);
+}
+.idp-unit-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10.8px;
+}
+.idp-unit-row > span:first-child {
+  font-family: var(--font-condensed);
+  font-size: 8.8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: -0.1px;
+  color: var(--text-secondary);
+  padding-top: 2px;
+}
+.idp-unit-row > span:last-child {
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.idp-unit-row .is-mono {
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.idp-unit-crew {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.idp-avatars { display: flex; }
+.idp-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: -5px;
+  background: var(--bg-hover);
+  border: 2px solid var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-span);
+  font-size: 8.5px;
+  font-weight: 700;
+}
+.idp-avatar:first-child { margin-left: 0; }
+.idp-avatar.is-more { color: var(--text-secondary); }
+.idp-unit-crew-count {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-secondary);
+}
+
+/* Location card */
+.idp-loc {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.idp-loc-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--accent-fire-dim);
+  color: var(--accent-fire);
+}
+.idp-loc-icon .material-symbols-outlined { font-size: 18px; }
+.idp-loc-info { min-width: 0; }
+.idp-loc-name {
+  font-size: 11.8px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+}
+.idp-loc-addr {
+  font-size: 10.8px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.idp-coords {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 8px 7px 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-dim);
+  border-radius: 8px;
+}
+.idp-coords-val {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-primary);
+}
+.idp-icon-btn {
+  display: flex;
+  padding: 4px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.idp-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.idp-icon-btn .material-symbols-outlined { font-size: 15px; }
+
+.idp-btn-wide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px 6px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent-fire);
+  color: var(--on-accent);
+  font-family: var(--font-condensed);
+  font-size: 9.8px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.idp-btn-wide .material-symbols-outlined { font-size: 15px; margin-top: -2px; }
+.idp-btn-wide:hover:not(:disabled) { background: var(--accent-fire-hover); }
+.idp-btn-wide:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Report ──────────────────────────────────────────────────────────────── */
+.idp-author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-dim);
+  border-radius: 10px;
+}
+.idp-author-av {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-family: var(--font-span);
+  font-size: 10.8px;
+  font-weight: 700;
+}
+.idp-author-info { flex: 1; min-width: 0; }
+.idp-author-name {
+  font-size: 11.8px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+}
+.idp-author-sub {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
 /* ── Scene photos ────────────────────────────────────────────────────────── */
-/* Larger, prominent thumbnails that open the in-app viewer. */
 .idp-photo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
 }
 
 .idp-photo {
+  position: relative;
   display: block;
   padding: 0;
   margin: 0;
   background: none;
   border: 1px solid var(--border-dim);
-  border-radius: 10px;
+  border-radius: 12px;
   overflow: hidden;
   aspect-ratio: 4 / 3;
-  cursor: pointer;
+  cursor: zoom-in;
   transition: border-color 0.15s, transform 0.15s;
 }
-
 .idp-photo:hover {
-  border-color: var(--accent-fire);
+  border-color: var(--border);
   transform: translateY(-2px);
 }
-
 .idp-photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.25s ease;
+}
+.idp-photo:hover img { transform: scale(1.03); }
+
+/* Zoom badge appears on hover — sits over the photo, so it uses the scrim
+   token rather than a page surface. */
+.idp-photo-zoom {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--scrim);
+  color: var(--on-accent);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.idp-photo-zoom .material-symbols-outlined { font-size: 16px; }
+.idp-photo:hover .idp-photo-zoom { opacity: 1; }
+
+@media (max-width: 1100px) {
+  .idp-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .idp-pill-dot { animation: none; }
+  .idp-photo,
+  .idp-photo img { transition: none; }
+  .idp-photo:hover,
+  .idp-photo:hover img { transform: none; }
 }
 
 /* ── In-app photo viewer ─────────────────────────────────────────────────── */

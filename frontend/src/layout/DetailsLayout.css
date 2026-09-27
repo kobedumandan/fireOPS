@@ -19,7 +19,7 @@
    `wide` opts out of the cap for full-bleed pages. */
 .dl-container {
   width: 100%;
-  max-width: 1000px;
+  max-width: 1180px;
   margin: 0 auto;
 }
 
@@ -140,7 +140,7 @@
 }
 
 .dl-aside {
-  width: 320px;
+  width: 340px;
   flex-shrink: 0;
 }
 
