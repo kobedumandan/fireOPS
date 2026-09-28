@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import HeatmapData, Users
-from security import get_current_user
+from security import require_admin
 
 
 router = APIRouter(tags=["geodata"])
@@ -14,7 +14,7 @@ router = APIRouter(tags=["geodata"])
 @router.get("/api/barangays")
 def get_barangays(
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     rows = db.execute(
         text(
@@ -46,7 +46,7 @@ def get_barangays(
 @router.get("/api/heatmap")
 def get_heatmap(
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     rows = db.query(HeatmapData).all()
     return [

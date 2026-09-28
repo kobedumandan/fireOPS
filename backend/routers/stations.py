@@ -6,7 +6,7 @@ import state
 from database import get_db
 from models import Personnel, ResponseTeam, Station, Truck, Users
 from schemas import StationCreate, StationUpdate
-from security import get_current_user
+from security import require_admin
 from serializers import _station_dict
 
 
@@ -22,7 +22,7 @@ def _invalidate_coverage():
 @router.get("/api/stations")
 def get_stations(
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     rows = db.query(Station).order_by(Station.station_id).all()
     return [_station_dict(r) for r in rows]
@@ -32,7 +32,7 @@ def get_stations(
 def create_station(
     body: StationCreate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     if db.query(Station).filter(Station.station_name == body.station_name).first():
         raise HTTPException(status_code=409, detail="A station with that name already exists.")
@@ -63,7 +63,7 @@ def update_station(
     station_id: int,
     body: StationUpdate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     station = db.get(Station, station_id)
     if not station:
@@ -110,7 +110,7 @@ def update_station(
 def delete_station(
     station_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     station = db.get(Station, station_id)
     if not station:

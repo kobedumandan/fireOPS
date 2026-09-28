@@ -7,7 +7,7 @@ from models import (
     Personnel, ResponseTeam, ResponseTeamMember, Shift, Station, Truck, Users,
 )
 from schemas import TeamCreate, TeamMemberBody, TeamMemberRoleUpdate, TeamUpdate
-from security import get_current_user
+from security import require_admin
 from serializers import _team_dict
 
 
@@ -17,7 +17,7 @@ router = APIRouter(tags=["teams"])
 @router.get("/api/teams")
 def get_teams(
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     rows = db.query(ResponseTeam).order_by(ResponseTeam.team_id).all()
     return [_team_dict(r) for r in rows]
@@ -27,7 +27,7 @@ def get_teams(
 def create_team(
     body: TeamCreate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     if body.station_id and not db.get(Station, body.station_id):
         raise HTTPException(status_code=404, detail="Station not found.")
@@ -54,7 +54,7 @@ def update_team(
     team_id: int,
     body: TeamUpdate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     team = db.get(ResponseTeam, team_id)
     if not team:
@@ -94,7 +94,7 @@ def update_team(
 def delete_team(
     team_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     team = db.get(ResponseTeam, team_id)
     if not team:
@@ -118,7 +118,7 @@ def add_team_member(
     team_id: int,
     body: TeamMemberBody,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     team = db.get(ResponseTeam, team_id)
     if not team:
@@ -155,7 +155,7 @@ def update_team_member(
     per_id: int,
     body: TeamMemberRoleUpdate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     m = db.query(ResponseTeamMember).filter(
         ResponseTeamMember.team_id == team_id,
@@ -174,7 +174,7 @@ def remove_team_member(
     team_id: int,
     per_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     m = db.query(ResponseTeamMember).filter(
         ResponseTeamMember.team_id == team_id,

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import DispatchRecord, FireIncident, Users
-from security import get_current_user
+from security import require_admin
 
 
 router = APIRouter(tags=["metrics"])
@@ -30,7 +30,7 @@ def _pct_delta(cur: int, prev: int) -> float | None:
 def metrics_summary(
     period: str = "1m",
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     """Server-side aggregates for the Metrics page: totals, severity, contained,
     per-barangay counts, monthly incident counts, and period-over-period deltas.

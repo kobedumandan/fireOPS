@@ -13,7 +13,7 @@ from models import (
     IncidentReport, Route, Users,
 )
 from schemas import IncidentCreate, IncidentUpdate
-from security import get_current_user
+from security import require_admin
 from serializers import _incident_dict, _report_dict
 from services.dispatch import (
     _add_incident_to_heatmap, _barangay_id_for_point,
@@ -43,7 +43,7 @@ def get_incidents(
     page:      int = Query(1,  ge=1),
     page_size: int = Query(15, ge=1, le=100),
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     q = db.query(FireIncident)
 
@@ -103,7 +103,7 @@ def get_incidents(
 @router.get("/api/incidents/active")
 def get_active_incidents(
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     """Plain array of non-closed incidents for the dashboard map/sidebar."""
     rows = (
@@ -119,7 +119,7 @@ def get_active_incidents(
 async def create_incident(
     body: IncidentCreate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     now = datetime.now(timezone.utc)
     occurred_at = body.fire_incident_datetime
@@ -201,7 +201,7 @@ async def update_incident(
     fire_id: int,
     body: IncidentUpdate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     inc = db.get(FireIncident, fire_id)
     if not inc:
@@ -244,7 +244,7 @@ async def update_incident(
 async def delete_incident(
     fire_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     inc = db.get(FireIncident, fire_id)
     if not inc:
@@ -286,7 +286,7 @@ async def delete_incident(
 def get_incident_report(
     fire_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     """The after-action report filed for a (closed) incident, with photo URLs.
     Returns the most recently submitted report, or null when none exists yet."""
@@ -305,7 +305,7 @@ def get_incident_report(
 def get_incident_events(
     fire_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     """Status / alarm / severity changes for the incident timeline, oldest first."""
     if not db.get(FireIncident, fire_id):

@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 from config import PUBLIC_BASE_URL, SEND_SMS
 from models import Users
 from schemas import ReporterLocationBody, ReporterSmsBody
-from security import get_current_user
+from security import require_admin
 from services.sms import _normalize_ph_number, _send_philsms
 from state import manager, report_session_phones, report_sessions
 
@@ -42,7 +42,7 @@ async def submit_reporter_location(token: str, body: ReporterLocationBody):
 
 
 @router.get("/api/report-sessions")
-def list_report_sessions(_auth: Users = Depends(get_current_user)):
+def list_report_sessions(_auth: Users = Depends(require_admin)):
     """All reporter sessions with a received location — used to rehydrate map
     pins after a dashboard reload (WS only pushes new events)."""
     out = []
@@ -60,7 +60,7 @@ def list_report_sessions(_auth: Users = Depends(get_current_user)):
 
 
 @router.get("/api/report-sessions/{token}")
-def get_report_session(token: str, _auth: Users = Depends(get_current_user)):
+def get_report_session(token: str, _auth: Users = Depends(require_admin)):
     """Dispatch can poll this as a fallback if WS is unavailable."""
     if token not in report_sessions:
         raise HTTPException(status_code=404, detail="Session not found.")
@@ -76,7 +76,7 @@ def get_report_session(token: str, _auth: Users = Depends(get_current_user)):
 async def send_reporter_sms(
     token: str,
     body: ReporterSmsBody,
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     """Text the reporter a link to the backend-served location page.
 

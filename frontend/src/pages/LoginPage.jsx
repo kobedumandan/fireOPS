@@ -133,6 +133,8 @@ export default function LoginPage({ onLogin }) {
         localStorage.setItem("bfp_token", data.access_token);
         localStorage.setItem("bfp_user", JSON.stringify(data.user));
         onLogin(data.user);
+      } else if (res.status === 403) {
+        setAlert("This account is for field personnel. Sign in with the FireTrackr mobile app instead.");
       } else {
         setErrors({ email: true, password: true });
         setAlert("Invalid credentials. Please check your email and password.");
