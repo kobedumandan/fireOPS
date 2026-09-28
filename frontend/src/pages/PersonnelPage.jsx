@@ -6,6 +6,7 @@ import EditPersonnelModal from "../components/EditPersonnelModal";
 import ConfirmModal from "../components/ConfirmModal";
 import { fetchPersonnel, createPersonnel, deletePersonnel } from "../api";
 import { isOnCurrentShift } from "../utils/shift";
+import useSplitPane from "../hooks/useSplitPane";
 
 function ExportIcon() {
   return (
@@ -177,11 +178,30 @@ function PersonnelDetail({ p, loc, tracking, onShowOnMap, onEdit, onDelete }) {
               </div>
               <div className="per-hero-name">{p.name}</div>
               <div className="per-hero-code">
-                {p.id} · {p.station !== "—" ? p.station : "No station"}
+                {p.station !== "—" ? p.station : "No station"}
               </div>
             </div>
           </div>
           <StatusPill status={p.status} />
+        </div>
+
+        <div className="per-detail-actions">
+          <button
+            type="button"
+            className="act-btn"
+            onClick={onShowOnMap}
+            disabled={!loc}
+            title={loc ? "Show on the Command map" : "No location reported"}
+          >
+            <span className="material-symbols-outlined">map</span>
+            Track on map
+          </button>
+          <button type="button" className="act-icon-btn" onClick={onEdit} title="Edit personnel" aria-label="Edit personnel">
+            <EditIcon />
+          </button>
+          <button type="button" className="act-icon-btn danger" onClick={onDelete} title="Delete personnel" aria-label="Delete personnel">
+            <RemoveIcon />
+          </button>
         </div>
 
         <div className="per-detail-grid">
@@ -208,7 +228,7 @@ function PersonnelDetail({ p, loc, tracking, onShowOnMap, onEdit, onDelete }) {
         </div>
       </div>
 
-      {loc?.is_deviated && (
+      {tracking !== "offline" && loc?.is_deviated && (
         <div className="per-alert">
           <span className="material-symbols-outlined">wrong_location</span>
           <div>
@@ -301,26 +321,6 @@ function PersonnelDetail({ p, loc, tracking, onShowOnMap, onEdit, onDelete }) {
           <div className="per-info-empty">No location has been reported by this person yet.</div>
         )}
       </div>
-
-      {/* Actions */}
-      <div className="per-detail-actions">
-        <button
-          type="button"
-          className="act-btn"
-          onClick={onShowOnMap}
-          disabled={!loc}
-          title={loc ? "Show on the Command map" : "No location reported"}
-        >
-          <span className="material-symbols-outlined">map</span>
-          Track on map
-        </button>
-        <button type="button" className="act-icon-btn" onClick={onEdit} title="Edit personnel" aria-label="Edit personnel">
-          <EditIcon />
-        </button>
-        <button type="button" className="act-icon-btn danger" onClick={onDelete} title="Delete personnel" aria-label="Delete personnel">
-          <RemoveIcon />
-        </button>
-      </div>
     </div>
   );
 }
@@ -340,6 +340,7 @@ export default function PersonnelPage({ onShowOnMap, livePersonnelLocations = []
   const [showAddModal, setShowAddModal] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const { width: detailWidth, handleProps: resizeHandle } = useSplitPane({ storageKey: "personnel.detailWidth", minMain: 687 });
 
   useEffect(() => {
     fetchPersonnel()
@@ -650,7 +651,7 @@ export default function PersonnelPage({ onShowOnMap, livePersonnelLocations = []
                                 <div className="per-av-text">
                                   <div className="per-row-name">{p.name}</div>
                                   <div className="per-row-sub">
-                                    {p.rank !== "—" ? p.rank : "—"} · {p.id}
+                                    {p.rank !== "—" ? p.rank : "—"}
                                   </div>
                                 </div>
                               </div>
@@ -771,8 +772,10 @@ export default function PersonnelPage({ onShowOnMap, livePersonnelLocations = []
             )}
           </div>
 
+          <div className="split-resizer" {...resizeHandle} />
+
           {/* DETAILS PANEL */}
-          <div className="per-detail">
+          <div className="per-detail" style={{ width: detailWidth }}>
             <PersonnelDetail
               p={selected}
               loc={selected ? locByPerId.get(selected.per_id) : null}

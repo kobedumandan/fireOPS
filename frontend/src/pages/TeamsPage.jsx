@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
 import "../styles/TeamsPage.css";
 import KpiCard from "../components/KpiCard";
-import { fetchTeams, deleteTeam } from "../api";
-import { isOnCurrentShift } from "../utils/shift";
+import { fetchTeams, fetchTrucks, deleteTeam } from "../api";
+import { getCurrentShift, isOnCurrentShift } from "../utils/shift";
 import AddTeamModal from "../components/AddTeamModal";
 import EditTeamModal from "../components/EditTeamModal";
 import ConfirmModal from "../components/ConfirmModal";
+import useSplitPane from "../hooks/useSplitPane";
 
 function ExportIcon() {
   return (
@@ -71,118 +72,377 @@ function EditIcon() {
   );
 }
 
-const STATUS_TABS = ["all", "standby", "dispatched", "inactive"];
+function Sym({ name }) {
+  return <span className="material-symbols-outlined">{name}</span>;
+}
+
+const clean = (v) => (v && v !== "—" ? v : null);
+
+// "offduty" is derived: a standby crew whose shift isn't the one on duty.
+// A crew on a call stays "dispatched" even after the shift turns over.
+function statusOf(t) {
+  const s = t.team_status === "active" ? "dispatched" : t.team_status || "standby";
+  if (s === "standby" && !isOnCurrentShift(t.shift_name)) return "offduty";
+  return s;
+}
+
+const STATUS_TABS = ["all", "standby", "dispatched", "offduty", "inactive"];
 const TAB_LABELS = {
   all: "All",
-  standby: "Standby",
+  standby: "Ready",
   dispatched: "Dispatched",
+  offduty: "Off duty",
   inactive: "Inactive",
 };
-const STATUS_ORDER = { standby: 0, dispatched: 1, active: 1, inactive: 2 };
+const STATUS_ORDER = { standby: 0, dispatched: 1, offduty: 2, inactive: 3 };
+const TONE = { standby: "green", dispatched: "amber", offduty: "muted", inactive: "muted" };
+const STATUS_LABEL = { standby: "Ready", dispatched: "Dispatched", offduty: "Off duty", inactive: "Inactive" };
 
-function StatusPill({ status, offDuty }) {
-  if (offDuty)
-    return <span className="tea-status-pill tea-sp-offduty">off-duty</span>;
-  const cls =
-    status === "standby"
-      ? "tea-sp-standby"
-      : status === "dispatched" || status === "active"
-      ? "tea-sp-dispatched"
-      : "tea-sp-inactive";
-  return <span className={`tea-status-pill ${cls}`}>{status}</span>;
-}
-
-function ShiftBadge({ name }) {
-  if (!name || name === "—")
-    return <span style={{ color: "var(--text-muted)" }}>—</span>;
-  const cls =
-    name === "Shift A" ? "b-blue" : name === "Shift B" ? "b-amber" : "b-muted";
-  return <span className={`tea-badge ${cls}`}>{name}</span>;
-}
-
-function MemberAvatar({ initials }) {
+function Pill({ status }) {
   return (
-    <div className="tea-member-av">
-      <div className="tea-member-av-ring" />
-      {initials}
+    <span className={`tea-pill tea-pill-${TONE[status] || "muted"}`}>
+      {status === "dispatched" && <span className="tea-pill-dot" />}
+      {STATUS_LABEL[status] || status}
+    </span>
+  );
+}
+
+function ShiftChip({ name }) {
+  if (!clean(name)) return <span className="tea-dim">—</span>;
+  return <span className="tea-chip">{name.replace("Shift ", "")}</span>;
+}
+
+function MemberStack({ members, count, max = 4 }) {
+  const shown = (members || []).slice(0, max);
+  if (!count) return <span className="tea-dim">None</span>;
+  return (
+    <span className="tea-stack" title={`${count} ${count === 1 ? "member" : "members"}`}>
+      {shown.map((m) => (
+        <span key={m.per_id} className="tea-av xs">{m.initials}</span>
+      ))}
+      {count > max && <span className="tea-stack-more">+{count - max}</span>}
+    </span>
+  );
+}
+
+/* Mirrors backend auto_dispatch._eligible_teams, in the same order, so the
+   first failing check is the reason the recommender skips this crew. */
+function readiness(t, trucksByStation) {
+  const members = t.members || [];
+  const readyTrucks = (trucksByStation.get(t.station_id) || []).filter((x) => x.truck_status === "available").length;
+  const busy = members.filter((m) => !["", "standby"].includes((m.member_status || "").toLowerCase())).length;
+  return [
+    {
+      key: "station",
+      ok: t.station_status !== "inactive" && t.station_latitude != null && t.station_longitude != null,
+      label: "Station in service",
+      fail: t.station_status === "inactive" ? "Its station is marked inactive" : "Its station has no location on record",
+    },
+    {
+      key: "shift",
+      ok: !!clean(t.shift_name) && isOnCurrentShift(t.shift_name),
+      label: "On the current shift",
+      fail: clean(t.shift_name) ? `${t.shift_name} is off duty` : "No shift assigned",
+    },
+    {
+      key: "truck",
+      ok: readyTrucks > 0,
+      label: readyTrucks ? `${readyTrucks} truck${readyTrucks === 1 ? "" : "s"} available at the station` : "Truck available at the station",
+      fail: "No available truck at its station",
+    },
+    {
+      key: "members",
+      ok: members.length > 0 && busy === 0,
+      label: "Crew on standby",
+      fail: members.length === 0 ? "No members assigned" : `${busy} member${busy === 1 ? " is" : "s are"} not on standby`,
+    },
+  ];
+}
+
+function SortTh({ col, sort, onSort, children, className = "" }) {
+  const active = sort.col === col;
+  return (
+    <th className={`${className}${active ? " sort-active" : ""}`} onClick={() => onSort(col)}
+      aria-sort={active ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+      {children}
+      <span className="tea-sort-arrow">{!active ? "↕" : sort.dir === 1 ? "↑" : "↓"}</span>
+    </th>
+  );
+}
+
+// ── Detail panel ─────────────────────────────────────────────────────────────
+
+function Section({ title, count, children, empty }) {
+  return (
+    <section className="tea-sec">
+      <h3 className="tea-sec-title">
+        {title}
+        {count != null && <span className="tea-sec-count">{count}</span>}
+      </h3>
+      {empty ? <div className="tea-sec-empty">{empty}</div> : children}
+    </section>
+  );
+}
+
+function StatTile({ label, value, sub }) {
+  return (
+    <div className="tea-stat">
+      <div className="tea-stat-label">{label}</div>
+      <div className="tea-stat-value">{value}</div>
+      {sub && <div className="tea-stat-sub">{sub}</div>}
     </div>
   );
 }
 
-export default function TeamsPage({ refreshKey = 0 }) {
+function TeamDetail({ t, trucksByStation, onEdit, onDelete, onViewOnMap }) {
+  if (!t) {
+    return (
+      <div className="tea-empty-detail">
+        <div className="tea-empty-icon"><Sym name="groups" /></div>
+        <div className="tea-empty-title">No team selected</div>
+        <div className="tea-empty-sub">Pick a team to see its crew and whether it can be auto-dispatched.</div>
+      </div>
+    );
+  }
+
+  const status = statusOf(t);
+  const members = t.members || [];
+  const checks = readiness(t, trucksByStation);
+  const failing = checks.find((c) => !c.ok);
+  const hasCoords = t.station_latitude != null && t.station_longitude != null;
+  const onShift = clean(t.shift_name) && isOnCurrentShift(t.shift_name);
+  const leader = members.find((m) => (m.member_role || "").toLowerCase() === "leader");
+
+  return (
+    <div className="tea-detail-scroll">
+      {/* ── Hero ── */}
+      <div className={`tea-hero${status === "standby" ? "" : " quiet"}`}>
+        <div className="tea-hero-top">
+          <div className={`tea-hero-icon tone-${TONE[status]}`}>
+            <Sym name="groups" />
+          </div>
+          <div className="tea-hero-text">
+            <div className="tea-hero-eyebrow">{clean(t.team_code) || "No code"}</div>
+            <div className="tea-hero-name">{t.team_name}</div>
+            {clean(t.station_name) && <div className="tea-hero-sub">{t.station_name}</div>}
+          </div>
+        </div>
+        <div className="tea-hero-chips">
+          <Pill status={status} />
+          {clean(t.shift_name) && <span className="tea-pill tea-pill-muted">{t.shift_name}</span>}
+          {t.station_status === "inactive" && <span className="tea-pill tea-pill-muted">Station inactive</span>}
+        </div>
+        <div className="tea-hero-actions">
+          <button type="button" className="act-btn" onClick={onViewOnMap} disabled={!hasCoords}
+            title={hasCoords ? "Show this team's station on the Command map" : "Its station has no location on record"}>
+            <Sym name="map" />
+            View on map
+          </button>
+          <button type="button" className="act-icon-btn" onClick={onEdit} title="Edit team" aria-label="Edit team">
+            <EditIcon />
+          </button>
+          <button type="button" className="act-icon-btn danger" onClick={onDelete} title="Delete team" aria-label="Delete team">
+            <RemoveIcon />
+          </button>
+        </div>
+
+        <div className="tea-stats">
+          <StatTile label="Members" value={members.length} sub={leader ? `Led by ${leader.name.split(" ")[0]}` : "No leader set"} />
+          <StatTile label="Truck" value={t.truck_platenum || "—"} sub={t.truck_platenum ? "Assigned" : "None assigned"} />
+          <StatTile label="Shift" value={clean(t.shift_name)?.replace("Shift ", "") || "—"} sub={!clean(t.shift_name) ? "Not set" : onShift ? "On duty now" : "Off duty"} />
+        </div>
+      </div>
+
+      {/* ── Auto-dispatch readiness ── */}
+      <Section title="Auto-dispatch">
+        <div className={`tea-ready ${failing ? "no" : "yes"}`}>
+          <Sym name={failing ? "block" : "check_circle"} />
+          <div>
+            <div className="tea-ready-title">{failing ? "Won't be recommended" : "Ready to be recommended"}</div>
+            <div className="tea-ready-sub">
+              {failing ? `${failing.fail}. You can still dispatch it by hand.` : "Meets every check the recommender runs."}
+            </div>
+          </div>
+        </div>
+        <ul className="tea-checks">
+          {checks.map((c) => (
+            <li key={c.key} className={c.ok ? "ok" : "bad"}>
+              <Sym name={c.ok ? "check" : "close"} />
+              {c.ok ? c.label : c.fail}
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      {/* ── Details ── */}
+      <Section title="Details">
+        <div className="tea-fields">
+          <div className="tea-field">
+            <span className="tea-field-label">Station</span>
+            <span className="tea-field-value">{clean(t.station_name) || <span className="tea-dim">—</span>}</span>
+          </div>
+          <div className="tea-field">
+            <span className="tea-field-label">Code</span>
+            <span className="tea-field-value tea-mono">{clean(t.team_code) || <span className="tea-dim">—</span>}</span>
+          </div>
+          <div className="tea-field">
+            <span className="tea-field-label">Truck</span>
+            {t.truck_platenum
+              ? <span className="tea-field-value tea-mono">{t.truck_platenum}</span>
+              : <button type="button" className="tea-link" onClick={onEdit}>Assign a truck</button>}
+          </div>
+          <div className="tea-field">
+            <span className="tea-field-label">Created</span>
+            <span className="tea-field-value">
+              {t.created_at
+                ? new Date(t.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+                : <span className="tea-dim">—</span>}
+            </span>
+          </div>
+        </div>
+      </Section>
+
+      {/* ── Crew ── */}
+      <Section
+        title="Crew"
+        count={members.length}
+        empty={members.length === 0 && (
+          <>No one is on this team yet. <button type="button" className="tea-link" onClick={onEdit}>Add members</button></>
+        )}
+      >
+        <div className="tea-list-rows">
+          {members.map((m) => (
+            <div key={m.per_id} className="tea-line">
+              <span className="tea-av">{m.initials}</span>
+              <span className="tea-line-text">
+                <span className="tea-line-name">
+                  {m.name}
+                  {(m.member_role || "").toLowerCase() === "leader" && <span className="tea-pill tea-pill-fire">Leader</span>}
+                </span>
+                <span className="tea-line-sub">
+                  {[clean(m.rank), clean(m.designation)].filter(Boolean).join(" · ") || "—"}
+                </span>
+              </span>
+              {m.member_role && m.member_role.toLowerCase() !== "leader" && (
+                <span className="tea-line-meta">{m.member_role}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+// ── Export ───────────────────────────────────────────────────────────────────
+
+function exportCsv(rows) {
+  const header = ["Code", "Name", "Status", "Shift", "Station", "Truck", "Members", "Crew"];
+  const esc = (v) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = rows.map((t) => [
+    clean(t.team_code), t.team_name, STATUS_LABEL[statusOf(t)], clean(t.shift_name), clean(t.station_name),
+    t.truck_platenum, t.member_count, (t.members || []).map((m) => m.name).join("; "),
+  ].map(esc).join(","));
+  const blob = new Blob([[header.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `teams-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
+export default function TeamsPage({ refreshKey = 0, onShowOnMap }) {
   const [teams, setTeams] = useState([]);
+  const [trucks, setTrucks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   const [search, setSearch] = useState("");
   const [activeStatus, setActiveStatus] = useState("all");
+  const [stationFilter, setStationFilter] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [sortCol, setSortCol] = useState("team_name");
   const [sortDir, setSortDir] = useState(1);
   const [selectedId, setSelectedId] = useState(null);
   const [view, setView] = useState("list");
+  const { width: detailWidth, handleProps: resizeHandle } = useSplitPane({ storageKey: "teams.detailWidth", minMain: 692 });
 
   // refreshKey is bumped by App when a dispatch completes, so a close that
   // returns a crew to standby lands here without a reload. Deliberately does
   // NOT set loading back to true — a refetch should update the rows in place,
   // not flash the skeleton over a table the user is already reading.
+  // Trucks only feed the readiness checklist, so a failure there isn't fatal.
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    fetchTeams()
-      .then((data) => {
-        setTeams(data);
-        setLoading(false);
+    Promise.all([fetchTeams(), fetchTrucks().catch(() => [])])
+      .then(([teamData, truckData]) => {
+        setFetchError(null);
+        setTeams(teamData);
+        setTrucks(truckData);
       })
-      .catch(() => setLoading(false));
-  }, [refreshKey]);
+      .catch((ex) => setFetchError(ex.message || "Couldn't load teams."))
+      .finally(() => setLoading(false));
+  }, [refreshKey, attempt]);
 
-  const stats = useMemo(
-    () => ({
-      total: teams.length,
-      dispatched: teams.filter(
-        (t) => t.team_status === "dispatched" || t.team_status === "active"
-      ).length,
-      standby: teams.filter((t) => t.team_status === "standby").length,
-      inactive: teams.filter((t) => t.team_status === "inactive").length,
-    }),
-    [teams]
-  );
+  function retry() {
+    setLoading(true);
+    setFetchError(null);
+    setAttempt((n) => n + 1);
+  }
+
+  const trucksByStation = useMemo(() => {
+    const m = new Map();
+    for (const t of trucks) {
+      if (!m.has(t.station_id)) m.set(t.station_id, []);
+      m.get(t.station_id).push(t);
+    }
+    return m;
+  }, [trucks]);
+
+  const stationOptions = useMemo(() => {
+    const m = new Map();
+    for (const t of teams) if (t.station_id != null && clean(t.station_name)) m.set(t.station_id, t.station_name);
+    return [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [teams]);
+
+  const stats = useMemo(() => {
+    const by = { standby: 0, dispatched: 0, offduty: 0, inactive: 0 };
+    for (const t of teams) by[statusOf(t)] = (by[statusOf(t)] || 0) + 1;
+    return { total: teams.length, members: teams.reduce((a, t) => a + (t.member_count || 0), 0), ...by };
+  }, [teams]);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
     const rows = teams.filter((t) => {
       const matchSearch =
         !q ||
-        t.team_name.toLowerCase().includes(q) ||
-        (t.team_code || "").toLowerCase().includes(q) ||
-        (t.station_name || "").toLowerCase().includes(q);
-      const matchStatus =
-        activeStatus === "all" || t.team_status === activeStatus;
-      return matchSearch && matchStatus;
+        [t.team_name, t.team_code, t.station_name, t.truck_platenum, ...(t.members || []).map((m) => m.name)]
+          .some((v) => (v || "").toLowerCase().includes(q));
+      const matchStatus = activeStatus === "all" || statusOf(t) === activeStatus;
+      const matchStation = !stationFilter || String(t.station_id) === stationFilter;
+      return matchSearch && matchStatus && matchStation;
     });
+    const key = {
+      team_name: (t) => t.team_name.toLowerCase(),
+      team_status: (t) => STATUS_ORDER[statusOf(t)] ?? 9,
+      station: (t) => (t.station_name || "").toLowerCase(),
+      members: (t) => t.member_count || 0,
+    }[sortCol];
     rows.sort((a, b) => {
-      let av, bv;
-      if (sortCol === "team_name") {
-        av = a.team_name;
-        bv = b.team_name;
-      }
-      if (sortCol === "team_code") {
-        av = a.team_code || "";
-        bv = b.team_code || "";
-      }
-      if (sortCol === "team_status") {
-        av = STATUS_ORDER[a.team_status] ?? 9;
-        bv = STATUS_ORDER[b.team_status] ?? 9;
-      }
-      if (sortCol === "station") {
-        av = a.station_name || "";
-        bv = b.station_name || "";
-      }
+      const av = key(a), bv = key(b);
       if (av < bv) return -1 * sortDir;
       if (av > bv) return 1 * sortDir;
       return 0;
     });
     return rows;
-  }, [teams, search, activeStatus, sortCol, sortDir]);
+  }, [teams, search, activeStatus, stationFilter, sortCol, sortDir]);
 
   function handleSort(col) {
     if (sortCol === col) setSortDir((d) => d * -1);
@@ -192,24 +452,24 @@ export default function TeamsPage({ refreshKey = 0 }) {
     }
   }
 
-  function arrow(col) {
-    if (sortCol !== col) return "↕";
-    return sortDir === 1 ? "↑" : "↓";
+  function toggle(id) {
+    setSelectedId((prev) => (prev === id ? null : id));
   }
 
-  function openDrawer(id) {
-    setSelectedId((prev) => (prev === id ? null : id));
+  function clearFilters() {
+    setSearch("");
+    setActiveStatus("all");
+    setStationFilter("");
   }
 
   function handleAdded(team) {
     setTeams((prev) => [...prev, team]);
     setShowAdd(false);
+    setSelectedId(team.team_id);
   }
 
   function handleUpdated(updated) {
-    setTeams((prev) =>
-      prev.map((t) => (t.team_id === updated.team_id ? updated : t))
-    );
+    setTeams((prev) => prev.map((t) => (t.team_id === updated.team_id ? updated : t)));
     setEditing(null);
   }
 
@@ -220,7 +480,28 @@ export default function TeamsPage({ refreshKey = 0 }) {
     if (selectedId === team.team_id) setSelectedId(null);
   }
 
-  const selected = teams.find((t) => t.team_id === selectedId);
+  const sort = { col: sortCol, dir: sortDir };
+  const selected = teams.find((t) => t.team_id === selectedId) || null;
+
+  const emptyState = fetchError ? (
+    <div className="tea-state error">
+      <Sym name="error" />
+      <span>{fetchError}</span>
+      <button type="button" className="tea-link" onClick={retry}>Try again</button>
+    </div>
+  ) : teams.length === 0 ? (
+    <div className="tea-state">
+      <Sym name="groups" />
+      <span>No response teams yet.</span>
+      <button type="button" className="tea-link" onClick={() => setShowAdd(true)}>Add the first team</button>
+    </div>
+  ) : filtered.length === 0 ? (
+    <div className="tea-state">
+      <Sym name="search_off" />
+      <span>No teams match these filters.</span>
+      <button type="button" className="tea-link" onClick={clearFilters}>Clear filters</button>
+    </div>
+  ) : null;
 
   return (
     <>
@@ -233,14 +514,11 @@ export default function TeamsPage({ refreshKey = 0 }) {
               <UnfoldIcon />
             </div>
             <div className="tea-header-actions">
-              <button className="tea-btn-secondary">
+              <button className="tea-btn-secondary" onClick={() => exportCsv(filtered)} disabled={filtered.length === 0}>
                 <ExportIcon />
                 Export
               </button>
-              <button
-                className="tea-btn-primary"
-                onClick={() => setShowAdd(true)}
-              >
+              <button className="tea-btn-primary" onClick={() => setShowAdd(true)}>
                 <AddIcon />
                 Add Team
               </button>
@@ -256,9 +534,7 @@ export default function TeamsPage({ refreshKey = 0 }) {
               {STATUS_TABS.map((s) => (
                 <button
                   key={s}
-                  className={`tea-status-tab${
-                    activeStatus === s ? " active" : ""
-                  }`}
+                  className={`tea-status-tab${activeStatus === s ? " active" : ""}`}
                   onClick={() => setActiveStatus(s)}
                 >
                   {TAB_LABELS[s]}
@@ -267,13 +543,12 @@ export default function TeamsPage({ refreshKey = 0 }) {
             </div>
           </div>
 
-          {/* STAT CARDS */}
           <div className="kpi-row tea-stat-row">
             {[
-              { key: "total", accent: "blue", icon: "groups", label: "Total Teams", value: stats.total, sub: "All Teams" },
-              { key: "standby", accent: "blue", icon: "pause_circle", label: "Standby", value: stats.standby, sub: "Ready" },
-              { key: "dispatched", accent: "amber", icon: "local_shipping", label: "Dispatched", value: stats.dispatched, sub: "In Field" },
-              { key: "inactive", accent: "muted", icon: "block", label: "Inactive", value: stats.inactive, sub: "Disabled" },
+              { key: "total", accent: "fire", icon: "groups", label: "Teams", value: stats.total, sub: `${stats.members} personnel assigned` },
+              { key: "ready", accent: "green", icon: "check_circle", label: "Ready", value: stats.standby, sub: `Shift ${getCurrentShift().letter} on duty` },
+              { key: "dispatched", accent: "amber", icon: "local_fire_department", label: "Dispatched", value: stats.dispatched, sub: "Out on a call" },
+              { key: "off", accent: "muted", icon: "bedtime", label: "Off duty", value: stats.offduty + stats.inactive, sub: stats.inactive ? `${stats.inactive} marked inactive` : "Next shift" },
             ].map((c) => (
               <KpiCard
                 key={c.key}
@@ -291,525 +566,217 @@ export default function TeamsPage({ refreshKey = 0 }) {
         {/* TOOLBAR */}
         <div className="tea-toolbar">
           <div className="tea-search-wrap">
-            <span className="tea-search-icon">⌕</span>
+            <span className="tea-search-icon"><Sym name="search" /></span>
             <input
-              placeholder="Search team, code, station..."
+              type="text"
+              placeholder="Search team, code, station, member…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <select
+            className="tea-filter-select"
+            value={stationFilter}
+            onChange={(e) => setStationFilter(e.target.value)}
+            aria-label="Filter by station"
+          >
+            <option value="">All stations</option>
+            {stationOptions.map(([id, name]) => (
+              <option key={id} value={String(id)}>{name}</option>
+            ))}
+          </select>
           <span className="tea-result-count">
-            Showing {filtered.length} Result{filtered.length !== 1 ? "s" : ""}
+            {filtered.length} of {teams.length} team{teams.length !== 1 ? "s" : ""}
           </span>
-          <div className="tea-view-toggle">
+          <div className="tea-view-toggle" role="group" aria-label="Layout">
             <button
               className={`tea-view-btn${view === "list" ? " active" : ""}`}
               onClick={() => setView("list")}
               title="List view"
+              aria-pressed={view === "list"}
             >
-              ☰
+              <Sym name="view_list" />
             </button>
             <button
               className={`tea-view-btn${view === "grid" ? " active" : ""}`}
               onClick={() => setView("grid")}
               title="Grid view"
+              aria-pressed={view === "grid"}
             >
-              ⊞
+              <Sym name="grid_view" />
             </button>
           </div>
         </div>
 
         {/* CONTENT */}
         <div className="tea-content">
-          <div className="tea-table-pagination-wrap">
-            {/* TABLE VIEW */}
-            {view === "list" && (
+          <div className="tea-main">
+            {view === "list" ? (
               <div className="tea-table-wrap">
                 <table className="tea-table">
                   <thead>
                     <tr>
-                      {/* <th
-                        style={{ width: 160 }}
-                        className={sortCol === "team_code" ? "sort-active" : ""}
-                        onClick={() => handleSort("team_code")}
-                      >
-                        Code{" "}
-                        <span className="tea-sort-arrow">
-                          {arrow("team_code")}
-                        </span>
-                      </th> */}
-                      <th
-                        style={{ width: 170 }}
-                        className={sortCol === "team_name" ? "sort-active" : ""}
-                        onClick={() => handleSort("team_name")}
-                      >
-                        Team{" "}
-                        <span className="tea-sort-arrow">
-                          {arrow("team_name")}
-                        </span>
-                      </th>
-                      <th
-                        style={{ width: 100 }}
-                        className={
-                          sortCol === "team_status" ? "sort-active" : ""
-                        }
-                        onClick={() => handleSort("team_status")}
-                      >
-                        Status{" "}
-                        <span className="tea-sort-arrow">
-                          {arrow("team_status")}
-                        </span>
-                      </th>
-                      <th style={{ width: 80 }}>Shift</th>
-                      <th
-                        style={{ width: 150 }}
-                        className={sortCol === "station" ? "sort-active" : ""}
-                        onClick={() => handleSort("station")}
-                      >
-                        Station{" "}
-                        <span className="tea-sort-arrow">
-                          {arrow("station")}
-                        </span>
-                      </th>
-                      <th style={{ width: 60 }}>Members</th>
-                      <th style={{ width: 140 }}>Actions</th>
+                      <SortTh col="team_name" sort={sort} onSort={handleSort} className="c-team">Team</SortTh>
+                      <SortTh col="team_status" sort={sort} onSort={handleSort} className="c-status">Status</SortTh>
+                      <th className="c-shift">Shift</th>
+                      <SortTh col="station" sort={sort} onSort={handleSort} className="c-station">Station</SortTh>
+                      <th className="c-truck">Truck</th>
+                      <SortTh col="members" sort={sort} onSort={handleSort} className="c-members">Crew</SortTh>
+                      <th className="c-actions">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading
                       ? Array.from({ length: 6 }).map((_, i) => (
-                          <tr key={i}>
-                            {/* <td>
-                              <div
-                                className="tea-skel"
-                                style={{ width: 80, height: 20 }}
-                              />
-                            </td> */}
+                          <tr key={i} className="skel-row">
                             <td>
-                              <div
-                                className="tea-skel"
-                                style={{ width: 140, height: 13 }}
-                              />
-                            </td>
-                            <td>
-                              <div
-                                className="tea-skel"
-                                style={{ width: 62, height: 18 }}
-                              />
-                            </td>
-                            <td>
-                              <div
-                                className="tea-skel"
-                                style={{ width: 58, height: 18 }}
-                              />
-                            </td>
-                            <td>
-                              <div
-                                className="tea-skel"
-                                style={{ width: 120, height: 12 }}
-                              />
-                            </td>
-                            <td>
-                              <div
-                                className="tea-skel"
-                                style={{ width: 28, height: 12 }}
-                              />
-                            </td>
-                            <td>
-                              <div style={{ display: "flex", gap: 4 }}>
-                                <div
-                                  className="tea-skel"
-                                  style={{ width: 38, height: 24 }}
-                                />
-                                <div
-                                  className="tea-skel"
-                                  style={{ width: 46, height: 24 }}
-                                />
+                              <div className="tea-team-cell">
+                                <span className="tea-skel tea-skel-icon" />
+                                <span className="tea-team-text">
+                                  <span className="tea-skel" style={{ width: "70%", height: 11 }} />
+                                  <span className="tea-skel" style={{ width: "40%", height: 8 }} />
+                                </span>
                               </div>
                             </td>
+                            <td><span className="tea-skel" style={{ width: 58, height: 16 }} /></td>
+                            <td><span className="tea-skel" style={{ width: 22, height: 16 }} /></td>
+                            <td><span className="tea-skel" style={{ width: "75%", height: 10 }} /></td>
+                            <td><span className="tea-skel" style={{ width: "60%", height: 10 }} /></td>
+                            <td><span className="tea-skel" style={{ width: 60, height: 20 }} /></td>
+                            <td><span className="tea-skel" style={{ width: 84, height: 20 }} /></td>
                           </tr>
                         ))
-                      : filtered.map((team) => (
-                          <tr
-                            key={team.team_id}
-                            className={
-                              selectedId === team.team_id ? "selected" : ""
-                            }
-                            onClick={() => openDrawer(team.team_id)}
-                          >
-                            {/* <td>
-                              {team.team_code ? (
-                                <span className="tea-code">
-                                  {team.team_code}
-                                </span>
-                              ) : (
-                                <span style={{ color: "var(--text-muted)" }}>
-                                  —
-                                </span>
-                              )}
-                            </td> */}
-                            <td>
-                              <div className="team-code-wrap">
-                                {team.team_code ? (
-                                  <span className="tea-code">
-                                    {team.team_code}
-                                  </span>
-                                ) : (
-                                  <span style={{ color: "var(--text-muted)" }}>
-                                    —
-                                  </span>
-                                )}
-                                <div className="team-name-wrap">
-                                  {team.team_name}
-                                </div>
-                              </div>
-                            </td>
-                            <td>
-                              <StatusPill
-                                status={team.team_status}
-                                offDuty={!isOnCurrentShift(team.shift_name)}
-                              />
-                            </td>
-                            <td>
-                              <ShiftBadge name={team.shift_name} />
-                            </td>
-                            <td>
-                              <span className="tea-mono-sm">
-                                {team.station_name || "—"}
-                              </span>
-                            </td>
-                            <td
-                              style={{
-                                fontFamily: "var(--font-mono)",
-                                fontSize: 11,
-                              }}
+                      : filtered.map((team) => {
+                          const status = statusOf(team);
+                          return (
+                            <tr
+                              key={team.team_id}
+                              className={selectedId === team.team_id ? "selected" : ""}
+                              onClick={() => toggle(team.team_id)}
                             >
-                              {team.member_count}
-                            </td>
-                            <td>
-                              <div className="tea-row-actions">
-                                <button
-                                  className="tea-btn-view"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openDrawer(team.team_id);
-                                  }}
-                                >
-                                  View
-                                </button>
-                                <button
-                                  className="tea-btn-edit"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditing(team);
-                                  }}
-                                >
-                                  Edit
-                                </button>
-                                {/* <button
-                                  className="tea-btn-delete"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleting(team);
-                                  }}
-                                >
-                                  Delete
-                                </button> */}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                              <td>
+                                <div className="tea-team-cell">
+                                  <span className={`tea-team-icon tone-${TONE[status]}`}><Sym name="groups" /></span>
+                                  <span className="tea-team-text">
+                                    <span className="tea-team-name">{team.team_name}</span>
+                                    <span className="tea-team-code">{clean(team.team_code) || "No code"}</span>
+                                  </span>
+                                </div>
+                              </td>
+                              <td><Pill status={status} /></td>
+                              <td><ShiftChip name={team.shift_name} /></td>
+                              <td>
+                                <span className="tea-cell-station">
+                                  {clean(team.station_name) || <span className="tea-dim">—</span>}
+                                  {team.station_status === "inactive" && (
+                                    <span className="tea-inactive-mark" title="Station inactive"><Sym name="block" /></span>
+                                  )}
+                                </span>
+                              </td>
+                              <td>
+                                {team.truck_platenum
+                                  ? <span className="tea-mono tea-cell-truck">{team.truck_platenum}</span>
+                                  : <span className="tea-dim">—</span>}
+                              </td>
+                              <td><MemberStack members={team.members} count={team.member_count} max={3} /></td>
+                              <td>
+                                <div className="tea-row-actions">
+                                  <button
+                                    className="tea-btn-view"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedId(team.team_id);
+                                    }}
+                                  >
+                                    View
+                                  </button>
+                                  <button
+                                    className="tea-btn-edit"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditing(team);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                   </tbody>
                 </table>
-                {!loading && filtered.length === 0 && (
-                  <div className="tea-empty">No teams match your filters</div>
-                )}
+                {!loading && emptyState}
               </div>
-            )}
-
-            {/* GRID VIEW */}
-            {view === "grid" && (
+            ) : (
               <div className="tea-grid-wrap">
                 {loading ? (
                   <div className="tea-grid">
                     {Array.from({ length: 8 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="tea-card"
-                        style={{ cursor: "default" }}
-                      >
+                      <div key={i} className="tea-card skel">
                         <div className="tea-card-top">
-                          <div
-                            className="tea-skel"
-                            style={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: "50%",
-                            }}
-                          />
-                          <div
-                            className="tea-skel"
-                            style={{ width: 60, height: 18 }}
-                          />
+                          <span className="tea-skel tea-skel-icon" />
+                          <span className="tea-skel" style={{ width: 54, height: 16 }} />
                         </div>
-                        <div
-                          className="tea-skel"
-                          style={{ width: "80%", height: 13, marginBottom: 5 }}
-                        />
-                        <div
-                          className="tea-skel"
-                          style={{ width: "60%", height: 10, marginBottom: 4 }}
-                        />
-                        <div
-                          className="tea-skel"
-                          style={{ width: "40%", height: 10, marginBottom: 8 }}
-                        />
-                        <hr className="tea-card-divider" />
-                        <div className="tea-card-row">
-                          <div
-                            className="tea-skel"
-                            style={{ width: 40, height: 10 }}
-                          />
-                          <div
-                            className="tea-skel"
-                            style={{ width: 60, height: 10 }}
-                          />
-                        </div>
-                        <div className="tea-card-row">
-                          <div
-                            className="tea-skel"
-                            style={{ width: 40, height: 10 }}
-                          />
-                          <div
-                            className="tea-skel"
-                            style={{ width: 60, height: 10 }}
-                          />
-                        </div>
-                        <div className="tea-card-row">
-                          <div
-                            className="tea-skel"
-                            style={{ width: 40, height: 10 }}
-                          />
-                          <div
-                            className="tea-skel"
-                            style={{ width: 60, height: 10 }}
-                          />
+                        <span className="tea-skel" style={{ width: "70%", height: 12, marginBottom: 6 }} />
+                        <span className="tea-skel" style={{ width: "40%", height: 9 }} />
+                        <div className="tea-card-rows">
+                          {[0, 1, 2].map((r) => (
+                            <span key={r} className="tea-skel" style={{ width: "100%", height: 9 }} />
+                          ))}
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : filtered.length === 0 ? (
-                  <div className="tea-empty">No teams match your filters</div>
-                ) : (
+                ) : emptyState || (
                   <div className="tea-grid">
-                    {filtered.map((team) => (
-                      <div
-                        key={team.team_id}
-                        className={`tea-card ${team.team_status}${
-                          selectedId === team.team_id ? " selected" : ""
-                        }`}
-                        onClick={() => openDrawer(team.team_id)}
-                      >
-                        <div className="tea-card-top">
-                          <div
-                            className={`tea-card-av tea-cav-${
-                              team.team_status === "active"
-                                ? "dispatched"
-                                : team.team_status
-                            }`}
-                          >
-                            <div className="tea-card-av-ring" />
-                            {(team.team_name || "")
-                              .split(" ")
-                              .map((w) => w[0])
-                              .join("")
-                              .slice(0, 2)
-                              .toUpperCase()}
+                    {filtered.map((team) => {
+                      const status = statusOf(team);
+                      return (
+                        <button
+                          type="button"
+                          key={team.team_id}
+                          className={`tea-card${selectedId === team.team_id ? " selected" : ""}`}
+                          onClick={() => toggle(team.team_id)}
+                          aria-pressed={selectedId === team.team_id}
+                        >
+                          <div className="tea-card-top">
+                            <span className={`tea-team-icon lg tone-${TONE[status]}`}><Sym name="groups" /></span>
+                            <Pill status={status} />
                           </div>
-                          <StatusPill
-                            status={team.team_status}
-                            offDuty={!isOnCurrentShift(team.shift_name)}
-                          />
-                        </div>
-                        <div className="tea-card-name">{team.team_name}</div>
-                        <div className="tea-card-code">
-                          {team.team_code || "—"}
-                        </div>
-                        <hr className="tea-card-divider" />
-                        <div className="tea-card-row">
-                          <span className="tea-card-field-label">Station</span>
-                          <span className="tea-card-field-val">
-                            {team.station_name || "—"}
-                          </span>
-                        </div>
-                        <div className="tea-card-row">
-                          <span className="tea-card-field-label">Shift</span>
-                          <span
-                            className="tea-card-field-val"
-                            style={{
-                              color:
-                                team.shift_name && team.shift_name !== "—"
-                                  ? "var(--accent-blue)"
-                                  : "var(--text-muted)",
-                            }}
-                          >
-                            {team.shift_name || "—"}
-                          </span>
-                        </div>
-                        <div className="tea-card-row">
-                          <span className="tea-card-field-label">Members</span>
-                          <span className="tea-card-field-val">
-                            {team.member_count}
-                          </span>
-                        </div>
-                        <div className="tea-card-bottom">
-                          <div className="tea-card-members-row">
-                            {(team.members || []).slice(0, 4).map((m) => (
-                              <MemberAvatar
-                                key={m.per_id}
-                                initials={m.initials}
-                              />
-                            ))}
-                            {(team.members || []).length > 4 && (
-                              <span className="tea-card-more">
-                                +{team.members.length - 4}
-                              </span>
-                            )}
+                          <div className="tea-card-name">{team.team_name}</div>
+                          <div className="tea-card-code">{clean(team.team_code) || "No code"}</div>
+                          <dl className="tea-card-rows">
+                            <div><dt>Station</dt><dd>{clean(team.station_name) || "—"}</dd></div>
+                            <div><dt>Shift</dt><dd>{clean(team.shift_name) || "—"}</dd></div>
+                            <div><dt>Truck</dt><dd className="tea-mono">{team.truck_platenum || "—"}</dd></div>
+                          </dl>
+                          <div className="tea-card-bottom">
+                            <MemberStack members={team.members} count={team.member_count} />
+                            <span className="tea-card-count">
+                              {team.member_count} {team.member_count === 1 ? "member" : "members"}
+                            </span>
                           </div>
-                        </div>
-                      </div>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* DETAILS PANEL */}
-          <div className="tea-details">
-            {selected ? (
-              <div className="tea-details-inner">
-                <div className="tea-details-top">
-                  {/* <div
-                    className={`tea-details-av tea-cav-${selected.team_status}`}
-                  >
-                    <div className="tea-details-av-ring" />
-                    {(selected.team_name || "")
-                      .split(" ")
-                      .map((w) => w[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase()}
-                  </div> */}
-                  <div>
-                    <div className="tea-details-code">
-                      {selected.team_code || "—"} ·{" "}
-                      {selected.station_name || "—"}
-                    </div>
-                    <div className="tea-details-name">{selected.team_name}</div>
-                    <div className="tea-details-chips">
-                      <StatusPill
-                        status={selected.team_status}
-                        offDuty={!isOnCurrentShift(selected.shift_name)}
-                      />
-                      <ShiftBadge name={selected.shift_name} />
-                    </div>
-                  </div>
-                </div>
+          <div className="split-resizer" {...resizeHandle} />
 
-                <div className="tea-details-actions">
-                  <button
-                    type="button"
-                    className="act-icon-btn"
-                    onClick={() => setEditing(selected)}
-                    title="Edit team"
-                    aria-label="Edit team"
-                  >
-                    <EditIcon/>
-                  </button>
-                  <button
-                    type="button"
-                    className="act-icon-btn danger"
-                    onClick={() => setDeleting(selected)}
-                    title="Delete team"
-                    aria-label="Delete team"
-                  >
-                    <RemoveIcon/>
-                  </button>
-                </div>
-
-                <div className="tea-details-section-title">Team Details</div>
-                <div className="tea-details-grid">
-                  {[
-                    { label: "Code", value: selected.team_code || "—" },
-                    {
-                      label: "Status",
-                      value: isOnCurrentShift(selected.shift_name)
-                        ? selected.team_status
-                        : "off-duty",
-                    },
-                    { label: "Station", value: selected.station_name || "—" },
-                    { label: "Shift", value: null, shift: selected.shift_name },
-                    { label: "Members", value: String(selected.member_count) },
-                    {
-                      label: "Created",
-                      value: selected.created_at
-                        ? new Date(selected.created_at).toLocaleDateString()
-                        : "—",
-                    },
-                  ].map(({ label, value, shift }) => (
-                    <div key={label} className="tea-details-field">
-                      <div className="tea-details-label">{label}</div>
-                      <div className="tea-details-value">
-                        {shift !== undefined ? (
-                          <ShiftBadge name={shift} />
-                        ) : (
-                          value
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="tea-details-section-title">
-                  Members ({(selected.members || []).length})
-                </div>
-                <div className="tea-details-members">
-                  {(selected.members || []).length === 0 ? (
-                    <div className="tea-details-members-empty">
-                      No members assigned
-                    </div>
-                  ) : (
-                    (selected.members || []).map((m) => (
-                      <div key={m.per_id} className="tea-details-member-row">
-                        <MemberAvatar initials={m.initials} />
-                        <div className="tea-details-member-info">
-                          <div className="tea-details-member-name">
-                            {m.name}
-                          </div>
-                          <div className="tea-details-member-rank">
-                            {m.rank !== "—" ? m.rank : ""}
-                          </div>
-                        </div>
-                        {m.member_role && (
-                          <span
-                            className="tea-badge b-muted"
-                            style={{ fontSize: 8, marginLeft: "auto" }}
-                          >
-                            {m.member_role}
-                          </span>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="tea-details-empty">
-                Select a team to view details
-              </div>
-            )}
-          </div>
+          <aside className="tea-detail" aria-label="Team details" style={{ width: detailWidth }}>
+            <TeamDetail
+              t={selected}
+              trucksByStation={trucksByStation}
+              onEdit={() => setEditing(selected)}
+              onDelete={() => setDeleting(selected)}
+              onViewOnMap={() => onShowOnMap?.(selected)}
+            />
+          </aside>
         </div>
       </div>
 
@@ -830,14 +797,13 @@ export default function TeamsPage({ refreshKey = 0 }) {
         <ConfirmModal
           eyebrow="DELETE TEAM"
           title={`Delete ${deleting.team_name}?`}
-          message={
-            <>
-              This will permanently remove team{" "}
-              <strong>{deleting.team_name}</strong> and its member assignments.
-              This action cannot be undone.
-            </>
-          }
-          confirmLabel="Delete Team"
+          details={[
+            { label: "Team", value: [clean(deleting.team_code), clean(deleting.station_name)].filter(Boolean).join(" · ") || null },
+            { label: "Crew", value: `${deleting.member_count} ${deleting.member_count === 1 ? "member" : "members"}` },
+            { label: "Truck", value: deleting.truck_platenum },
+          ]}
+          message="Its member assignments are removed with it. The personnel themselves stay on record. This can't be undone."
+          confirmLabel="Delete team"
           onConfirm={confirmDelete}
           onClose={() => setDeleting(null)}
         />

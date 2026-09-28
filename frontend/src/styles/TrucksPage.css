@@ -276,7 +276,7 @@
   flex-direction: row;
   background-color: transparent;
   padding: 2px 20px;
-  gap: 10px;
+  gap: 0;
   overflow: hidden;
   min-height: 0;
 }
@@ -285,7 +285,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  min-width: 420px;
   min-height: 0;
   overflow: hidden;
   margin-bottom: 12px;
@@ -294,6 +294,7 @@
 /* ── Table view ── */
 .trk-table-wrap {
   flex: 1;
+  container: trk-table / inline-size;
   overflow-y: auto;
   background: var(--bg-base);
   border: 1px solid var(--border-dim);
@@ -306,6 +307,7 @@
 
 .trk-table {
   width: 100%;
+  min-width: 630px; /* every column but Actions at its set width */
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -595,7 +597,8 @@
 /* ── Detail panel (mirrors the Stations detail) ── */
 .trk-detail {
   width: 380px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 320px;
   overflow: hidden;
   background: var(--page-default-base);
   border: 1px solid var(--border-dim);
@@ -779,13 +782,17 @@
   border-top: 1px solid var(--border-dim);
 }
 
-@media (max-width: 1200px) {
-  .trk-detail { width: 320px; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .trk-skel,
   .trk-blink-dot { animation: none; }
   .trk-card { transition: none; }
   .trk-card:hover { transform: none; }
+}
+
+/* Columns sum to 760px (Actions is the last 130). Below that the Actions
+   column drops out instead of squeezing the others; edit and delete stay
+   reachable from the detail pane. */
+@container trk-table (max-width: 759.98px) {
+  .trk-table th:last-child,
+  .trk-table td:last-child { display: none; }
 }
