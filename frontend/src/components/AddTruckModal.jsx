@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import AppModal from './AppModal'
 import { fetchStations } from '../api'
-
-const STATUS_OPTIONS = ['available', 'dispatched', 'maintenance', 'unavailable']
+import { TRUCK_STATUSES, statusMeta } from './resourceFormOptions'
+import { Field, SectionHead, Segmented, FormStatus } from './incidentForm'
 
 export default function AddTruckModal({ onClose, onSubmit }) {
   const [form, setForm] = useState({
@@ -23,17 +23,17 @@ export default function AddTruckModal({ onClose, onSubmit }) {
     setError('')
   }
 
+  const plate   = form.truck_platenum.trim()
+  const missing = [!plate && 'plate number'].filter(Boolean)
+
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.truck_platenum.trim()) {
-      setError('Plate number is required.')
-      return
-    }
+    if (missing.length) return
     setSaving(true)
     setError('')
     try {
       await onSubmit({
-        truck_platenum: form.truck_platenum.trim(),
+        truck_platenum: plate,
         truck_status:   form.truck_status,
         station_id:     form.station_id ? Number(form.station_id) : null,
       })
@@ -44,52 +44,56 @@ export default function AddTruckModal({ onClose, onSubmit }) {
   }
 
   return (
-    <AppModal eyebrow="FLEET MANAGEMENT" title="Add New Truck" onClose={onClose} width={480}>
+    <AppModal
+      eyebrow="NEW TRUCK"
+      title={plate || 'Add a truck'}
+      onClose={onClose}
+      width={520}
+      className="eim-panel"
+      dismissible={!saving}
+    >
       <form onSubmit={handleSubmit}>
-        <div className="apm-scroll">
-          <div className="apm-body">
-
-            <div className="apm-section-label">Truck Information</div>
-
-            <div className="apm-field">
-              <label>Plate Number <span className="apm-required">*</span></label>
-              <input
-                placeholder="e.g. ABC-1234"
-                value={form.truck_platenum}
-                onChange={e => set('truck_platenum', e.target.value)}
-                autoFocus
-              />
+        <div className="eim-body">
+          <section className="eim-section">
+            <SectionHead title="Truck" desc="Plate number and home station." />
+            <div className="eim-row">
+              <Field label="Plate number" required>
+                <input
+                  className="frm-plate"
+                  placeholder="e.g. ABC-1234"
+                  value={form.truck_platenum}
+                  onChange={e => set('truck_platenum', e.target.value.toUpperCase())}
+                  autoFocus
+                />
+              </Field>
+              <Field label="Home station">
+                <select value={form.station_id} onChange={e => set('station_id', e.target.value)}>
+                  <option value="">No station yet</option>
+                  {stations.map(s => (
+                    <option key={s.station_id} value={s.station_id}>{s.station_name}</option>
+                  ))}
+                </select>
+              </Field>
             </div>
+          </section>
 
-            <div className="apm-field">
-              <label>Status</label>
-              <select value={form.truck_status} onChange={e => set('truck_status', e.target.value)}>
-                {STATUS_OPTIONS.map(s => (
-                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                ))}
-              </select>
-            </div>
+          <section className="eim-section">
+            <SectionHead title="Status" desc="Whether it can be sent out." />
+            <Segmented label="Status" options={TRUCK_STATUSES} value={form.truck_status} onChange={v => set('truck_status', v)} />
+            <div className="frm-hint">{statusMeta(TRUCK_STATUSES, form.truck_status).hint}</div>
+          </section>
 
-            <div className="apm-field">
-              <label>Assigned Station</label>
-              <select value={form.station_id} onChange={e => set('station_id', e.target.value)}>
-                <option value="">Select station...</option>
-                {stations.map(s => (
-                  <option key={s.station_id} value={s.station_id}>{s.station_name}</option>
-                ))}
-              </select>
-            </div>
-
-            {error && <div className="apm-error">{error}</div>}
-
-          </div>
+          {error && <div className="apm-error">{error}</div>}
         </div>
 
-        <div className="apm-actions">
-          <button type="button" className="apm-btn-cancel" onClick={onClose} disabled={saving}>Cancel</button>
-          <button type="submit" className="apm-btn-submit" disabled={saving}>
-            {saving ? <span className="apm-spinner" /> : '+ Add Truck'}
-          </button>
+        <div className="eim-footer">
+          <FormStatus missing={missing} />
+          <div className="eim-footer-actions">
+            <button type="button" className="apm-btn-cancel" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="submit" className="apm-btn-submit" disabled={saving || missing.length > 0}>
+              {saving ? <span className="apm-spinner" /> : 'Add truck'}
+            </button>
+          </div>
         </div>
       </form>
     </AppModal>

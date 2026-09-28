@@ -129,6 +129,7 @@ export async function updateStation(stationId, body) {
     throw new Error(err.detail || `Failed to update station (${res.status})`)
   }
   delete _cache['stations']
+  clearCoverageCache()   // coverage depends on station positions + status
   return res.json()
 }
 
@@ -290,6 +291,14 @@ export async function fetchIncidentReport(fireId) {
     })
   }
   return report
+}
+
+// Status / alarm / severity changes for the incident timeline, oldest first:
+// [{ event_id, type, from, to, actor, at }]
+export async function fetchIncidentEvents(fireId) {
+  const res = await apiFetch(`/api/incidents/${fireId}/events`)
+  if (!res.ok) throw new Error(`Failed to fetch incident events (${res.status})`)
+  return res.json()
 }
 
 // ── Dispatch ──────────────────────────────────────────────────────────────────
@@ -557,6 +566,7 @@ export async function createStation(body) {
     throw new Error(err.detail || `Failed to create station (${res.status})`)
   }
   delete _cache['stations']   // invalidate so next fetch hits the DB
+  clearCoverageCache()
   return res.json()
 }
 
@@ -567,6 +577,7 @@ export async function deleteStation(stationId) {
     throw new Error(err.detail || `Failed to delete station (${res.status})`)
   }
   delete _cache['stations']
+  clearCoverageCache()
 }
 
 // ── Account credentials ───────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import "../styles/SettingsPage.css";
 import { useSessionTimer } from "../hooks/useSessionTimer";
-import AppModal from "../components/AppModal";
+import SignOutModal from "../components/SignOutModal";
 import {
   changePassword,
   fetchCurrentUser,
@@ -1227,37 +1227,11 @@ export default function SettingsPage({
       </div>
 
       {confirmLogout && (
-        <AppModal
-          eyebrow="SESSION"
-          title="Sign Out"
+        <SignOutModal
+          user={user}
+          onConfirm={onLogout}
           onClose={() => setConfirmLogout(false)}
-          width={400}
-        >
-          <div className="apm-body" style={{ paddingBottom: 18 }}>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 13,
-                color: "var(--text-secondary)",
-                lineHeight: 1.6,
-              }}
-            >
-              You are about to end your current session. Any unsaved changes
-              will be lost. Are you sure you want to sign out?
-            </p>
-          </div>
-          <div className="apm-actions">
-            <button
-              className="apm-btn-cancel"
-              onClick={() => setConfirmLogout(false)}
-            >
-              Cancel
-            </button>
-            <button className="apm-btn-submit" onClick={onLogout}>
-              Sign Out
-            </button>
-          </div>
-        </AppModal>
+        />
       )}
     </div>
   );

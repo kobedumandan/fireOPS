@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { sendReporterSms } from "../api";
 import "../styles/AppModal.css";
 import "../styles/LocationRequestModal.css";
+import { ICON_CLOSE, ICON_COPY, ICON_CHECK, ICON_SEND, ICON_LINK, ICON_PIN } from "./incidentFormOptions";
+import { Icon, SectionHead } from "./incidentForm";
 
 // Public tunnel to the backend that serves the reporter page (/report/{token}).
 // Must be reachable from the reporter's phone — defaults to the mobile ngrok URL.
@@ -13,25 +15,55 @@ function generateToken() {
   return `RPT-${Date.now().toString(36).toUpperCase().slice(-6)}`;
 }
 
+function CopyButton({ text, label = "Copy" }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for browsers without clipboard API
+      const el = document.createElement("textarea");
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <button type="button" className={`lrm-btn ${copied ? "done" : ""}`} onClick={copy}>
+      <Icon d={copied ? ICON_CHECK : ICON_COPY} />
+      {copied ? "Copied" : label}
+    </button>
+  );
+}
+
+/**
+ * onLogIncident(coords, mobile, token) – optional; shown once the location
+ * arrives, opens the Log Incident form pinned at the reporter's position.
+ */
 export default function LocationRequestModal({
   onClose,
   onLocationReceived,
   onTokenGenerated,
+  onLogIncident,
   receivedData,
 }) {
   const [token] = useState(generateToken);
-  const [urlCopied, setUrlCopied] = useState(false);
-  const [smsCopied, setSmsCopied] = useState(false);
-  const [reqStatus, setReqStatus] = useState("awaiting"); // awaiting | received
-
   const [phone, setPhone] = useState("");
   const [sending, setSending] = useState(false);
   const [sendStatus, setSendStatus] = useState(null); // null | {ok, msg}
 
+  const received = !!receivedData;
   const reportUrl = `${PUBLIC_BASE_URL.replace(/\/$/, "")}/report/${token}`;
   const smsText = `BFP FireOPS: Please share your location to help emergency responders reach you. Tap: ${reportUrl}`;
 
-  async function handleSendSms() {
+  async function handleSendSms(e) {
+    e.preventDefault();
     if (!phone.trim() || sending) return;
     setSending(true);
     setSendStatus(null);
@@ -39,14 +71,11 @@ export default function LocationRequestModal({
       const res = await sendReporterSms(token, phone.trim());
       setSendStatus(
         res.sms_sent
-          ? { ok: true, msg: `SMS sent to ${res.phone_number}` }
-          : {
-              ok: true,
-              msg: "SMS disabled on server — copy the link and send it manually.",
-            }
+          ? { ok: true, msg: `Sent to ${res.phone_number}. Waiting for them to open it.` }
+          : { ok: false, msg: "SMS is turned off on the server. Copy the message below and send it yourself." }
       );
     } catch (err) {
-      setSendStatus({ ok: false, msg: err.message || "Failed to send SMS." });
+      setSendStatus({ ok: false, msg: err.message || "Couldn't send the SMS. Try again or share the link manually." });
     } finally {
       setSending(false);
     }
@@ -57,10 +86,9 @@ export default function LocationRequestModal({
     onTokenGenerated?.(token);
   }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When the parent signals that a location was received for our token, update status
+  // When the parent signals that a location was received for our token, pass it on
   useEffect(() => {
     if (!receivedData) return;
-    setReqStatus("received");
     onLocationReceived({ token, coords: [receivedData.lat, receivedData.lng] });
   }, [receivedData]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -72,125 +100,100 @@ export default function LocationRequestModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  async function copy(text, setCopied) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback for browsers without clipboard API
-      const el = document.createElement("textarea");
-      el.value = text;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand("copy");
-      document.body.removeChild(el);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  }
-
   return (
-    <div
-      className="apm-overlay"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="apm-panel" style={{ width: 480 }}>
-        <div className="apm-header">
-          <div>
+    <div className="apm-overlay lrm-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="apm-panel eim-panel lrm-panel" role="dialog" aria-modal="true" aria-labelledby="lrm-title">
+        <div className="eim-header">
+          <div className="eim-header-main">
             <div className="apm-eyebrow">REPORTER LINK</div>
-            <div className="apm-title">Request Location from Reporter</div>
+            <div id="lrm-title" className="eim-title">Request the reporter&apos;s location</div>
           </div>
-          <button className="apm-close" onClick={onClose}>
-            ✕
+          <button className="eim-close" onClick={onClose} aria-label="Close">
+            <Icon d={ICON_CLOSE} />
           </button>
         </div>
 
-        <div className="apm-scroll">
-          <div className="apm-body">
-            <p className="lrm-desc">
-              Send this link to the reporter. When they open it and allow
-              location access, their GPS coordinates will appear on your map.
-            </p>
+        <div className="eim-body">
+          {/* ── Live status: the thing the dispatcher is watching ── */}
+          <div className={`lrm-status ${received ? "received" : "awaiting"}`} role="status" aria-live="polite">
+            <span className="lrm-status-icon">
+              {received ? <Icon d={ICON_PIN} /> : <span className="lrm-pulse" />}
+            </span>
+            <span className="lrm-status-text">
+              <span className="lrm-status-title">
+                {received ? "Location received" : "Waiting for the reporter"}
+              </span>
+              <span className="lrm-status-desc">
+                {received
+                  ? `Pinned on the map at ${Number(receivedData.lat).toFixed(5)}, ${Number(receivedData.lng).toFixed(5)}.`
+                  : "Their GPS pin appears on your map once they open the link and allow location access."}
+              </span>
+            </span>
+          </div>
 
-            <div className="lrm-token-row">
-              <span className="lrm-token-label">SESSION</span>
-              <span className="lrm-token">{token}</span>
-            </div>
+          {!received && (
+            <>
+              {/* ── Send by SMS ── */}
+              <section className="eim-section">
+                <SectionHead title="Send by SMS" desc="Fastest. We text the link for you." />
+                <form className="lrm-send" onSubmit={handleSendSms}>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="09XX XXX XXXX"
+                    value={phone}
+                    onChange={(e) => { setPhone(e.target.value); setSendStatus(null); }}
+                    aria-label="Reporter mobile number"
+                    autoFocus
+                  />
+                  <button type="submit" className="apm-btn-submit lrm-send-btn" disabled={sending || !phone.trim()}>
+                    {sending ? <span className="apm-spinner" /> : <><Icon d={ICON_SEND} /> Send</>}
+                  </button>
+                </form>
+                {sendStatus && (
+                  <div className={`lrm-send-status ${sendStatus.ok ? "ok" : "err"}`}>
+                    {sendStatus.ok && <Icon d={ICON_CHECK} />}
+                    {sendStatus.msg}
+                  </div>
+                )}
+              </section>
 
-            <div className="apm-section-label">Shareable Link</div>
-            <div className="lrm-block">
-              <div className="lrm-url-row">
-                <span className="lrm-url">{reportUrl}</span>
-                <button
-                  className={`lrm-copy-btn${urlCopied ? " lrm-copied" : ""}`}
-                  onClick={() => copy(reportUrl, setUrlCopied)}
-                >
-                  {urlCopied ? "Copied" : "Copy"}
-                </button>
-              </div>
-            </div>
-
-            <div className="apm-section-label">Template</div>
-            <div className="lrm-block">
-              <div className="lrm-sms-text">
-                {smsText}
-                <button
-                  className={`lrm-copy-btn lrm-sms-copy-btn${
-                    smsCopied ? " lrm-copied" : ""
-                  }`}
-                  onClick={() => copy(smsText, setSmsCopied)}
-                >
-                  {smsCopied ? "Copied" : "Copy Message"}
-                </button>
-              </div>
-            </div>
-
-            <div className="apm-section-label">Send via SMS</div>
-            <div className="lrm-block">
-              <div className="lrm-url-row">
-                <input
-                  className="lrm-phone-input"
-                  type="tel"
-                  inputMode="tel"
-                  placeholder="09XXXXXXXXX"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSendSms()}
-                />
-                <button
-                  className="lrm-copy-btn"
-                  onClick={handleSendSms}
-                  disabled={sending || !phone.trim()}
-                >
-                  {sending ? "Sending…" : "Send SMS"}
-                </button>
-              </div>
-              {sendStatus && (
-                <div
-                  className={`lrm-send-status${
-                    sendStatus.ok ? "" : " lrm-send-error"
-                  }`}
-                >
-                  {/* {sendStatus.ok ? "✓ " : "✕ "} */}
-                  {sendStatus.msg}
+              {/* ── Share manually ── */}
+              <section className="eim-section">
+                <SectionHead title="Or share it yourself" desc="Paste into Messenger, Viber or any chat." />
+                <div className="lrm-link">
+                  <Icon d={ICON_LINK} />
+                  <span className="lrm-link-url" title={reportUrl}>{reportUrl}</span>
+                  <CopyButton text={reportUrl} label="Copy link" />
                 </div>
-              )}
-            </div>
-
-            <div className={`lrm-status lrm-status-${reqStatus}`}>
-              <div className={`lrm-status-dot lrm-sd-${reqStatus}`} />
-              {reqStatus === "awaiting"
-                ? "Awaiting reporter response…"
-                : "Location received; Marker added to Map"}
-            </div>
-          </div>
+                <div className="lrm-message">
+                  <p>{smsText}</p>
+                  <CopyButton text={smsText} label="Copy message" />
+                </div>
+              </section>
+            </>
+          )}
         </div>
 
-        <div className="apm-actions">
-          <button className="apm-btn-cancel" onClick={onClose}>
-            Close
-          </button>
+        <div className="eim-footer">
+          <span className="lrm-session">
+            Session <span className="lrm-session-code">{token}</span>
+          </span>
+          <div className="eim-footer-actions">
+            {received && onLogIncident ? (
+              <>
+                <button className="apm-btn-cancel" onClick={onClose}>Close</button>
+                <button
+                  className="apm-btn-submit"
+                  onClick={() => onLogIncident([receivedData.lat, receivedData.lng], receivedData.phone || phone.trim(), token)}
+                >
+                  Log incident here
+                </button>
+              </>
+            ) : (
+              <button className="apm-btn-cancel" onClick={onClose}>{received ? "Done" : "Close"}</button>
+            )}
+          </div>
         </div>
       </div>
     </div>

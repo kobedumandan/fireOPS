@@ -1,7 +1,19 @@
 import { useState, useEffect } from 'react'
 import '../styles/AppModal.css'
+import { SEVERITIES, ALARMS, STRUCTURES, ICON_CLOSE, ICON_PIN, ICON_BOLT } from './incidentFormOptions'
+import { Icon, Field, SectionHead, Segmented } from './incidentForm'
 
-export default function NewIncidentModal({ location, initial, onSubmit, onCancel }) {
+const CHANNELS = ['911 Call', 'BFP Hotline', 'SMS Report', 'Walk-in', 'Dispatcher']
+
+/**
+ * Log Incident from the map: the pin is already placed, so this is the live,
+ * fast path (always Pending). The full form with a map picker and past-incident
+ * mode lives in LogIncidentModal on the Incidents page.
+ *
+ * onRepick(draft) – optional; closes the form so the dispatcher can click a new
+ *                   spot, handing back what was typed so it can be restored.
+ */
+export default function NewIncidentModal({ location, initial, onSubmit, onCancel, onRepick }) {
   const [form, setForm] = useState(() => ({
     locationName: '',
     address:      '',
@@ -18,16 +30,19 @@ export default function NewIncidentModal({ location, initial, onSubmit, onCancel
   const [error, setError]   = useState(null)
 
   useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') onCancel() }
+    const onKey = e => { if (e.key === 'Escape' && !saving) onCancel() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
+  }, [onCancel, saving])
 
   function set(field, val) { setForm(f => ({ ...f, [field]: val })); setError(null) }
 
+  const fromReporter = form.locationSource === 'report'
+  const missing = form.locationName.trim() ? [] : ['area name']
+
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.locationName.trim()) return
+    if (missing.length) return
     setSaving(true)
     try {
       await onSubmit({
@@ -49,135 +64,148 @@ export default function NewIncidentModal({ location, initial, onSubmit, onCancel
     }
   }
 
-  const sevColor = { Critical: 'var(--accent-fire)', Moderate: 'var(--accent-amber)', Minor: 'var(--accent-green)' }
-
   return (
-    <div className="apm-overlay" onMouseDown={e => e.target === e.currentTarget && onCancel()}>
-      <div className="apm-panel lim-panel">
+    <div className="apm-overlay" onMouseDown={e => e.target === e.currentTarget && !saving && onCancel()}>
+      <div className="apm-panel eim-panel nim-panel" role="dialog" aria-modal="true" aria-labelledby="nim-title">
 
-        <div className="apm-header">
-          <div>
+        <div className="eim-header">
+          <div className="eim-header-main">
             <div className="apm-eyebrow">NEW INCIDENT</div>
-            <div className="apm-title">Log Incident</div>
+            <div id="nim-title" className="eim-title">{form.locationName.trim() || 'Log a new incident'}</div>
           </div>
-          <button className="apm-close" onClick={onCancel}>✕</button>
+          <button className="eim-close" onClick={onCancel} aria-label="Close" disabled={saving}>
+            <Icon d={ICON_CLOSE} />
+          </button>
         </div>
 
-        <div className="apm-scroll">
-          <form id="nim-form" className="apm-body" onSubmit={handleSubmit}>
+        <form id="nim-form" className="eim-body" onSubmit={handleSubmit}>
 
-            <div className="asm-coords-display" style={{ marginBottom: 12 }}>
-              <span>PIN</span>
-              <strong>{location[0].toFixed(5)}, {location[1].toFixed(5)}</strong>
-              <span style={{ marginLeft: 'auto', opacity: 0.6 }}>Click map to reposition</span>
-            </div>
-
-            <div className="apm-section-label">Incident Location</div>
-
-            <div className="apm-field">
-              <label>Location Name <span className="apm-required">*</span></label>
-              <input
-                placeholder="e.g. Brgy. San Francisco, Panabo City"
-                value={form.locationName}
-                onChange={e => set('locationName', e.target.value)}
-                required
-                autoFocus
-              />
-            </div>
-
-            <div className="apm-field">
-              <label>Street / Landmark</label>
-              <input
-                placeholder="e.g. 123 Rizal St., near the church"
-                value={form.address}
-                onChange={e => set('address', e.target.value)}
-              />
-            </div>
-
-            <div className="apm-section-label">Incident Details</div>
-
-            <div className="apm-row">
-              <div className="apm-field">
-                <label>Severity</label>
-                <select
-                  value={form.severity}
-                  onChange={e => set('severity', e.target.value)}
-                  style={{ color: sevColor[form.severity] }}
+          {/* ── Location ── */}
+          <section className="eim-section">
+            <SectionHead title="Location" desc={fromReporter ? 'Pinned from the reporter\'s phone.' : 'Name the spot you pinned.'} />
+            <div className="eim-coords pinned nim-pin">
+              <Icon d={ICON_PIN} />
+              <span className="eim-coords-val">{location[0].toFixed(5)}, {location[1].toFixed(5)}</span>
+              {fromReporter && <span className="nim-pin-tag">Reporter GPS</span>}
+              {onRepick && (
+                <button
+                  type="button"
+                  className="eim-link-btn nim-pin-move"
+                  onClick={() => onRepick(form)}
+                  disabled={saving}
                 >
-                  <option value="Critical">Critical</option>
-                  <option value="Moderate">Moderate</option>
-                  <option value="Minor">Minor</option>
-                </select>
-              </div>
-              <div className="apm-field">
-                <label>Alarm Level</label>
-                <select value={form.alarm} onChange={e => set('alarm', e.target.value)}>
-                  <option>1st Alarm</option>
-                  <option>2nd Alarm</option>
-                  <option>3rd Alarm</option>
-                </select>
-              </div>
+                  Move pin
+                </button>
+              )}
             </div>
+            <div className="eim-row">
+              <Field label="Area / Barangay" required>
+                <input
+                  placeholder="e.g. Brgy. San Francisco, Panabo"
+                  value={form.locationName}
+                  onChange={e => set('locationName', e.target.value)}
+                  autoFocus
+                />
+              </Field>
+              <Field label="Street / landmark">
+                <input
+                  placeholder="e.g. 123 Rizal St., near the church"
+                  value={form.address}
+                  onChange={e => set('address', e.target.value)}
+                />
+              </Field>
+            </div>
+          </section>
 
-            <div className="apm-row">
-              <div className="apm-field">
-                <label>Structure Type</label>
+          {/* ── Assessment ── */}
+          <section className="eim-section">
+            <SectionHead title="Assessment" desc="How serious the fire looks from the report." />
+            <Field label="Severity" required>
+              <Segmented label="Severity" options={SEVERITIES} value={form.severity} onChange={v => set('severity', v)} />
+            </Field>
+            <div className="eim-row">
+              <Field label="Alarm level">
+                <Segmented
+                  label="Alarm level"
+                  options={ALARMS.map(a => ({ value: a, label: a.replace(' Alarm', '') }))}
+                  value={form.alarm}
+                  onChange={v => set('alarm', v)}
+                />
+              </Field>
+              <Field label="Structure type">
                 <select value={form.structure} onChange={e => set('structure', e.target.value)}>
-                  <option>Residential</option>
-                  <option>Residential 2-storey</option>
-                  <option>Commercial</option>
-                  <option>Industrial</option>
-                  <option>Institutional</option>
-                  <option>Informal Settlement</option>
-                  <option>Vegetation</option>
-                  <option>Vehicle</option>
-                  <option>Other</option>
+                  {STRUCTURES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-              </div>
-              <div className="apm-field">
-                <label>Reported Via</label>
-                <select value={form.reporter} onChange={e => set('reporter', e.target.value)}>
-                  <option>911 Call</option>
-                  <option>BFP Hotline</option>
-                  <option>SMS Report</option>
-                  <option>Walk-in</option>
-                  <option>Dispatcher</option>
-                </select>
-              </div>
+              </Field>
             </div>
+          </section>
 
-            <div className="apm-section-label">Reporter Information</div>
-
-            <div className="apm-field">
-              <label>Reporter Mobile #</label>
+          {/* ── Reporter ── */}
+          <section className="eim-section">
+            <SectionHead title="Reporter" desc="How the report came in." />
+            <Field label="Reported via">
+              <div className="eim-chips" role="radiogroup" aria-label="Reported via">
+                {CHANNELS.map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.reporter === c}
+                    className={`eim-pick ${form.reporter === c ? 'active' : ''}`}
+                    onClick={() => set('reporter', c)}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <Field label="Reporter mobile #" className="nim-mobile">
               <input
+                type="tel"
+                inputMode="tel"
                 placeholder="e.g. 09XX-XXX-XXXX"
                 value={form.mobile}
                 onChange={e => set('mobile', e.target.value)}
               />
-            </div>
+            </Field>
+          </section>
 
-            <div className="apm-field">
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, textTransform: 'none', fontSize: '11px', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={form.autoDispatch}
-                  onChange={e => set('autoDispatch', e.target.checked)}
-                  style={{ width: 'auto', margin: 0 }}
-                />
-                <span>Auto-dispatch nearest available team</span>
-              </label>
-            </div>
+          {/* ── Dispatch ── */}
+          <section className="eim-section">
+            <SectionHead title="Dispatch" />
+            <label className={`nim-toggle ${form.autoDispatch ? 'on' : ''}`}>
+              <span className="nim-toggle-icon"><Icon d={ICON_BOLT} /></span>
+              <span className="nim-toggle-text">
+                <span className="nim-toggle-title">Auto-dispatch the nearest team</span>
+                <span className="nim-toggle-desc">
+                  {form.autoDispatch
+                    ? 'The closest available crew is sent as soon as you log this.'
+                    : 'Logged as Pending. Dispatch a crew yourself from the incident panel.'}
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                className="nim-switch"
+                checked={form.autoDispatch}
+                onChange={e => set('autoDispatch', e.target.checked)}
+              />
+            </label>
+          </section>
 
-            {error && <div className="apm-error">{error}</div>}
-          </form>
-        </div>
+          {error && <div className="apm-error">{error}</div>}
+        </form>
 
-        <div className="apm-actions">
-          <button type="button" className="apm-btn-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
-          <button type="submit" form="nim-form" className="apm-btn-submit" disabled={saving}>
-            {saving ? <span className="apm-spinner" /> : 'Log Incident'}
-          </button>
+        <div className="eim-footer">
+          <span className={`eim-changes ${missing.length ? '' : 'ready'}`}>
+            {missing.length ? `Still needed: ${missing.join(' and ')}` : 'Ready to log'}
+          </span>
+          <div className="eim-footer-actions">
+            <button type="button" className="apm-btn-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
+            <button type="submit" form="nim-form" className="apm-btn-submit" disabled={saving || missing.length > 0}>
+              {saving ? <span className="apm-spinner" /> : form.autoDispatch ? 'Log & dispatch' : 'Log incident'}
+            </button>
+          </div>
         </div>
 
       </div>

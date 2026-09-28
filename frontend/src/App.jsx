@@ -698,6 +698,14 @@ export default function App() {
 
   function handleLocationPicked(coords) { setPickedLocation(coords) }
 
+  // "Move pin" in the Log Incident form: stay in picking mode and keep what was
+  // typed, so the form reopens filled in at the next click. A hand-moved pin is
+  // no longer the reporter's raw GPS fix.
+  function repickLocation(draft) {
+    setIncidentDefaults({ ...draft, locationSource: 'manual' })
+    setPickedLocation(null)
+  }
+
   // Open the Log Incident modal pre-filled at a reporter's shared location.
   function logIncidentAtReporter(coords, mobile, token) {
     setIncidentDefaults({
@@ -943,6 +951,7 @@ export default function App() {
           initial={incidentDefaults}
           onSubmit={handleIncidentSubmit}
           onCancel={cancelPicking}
+          onRepick={repickLocation}
         />
       )}
 
@@ -951,6 +960,10 @@ export default function App() {
           onClose={() => { setShowLocationRequest(false); setPendingReporterToken(null); setReporterReceivedData(null) }}
           onLocationReceived={handleReporterLocationReceived}
           onTokenGenerated={setPendingReporterToken}
+          onLogIncident={(coords, mobile, token) => {
+            setShowLocationRequest(false); setPendingReporterToken(null); setReporterReceivedData(null)
+            logIncidentAtReporter(coords, mobile, token)
+          }}
           receivedData={reporterReceivedData}
         />
       )}

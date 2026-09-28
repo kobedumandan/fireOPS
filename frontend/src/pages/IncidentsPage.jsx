@@ -244,22 +244,20 @@ export default function IncidentsPage({ onShowOnMap }) {
         {deletingIncident && (
           <ConfirmModal
             eyebrow="DELETE INCIDENT"
-            title={`Delete incident ${deletingIncident.id}?`}
+            title="Delete this incident?"
+            details={[
+              { label: "Incident", value: deletingIncident.id },
+              { label: "Location", value: deletingIncident.loc },
+              { label: "Status", value: deletingIncident.status ? deletingIncident.status[0].toUpperCase() + deletingIncident.status.slice(1) : null },
+              { label: "Reported", value: formatReported(deletingIncident.reported_at) },
+            ]}
             message={
               <>
-                This will permanently remove incident{" "}
-                <strong>{deletingIncident.id}</strong>
-                {deletingIncident.loc ? (
-                  <>
-                    {" "}
-                    at <strong>{deletingIncident.loc}</strong>
-                  </>
-                ) : null}
-                , along with its dispatch records and routes. This action cannot
-                be undone.
+                Its dispatch records and routes are removed with it.{" "}
+                <strong>This can't be undone.</strong>
               </>
             }
-            confirmLabel="Delete Incident"
+            confirmLabel="Delete incident"
             onConfirm={confirmDelete}
             onClose={() => setDeletingIncident(null)}
           />

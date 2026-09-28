@@ -15,6 +15,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import "../styles/MapArea.css";
+import ConfirmModal from "./ConfirmModal";
 
 import { MAP_CENTER, MAP_ZOOM, tileLayersFor, REGION_BOUNDARY } from "../data/mapConfig";
 import { useTheme, readCssVar } from "../hooks/useTheme";
@@ -1316,14 +1317,20 @@ export default function MapArea({
     setEditingConstraint(null);
   }
 
-  async function handleDeleteConstraint(id) {
-    try {
-      await deleteConstraint(id);
-      setCustomConstraints((prev) => prev.filter((c) => c.id !== id));
-      setGnnData(null);
-    } catch (err) {
-      console.error("Delete constraint failed:", err);
-    }
+  // Deleting changes what the router avoids, so both obstruction and
+  // constraint deletes go through a confirmation first.
+  const [pendingDelete, setPendingDelete] = useState(null); // { kind, item }
+
+  function handleDeleteConstraint(id) {
+    const item = customConstraints.find((c) => c.id === id);
+    if (item) setPendingDelete({ kind: "constraint", item });
+  }
+
+  // Throws on failure so the confirmation shows the error and stays open.
+  async function confirmDeleteConstraint(id) {
+    await deleteConstraint(id);
+    setCustomConstraints((prev) => prev.filter((c) => c.id !== id));
+    setGnnData(null);
   }
 
   function handleEditConstraint(c) {
@@ -1417,8 +1424,17 @@ export default function MapArea({
   }
 
   function handleObstructionDelete(id) {
+    const item = obstructions.find((o) => o.id === id);
+    if (item) setPendingDelete({ kind: "obstruction", item });
+  }
+
+  // Waits for the server before dropping the marker: the old optimistic
+  // removal swallowed failures, leaving an obstruction the router still
+  // avoided but the map no longer showed.
+  async function confirmDeleteObstruction(id) {
+    // Still saving (local id): nothing on the server to delete yet.
+    if (!String(id).startsWith("local-")) await deleteObstruction(id);
     setObstructions((prev) => prev.filter((o) => o.id !== id));
-    deleteObstruction(id).catch(() => {});
   }
 
   // Briefly raise the z-index of a personnel marker whenever its live
@@ -2095,6 +2111,47 @@ export default function MapArea({
           }}
         />
       )}
+
+      {pendingDelete?.kind === "obstruction" && (() => {
+        const o = pendingDelete.item;
+        const info = obsInfo(o.type);
+        return (
+          <ConfirmModal
+            eyebrow="REMOVE OBSTRUCTION"
+            title={`Remove this ${info.label.toLowerCase()}?`}
+            details={[
+              { label: "Type", value: info.label },
+              { label: "Effect", value: info.effect },
+              ...(o.description ? [{ label: "Note", value: o.description }] : []),
+              { label: "Location", value: `${o.latitude.toFixed(5)}, ${o.longitude.toFixed(5)}` },
+            ]}
+            message="New routes and reroutes will stop avoiding this spot. Routes already sent to crews don't change."
+            confirmLabel="Remove"
+            onConfirm={() => confirmDeleteObstruction(o.id)}
+            onClose={() => setPendingDelete(null)}
+          />
+        );
+      })()}
+
+      {pendingDelete?.kind === "constraint" && (() => {
+        const c = pendingDelete.item;
+        const info = CONSTRAINT_TYPES.find((t) => t.id === c.constraint_type) || CONSTRAINT_TYPES[0];
+        return (
+          <ConfirmModal
+            eyebrow="DELETE CONSTRAINT"
+            title={`Delete ${c.name ? `"${c.name}"` : "this constraint"}?`}
+            details={[
+              { label: "Type", value: info.label },
+              ...(c.name ? [{ label: "Name", value: c.name }] : []),
+              ...(c.highway ? [{ label: "Road class", value: c.highway }] : []),
+            ]}
+            message="The routing model stops treating this area as constrained on its next route. This can't be undone."
+            confirmLabel="Delete"
+            onConfirm={() => confirmDeleteConstraint(c.id)}
+            onClose={() => setPendingDelete(null)}
+          />
+        );
+      })()}
 
       {/* Bottom-right area: constraint editor (GNN mode) OR obstacles (normal mode) */}
       <div

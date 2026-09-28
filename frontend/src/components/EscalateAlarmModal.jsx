@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import AppModal from "./AppModal";
+import { createPortal } from "react-dom";
 import {
   fetchDispatchRecommendations,
   fetchTeams,
@@ -7,6 +7,8 @@ import {
   updateIncident,
 } from "../api";
 import "../styles/AppModal.css";
+import { ICON_CLOSE, ICON_CHECK, ICON_WARN } from "./incidentFormOptions";
+import { Icon, SectionHead, Callout, LockedNote } from "./incidentForm";
 
 // Alarm levels the dashboard exposes (mirrors Log/Edit incident modals). The
 // backend also knows "General Alarm", but the rest of the UI caps at 3rd, so
@@ -18,6 +20,7 @@ const REASON_COPY = {
   incident_missing_coordinates:
     "The incident has no map coordinates, so routes can't be computed.",
   no_teams_configured: "No response teams are configured in the system.",
+  no_operational_station: "Every station with teams is marked inactive.",
   all_teams_active: "Every other team is already active on an incident.",
   no_team_on_shift: "No additional team is assigned to the current shift.",
   no_available_truck: "No remaining eligible team has an available truck.",
@@ -28,6 +31,27 @@ function formatEta(minutes) {
   if (minutes == null) return "—";
   if (minutes < 1) return "< 1 min";
   return `${Math.round(minutes)} min`;
+}
+
+/* 1st → 2nd → 3rd, read-only: where the incident is, and where it's going. */
+function AlarmTrack({ currentIdx, targetIdx }) {
+  return (
+    <ol className="eam-track" aria-label="Alarm level">
+      {ALARM_LEVELS.map((lvl, i) => {
+        const state = i === targetIdx ? "target" : i === currentIdx ? "current" : i < currentIdx ? "past" : "todo";
+        return (
+          <li key={lvl} className={`eam-level ${state}`}>
+            <span className="eam-level-node">{i + 1}</span>
+            <span className="eam-level-label">
+              {lvl}
+              {state === "current" && <em>Now</em>}
+              {state === "target" && <em>Next</em>}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 /**
@@ -101,11 +125,18 @@ export default function EscalateAlarmModal({ incident, onClose, onDispatched }) 
     };
   }, [willFetch, incident?.fire_id, nextLevel, currentIdx]);
 
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape" && !submitting) onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, submitting]);
+
   const recommendedCount = useMemo(
     () => Math.max((targetUnits ?? 0) - alreadyActive, 0),
     [targetUnits, alreadyActive]
   );
   const shortfall = Math.max(recommendedCount - recs.length, 0);
+  const maxEta = Math.max(1, ...recs.map((r) => r.eta_minutes || 0));
 
   function toggle(teamId) {
     setSelected((prev) => {
@@ -152,140 +183,159 @@ export default function EscalateAlarmModal({ incident, onClose, onDispatched }) 
   }
 
   const selectedCount = selected.size;
+  const ready = !atMax && !loading && !loadError;
 
-  return (
-    <AppModal
-      eyebrow="ESCALATE ALARM"
-      title={atMax ? "Highest Alarm Level" : "Escalate Alarm"}
-      width={480}
-      onClose={onClose}
-    >
-      <div className="apm-scroll">
-        <div className="apm-body">
-          {/* Incident summary strip */}
-          <div className="dpm-incident-strip">
-            <div className="dpm-strip-wrap">
-              <div className="dpm-strip-id">{incident?.id}</div>
-              <div className="dpm-strip-loc">{incident?.loc}</div>
+  return createPortal(
+    <div className="apm-overlay adm-overlay" onMouseDown={(e) => e.target === e.currentTarget && !submitting && onClose()}>
+      <div className="apm-panel eim-panel adm-panel" role="dialog" aria-modal="true" aria-labelledby="eam-title">
+        <div className="eim-header">
+          <div className="eim-header-main">
+            <div className="apm-eyebrow">ESCALATE ALARM</div>
+            <div id="eam-title" className="eim-title">
+              {atMax ? "Already at the highest alarm" : `Escalate to ${nextLevel}`}
             </div>
-            <div
-              className={`dpm-strip-sev dpm-sev-${(incident?.sev || "").toLowerCase()}`}
-            >
-              {incident?.sev}
+            <div className="adm-context">
+              <span className="adm-context-code">{incident?.id}</span>
+              {incident?.loc && <span>{incident.loc}</span>}
+              {incident?.sev && <span>{incident.sev}</span>}
             </div>
           </div>
+          <button className="eim-close" onClick={onClose} aria-label="Close" disabled={submitting}>
+            <Icon d={ICON_CLOSE} />
+          </button>
+        </div>
+
+        <div className="eim-body">
+          <AlarmTrack currentIdx={currentIdx} targetIdx={atMax ? -1 : currentIdx + 1} />
 
           {atMax ? (
-            <div className="adm-banner adm-banner-warn" role="status">
-              This incident is already at the highest alarm level
-              ({currentLevel}). No further escalation is available.
+            <div className="adm-result warn" role="status">
+              <span className="adm-result-icon"><Icon d={ICON_WARN} /></span>
+              <span className="adm-result-text">
+                <span className="adm-result-title">No higher level to escalate to</span>
+                <span className="adm-result-desc">
+                  This incident is at {currentLevel}. Send more units with Dispatch instead.
+                </span>
+              </span>
             </div>
-          ) : loading ? (
-            <div className="dpm-empty">Loading recommended units…</div>
           ) : loadError ? (
             <div className="apm-error">{loadError}</div>
           ) : (
             <>
-              <div className="adm-banner adm-banner-ok" role="status">
-                Escalating <strong>{currentLevel}</strong> →{" "}
-                <strong>{nextLevel}</strong>. This level calls for{" "}
-                <strong>{targetUnits}</strong> unit
-                {targetUnits === 1 ? "" : "s"}; <strong>{alreadyActive}</strong>{" "}
-                already responding.
+              {/* ── Units at a glance ── */}
+              <div className="eam-stats">
+                <div className="eam-stat">
+                  <span className="eam-stat-val">{loading ? "–" : targetUnits}</span>
+                  <span className="eam-stat-lbl">{nextLevel} calls for</span>
+                </div>
+                <div className="eam-stat">
+                  <span className="eam-stat-val">{loading ? "–" : alreadyActive}</span>
+                  <span className="eam-stat-lbl">Already responding</span>
+                </div>
+                <div className="eam-stat add">
+                  <span className="eam-stat-val">{loading ? "–" : `+${selectedCount}`}</span>
+                  <span className="eam-stat-lbl">Adding now</span>
+                </div>
               </div>
 
-              {recs.length === 0 ? (
-                <div className="adm-reason">
-                  {REASON_COPY[reason] ||
-                    "No additional units are available to dispatch right now. The alarm level will still be raised."}
-                </div>
-              ) : (
-                <>
-                  <div className="apm-section-label">
-                    Recommended Units — dispatching {selectedCount}
+              <section className="eim-section">
+                <SectionHead
+                  title="Additional units"
+                  desc={loading ? "Finding the nearest teams…" : recs.length ? "Ranked by drive time. Tap to include or skip." : null}
+                />
+
+                {loading ? (
+                  <div className="adm-cands" aria-busy="true">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="dpm-team dpm-skeleton">
+                        <span className="eam-check" />
+                        <span className="dpm-sk-lines"><span /><span /></span>
+                      </div>
+                    ))}
                   </div>
-
-                  {shortfall > 0 && (
-                    <div className="adm-reason">
-                      Only {recs.length} of the {recommendedCount} recommended
-                      units are available.
-                    </div>
-                  )}
-
-                  <div className="adm-cand-list">
-                    {recs.map((c, i) => {
-                      const isSel = selected.has(c.team_id);
-                      return (
-                        <button
-                          type="button"
-                          key={c.team_id}
-                          className={`adm-cand-row${isSel ? " adm-cand-winner" : ""}`}
-                          onClick={() => toggle(c.team_id)}
-                          aria-pressed={isSel}
-                          style={{ cursor: "pointer", textAlign: "left" }}
-                        >
-                          <div className="adm-cand-rank" aria-hidden="true">
-                            {isSel ? "✓" : i + 1}
-                          </div>
-                          <div className="adm-cand-info">
-                            <div className="adm-cand-name">{c.team_name}</div>
-                            <div className="adm-cand-meta">
-                              {c.station_name ? `${c.station_name} · ` : ""}
-                              {(c.haversine_m / 1000).toFixed(1)} km
-                              {c.eta_source === "haversine_fallback" && (
-                                <span className="adm-cand-flag">
-                                  {" "}
-                                  · est. (routing offline)
+                ) : recs.length === 0 ? (
+                  <LockedNote>
+                    {REASON_COPY[reason] || "No additional units are available right now."}{" "}
+                    The alarm level will still be raised.
+                  </LockedNote>
+                ) : (
+                  <>
+                    {shortfall > 0 && (
+                      <Callout>
+                        Only {recs.length} of the {recommendedCount} units this level calls for are available.
+                      </Callout>
+                    )}
+                    <ul className="adm-cands">
+                      {recs.map((c, i) => {
+                        const isSel = selected.has(c.team_id);
+                        return (
+                          <li key={c.team_id}>
+                            <button
+                              type="button"
+                              role="checkbox"
+                              aria-checked={isSel}
+                              className={`adm-cand eam-cand ${isSel ? "selected" : ""}`}
+                              onClick={() => toggle(c.team_id)}
+                            >
+                              <span className="eam-check">{isSel && <Icon d={ICON_CHECK} />}</span>
+                              <span className="adm-cand-info">
+                                <span className="adm-cand-name">
+                                  {c.team_name}
+                                  {i < recommendedCount && <span className="eam-rec-tag">Recommended</span>}
                                 </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="adm-cand-eta">
-                            {formatEta(c.eta_minutes)}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
+                                <span className="adm-cand-meta">
+                                  {c.station_name ? `${c.station_name} · ` : ""}
+                                  {(c.haversine_m / 1000).toFixed(1)} km
+                                  {c.eta_source === "haversine_fallback" && (
+                                    <span className="adm-cand-flag"> · estimate, routing offline</span>
+                                  )}
+                                </span>
+                              </span>
+                              <span className="adm-cand-bar" aria-hidden="true">
+                                <span style={{ width: `${((c.eta_minutes || 0) / maxEta) * 100}%` }} />
+                              </span>
+                              <span className="adm-cand-eta">{formatEta(c.eta_minutes)}</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </>
+                )}
+              </section>
 
               {submitError && <div className="apm-error">{submitError}</div>}
             </>
           )}
         </div>
-      </div>
 
-      <div className="apm-actions">
-        {atMax ? (
-          <button className="apm-btn-submit" onClick={onClose}>
-            Close
-          </button>
-        ) : (
-          <>
-            <button
-              className="apm-btn-cancel"
-              onClick={onClose}
-              disabled={submitting}
-            >
-              Cancel
-            </button>
-            <button
-              className="apm-btn-submit"
-              onClick={handleConfirm}
-              disabled={loading || submitting}
-            >
-              {submitting ? (
-                <span className="apm-spinner" />
-              ) : selectedCount > 0 ? (
-                `Escalate & Dispatch (${selectedCount})`
-              ) : (
-                "Escalate Alarm"
-              )}
-            </button>
-          </>
-        )}
+        <div className="eim-footer">
+          <span className="eim-changes">
+            {ready && recs.length > 0
+              ? `${selectedCount} of ${recs.length} units selected`
+              : ready ? "Raises the alarm level only." : ""}
+          </span>
+          <div className="eim-footer-actions">
+            {atMax ? (
+              <button className="apm-btn-submit" onClick={onClose} autoFocus>Close</button>
+            ) : (
+              <>
+                <button className="apm-btn-cancel" onClick={onClose} disabled={submitting}>Cancel</button>
+                <button className="apm-btn-submit" onClick={handleConfirm} disabled={!ready || submitting}>
+                  {submitting ? (
+                    <span className="apm-spinner" />
+                  ) : selectedCount > 0 ? (
+                    `Escalate & dispatch ${selectedCount}`
+                  ) : (
+                    "Escalate alarm"
+                  )}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
-    </AppModal>
+    </div>,
+    document.body
   );
 }

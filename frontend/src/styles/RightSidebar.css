@@ -767,3 +767,107 @@
   color: var(--text-secondary);
   margin-top: 2px;
 }
+
+/* ── Timeline tab (itl-*)  Used by: components/IncidentTimeline.jsx ── */
+.itl {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.itl-item {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding-bottom: 14px;
+}
+.itl-tone-fire  { --itl-rgb: var(--accent-fire-rgb); }
+.itl-tone-amber { --itl-rgb: var(--accent-amber-rgb); }
+.itl-tone-green { --itl-rgb: var(--accent-green-rgb); }
+
+/* Rail connecting each dot to the next */
+.itl-item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 14px;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+.itl-dot {
+  position: relative;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  margin-top: 3px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: rgb(var(--itl-rgb));
+  box-shadow: 0 0 0 3px rgba(var(--itl-rgb), 0.15);
+}
+.itl-tone-muted .itl-dot {
+  background: var(--text-muted);
+  box-shadow: none;
+}
+.itl-item.live .itl-dot {
+  animation: itl-pulse 1.6s ease-out infinite;
+}
+@keyframes itl-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(var(--itl-rgb), 0.5); }
+  100% { box-shadow: 0 0 0 7px rgba(var(--itl-rgb), 0); }
+}
+.itl-now .itl-dot {
+  background: var(--page-default-base);
+  border: 1.5px solid var(--text-secondary);
+  box-shadow: none;
+}
+
+.itl-main {
+  flex: 1;
+  min-width: 0;
+}
+.itl-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.itl-title {
+  font-family: var(--font-condensed);
+  font-size: 10.8px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.itl-time {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.itl-item.live .itl-time {
+  color: var(--accent-amber);
+}
+.itl-desc {
+  margin-top: 2px;
+  font-size: 9.8px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+.itl-now .itl-title {
+  color: var(--text-secondary);
+}
+.itl-state {
+  font-size: 9.8px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  padding: 4px 0 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .itl-item.live .itl-dot {
+    animation: none;
+  }
+}
