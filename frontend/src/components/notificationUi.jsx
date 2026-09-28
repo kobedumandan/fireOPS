@@ -56,6 +56,22 @@ function ResolvedIcon({ className }) {
   );
 }
 
+function ContainedIcon({ className }) {
+  return (
+    <Glyph className={className}>
+      <path d="m438-338 226-226-57-57-169 169-84-84-57 57 141 141Zm42 258q-139-35-229.5-159.5T160-516v-244l320-120 320 120v244q0 152-90.5 276.5T480-80Zm0-84q104-33 172-132t68-220v-189l-240-90-240 90v189q0 121 68 220t172 132Zm0-316Z" />
+    </Glyph>
+  );
+}
+
+function ReportIcon({ className }) {
+  return (
+    <Glyph className={className}>
+      <path d="M320-240h320v-80H320v80Zm0-160h320v-80H320v80ZM240-80q-33 0-56.5-23.5T160-160v-640q0-33 23.5-56.5T240-880h320l240 240v480q0 33-23.5 56.5T720-80H240Zm280-520v-200H240v640h480v-440H520ZM240-800v200-200 640-640Z" />
+    </Glyph>
+  );
+}
+
 function OnSceneIcon({ className }) {
   return (
     <Glyph className={className}>
@@ -82,16 +98,18 @@ function NoUnitIcon({ className }) {
 
 /* Accent token per kind. Written as a token NAME so the tint and the glyph can
    both be derived from it in CSS via --n-accent — no colour literals here or
-   in the stylesheet. */
+   in the stylesheet. `group` is the bell panel's filter tab. */
 const KIND_META = {
-  newIncident:        { Icon: FireIcon,        accent: "fire",   label: "New Incident" },
-  escalation:         { Icon: EscalationIcon,  accent: "amber",  label: "Alarm Escalation" },
-  resolution:         { Icon: ResolvedIcon,    accent: "green",  label: "Resolved" },
-  onScene:            { Icon: OnSceneIcon,     accent: "blue",   label: "Unit On Scene" },
-  deviceOffline:      { Icon: OfflineIcon,     accent: "slate",  label: "Device Offline" },
-  autoDispatchFailed: { Icon: NoUnitIcon,      accent: "red",    label: "Auto-Dispatch Failed" },
+  newIncident:        { Icon: FireIcon,        accent: "fire",   label: "New Incident",         group: "incidents" },
+  escalation:         { Icon: EscalationIcon,  accent: "amber",  label: "Alarm Escalation",     group: "incidents" },
+  contained:          { Icon: ContainedIcon,   accent: "emerald", label: "Fire Contained",      group: "incidents" },
+  resolution:         { Icon: ResolvedIcon,    accent: "green",  label: "Resolved",             group: "incidents" },
+  reportFiled:        { Icon: ReportIcon,      accent: "purple", label: "Report Filed",         group: "incidents" },
+  onScene:            { Icon: OnSceneIcon,     accent: "blue",   label: "Unit On Scene",        group: "dispatch" },
+  autoDispatchFailed: { Icon: NoUnitIcon,      accent: "red",    label: "Auto-Dispatch Failed", group: "dispatch" },
+  deviceOffline:      { Icon: OfflineIcon,     accent: "slate",  label: "Device Offline",       group: "devices" },
 };
 
 export function kindMeta(kind) {
-  return KIND_META[kind] ?? { Icon: BellIcon, accent: "slate", label: "Alert" };
+  return KIND_META[kind] ?? { Icon: BellIcon, accent: "slate", label: "Alert", group: "other" };
 }

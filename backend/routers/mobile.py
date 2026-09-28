@@ -8,14 +8,16 @@ from sqlalchemy.orm import Session
 from config import _REROUTE_INLINE
 from database import get_db
 from models import (
-    CurrentLocation, DispatchRecord, LocationLog, ResponseTeamMember, Route, Users,
+    CurrentLocation, DispatchRecord, LocationLog, PushToken, ResponseTeamMember,
+    Route, Users,
 )
-from schemas import LocationUpdateBody
+from schemas import LocationUpdateBody, PushTokenBody, PushTokenRef
 from security import _home_station, get_current_user
 from services.dispatch import (
     _is_driver, _is_manning_truck, _normalize_role, _race_condition_winner,
     _sync_truck,
 )
+from services.push import push_message, send_expo_push
 from services.routing import _check_deviation, _recompute_deviation_routing_bg
 from state import manager
 
@@ -30,6 +32,83 @@ def mobile_me_station(current_user: Users = Depends(get_current_user)):
     if current_user.user_role != "personnel" or not current_user.personnel:
         raise HTTPException(status_code=403, detail="Only personnel accounts can use this endpoint.")
     return {"station": _home_station(current_user)}
+
+
+def _require_personnel(user: Users):
+    if user.user_role != "personnel" or not user.personnel:
+        raise HTTPException(status_code=403, detail="Only personnel accounts can use this endpoint.")
+    return user.personnel
+
+
+def _valid_expo_token(token: str) -> bool:
+    return token.startswith(("ExponentPushToken[", "ExpoPushToken[")) and token.endswith("]")
+
+
+@router.put("/api/mobile/push-token")
+def register_push_token(
+    body: PushTokenBody,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user),
+):
+    """Register (or refresh) this phone's Expo push token for dispatch alerts.
+    Called on every login/app start, so it doubles as a heartbeat."""
+    p = _require_personnel(current_user)
+    if not _valid_expo_token(body.token):
+        raise HTTPException(status_code=422, detail="Not an Expo push token.")
+    row = db.get(PushToken, body.token)
+    if row is None:
+        row = PushToken(token=body.token)
+        db.add(row)
+    # Reassign on a shared phone: the token follows whoever signed in last.
+    row.per_id        = p.per_id
+    row.platform      = body.platform
+    row.sound_enabled = body.sound_enabled
+    row.last_seen_at  = datetime.now(timezone.utc)
+    db.commit()
+    return {"status": "registered"}
+
+
+@router.post("/api/mobile/push-token/unregister")
+def unregister_push_token(
+    body: PushTokenRef,
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user),
+):
+    """Stop alerts to this phone (push switched off, or signing out)."""
+    p = _require_personnel(current_user)
+    db.query(PushToken).filter(
+        PushToken.token == body.token, PushToken.per_id == p.per_id,
+    ).delete(synchronize_session=False)
+    db.commit()
+    return {"status": "unregistered"}
+
+
+@router.post("/api/mobile/push-token/test")
+async def test_push(
+    db: Session = Depends(get_db),
+    current_user: Users = Depends(get_current_user),
+):
+    """Send a test alert to the caller's own phones, so a responder can confirm
+    the whole chain (Expo, FCM, channel, permission) before a real dispatch."""
+    p = _require_personnel(current_user)
+    tokens = [(t.token, bool(t.sound_enabled)) for t in p.push_tokens]
+    if not tokens:
+        raise HTTPException(status_code=409, detail="No phone is registered for alerts.")
+    messages = [
+        push_message(tok, snd, "Test alert",
+                     "Dispatch alerts are working on this phone.", {"type": "test"})
+        for tok, snd in tokens
+    ]
+    accepted, dead = await send_expo_push(messages)
+    if dead:
+        db.query(PushToken).filter(PushToken.token.in_(dead)).delete(synchronize_session=False)
+        db.commit()
+    if not accepted:
+        raise HTTPException(
+            status_code=502,
+            detail="The push service did not accept the alert. Check the backend log.",
+        )
+    return {"sent": accepted, "unregistered": len(dead)}
 
 
 @router.get("/api/mobile/me/status")
@@ -253,7 +332,6 @@ def location_update(
                 "recorded_at": recorded_at.isoformat(),
                 "age_minutes": 0.0,
                 "is_stale":    False,
-                "battery":     body.battery,
                 "is_deviated": dispatch.is_deviated,
                 "dispatch_id": dispatch.dispatch_id,
                 "connector_geojson":     dispatch.deviation_connector_geojson if dispatch.is_deviated else None,

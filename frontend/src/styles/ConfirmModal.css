@@ -1,24 +1,121 @@
 /* ════════════════════════════════════════════════════════════
    CONFIRM MODAL  (cfm-*)
    Used by: components/ConfirmModal.jsx
-   Built on top of the shared AppModal (apm-*) primitives.
+   Reuses the shared overlay/panel/button primitives (apm-*).
    ════════════════════════════════════════════════════════════ */
 
+.cfm-overlay {
+  align-items: center;
+}
+
+.cfm-panel {
+  width: 420px;
+  animation: cfm-pop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+@keyframes cfm-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ── Head: icon badge + title ── */
+.cfm-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 20px 4px;
+}
+.cfm-badge {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent-fire);
+  background: var(--accent-fire-dim);
+  box-shadow: 0 0 0 5px rgba(var(--accent-fire-rgb), 0.06);
+}
+.cfm-badge-icon {
+  width: 20px;
+  height: 20px;
+}
+.cfm-head-text {
+  min-width: 0;
+}
+.cfm-title {
+  font-family: var(--font-condensed);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  color: var(--text-primary);
+  margin-top: 2px;
+  text-wrap: balance;
+}
+
+/* ── Body ── */
 .cfm-body {
-  padding-top: 14px;
+  padding: 14px 20px 4px;
+}
+
+.cfm-details {
+  margin: 0 0 14px;
+  padding: 4px 12px;
+  border-radius: 10px;
+  background: var(--surface-raise);
+  border: 1px solid var(--border-dim);
+}
+.cfm-detail {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0 6px;
+}
+.cfm-detail + .cfm-detail {
+  border-top: 1px solid var(--border-dim);
+}
+.cfm-detail dt {
+  font-family: var(--font-condensed);
+  font-size: 9.8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.cfm-detail dd {
+  margin: 0;
+  font-size: 11.8px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .cfm-message {
   margin: 0;
   font-family: var(--font-ui);
-  font-size: 12.5px;
+  font-size: 11.8px;
   line-height: 1.55;
   color: var(--text-secondary);
+  text-wrap: pretty;
 }
-
 .cfm-message strong {
   color: var(--text-primary);
   font-weight: 600;
+}
+
+.cfm-error {
+  margin: 12px 0 0;
+}
+
+/* ── Actions ── */
+.cfm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 18px 20px 18px;
 }
 
 .cfm-btn-danger {
@@ -26,14 +123,14 @@
   background: var(--accent-fire);
   border: none;
   border-radius: 4px;
-  color: #fff;
+  color: var(--on-accent);
   font-family: var(--font-condensed);
   font-size: 9.8px;
   font-weight: 600;
   letter-spacing: -0.1px;
   text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
   min-width: 78px;
   display: inline-flex;
   align-items: center;
@@ -43,7 +140,21 @@
   background: var(--accent-fire-hover);
   box-shadow: 0 0 16px rgba(var(--accent-fire-rgb), 0.4);
 }
+.cfm-btn-danger:active:not(:disabled) {
+  transform: translateY(1px);
+}
 .cfm-btn-danger:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+.cfm-btn-danger:focus-visible,
+.cfm-actions .apm-btn-cancel:focus-visible {
+  outline: 2px solid var(--accent-fire-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cfm-panel {
+    animation: none;
+  }
 }

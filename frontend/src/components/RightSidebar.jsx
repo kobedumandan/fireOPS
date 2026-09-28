@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import "../styles/RightSidebar.css";
 import DispatchModal from "./DispatchModal";
 import EscalateAlarmModal from "./EscalateAlarmModal";
+import IncidentTimeline from "./IncidentTimeline";
 
 function TimeIcon() {
   return (
@@ -880,8 +881,8 @@ export default function RightSidebar({
           </>
         )}
 
-        {incident && activeTab !== "Incident" && activeTab !== "Routing" && (
-          <div className="detail-body" />
+        {incident && activeTab === "Timeline" && (
+          <IncidentTimeline incident={incident} liveDispatches={incidentDispatches} />
         )}
 
         {incident && incident.status !== "contained" && (

@@ -1,4 +1,7 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+// Same host as the REST API (http→ws, https→wss), so pointing
+// VITE_API_BASE_URL at a tunnel moves the socket with it.
+export const WS_URL = `${BASE_URL.replace(/^http/, 'ws')}/ws`
 
 export async function apiFetch(path, options = {}) {
   const token = localStorage.getItem('bfp_token')
@@ -126,6 +129,7 @@ export async function updateStation(stationId, body) {
     throw new Error(err.detail || `Failed to update station (${res.status})`)
   }
   delete _cache['stations']
+  clearCoverageCache()   // coverage depends on station positions + status
   return res.json()
 }
 
@@ -289,9 +293,17 @@ export async function fetchIncidentReport(fireId) {
   return report
 }
 
+// Status / alarm / severity changes for the incident timeline, oldest first:
+// [{ event_id, type, from, to, actor, at }]
+export async function fetchIncidentEvents(fireId) {
+  const res = await apiFetch(`/api/incidents/${fireId}/events`)
+  if (!res.ok) throw new Error(`Failed to fetch incident events (${res.status})`)
+  return res.json()
+}
+
 // ── Dispatch ──────────────────────────────────────────────────────────────────
-export async function fetchDispatches() {
-  const res = await apiFetch('/api/dispatch')
+export async function fetchDispatches(fireId) {
+  const res = await apiFetch(fireId != null ? `/api/dispatch?fire_id=${fireId}` : '/api/dispatch')
   if (!res.ok) throw new Error(`Failed to fetch dispatches (${res.status})`)
   return res.json()
 }
@@ -554,6 +566,7 @@ export async function createStation(body) {
     throw new Error(err.detail || `Failed to create station (${res.status})`)
   }
   delete _cache['stations']   // invalidate so next fetch hits the DB
+  clearCoverageCache()
   return res.json()
 }
 
@@ -564,6 +577,7 @@ export async function deleteStation(stationId) {
     throw new Error(err.detail || `Failed to delete station (${res.status})`)
   }
   delete _cache['stations']
+  clearCoverageCache()
 }
 
 // ── Account credentials ───────────────────────────────────────────────────────

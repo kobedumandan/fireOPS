@@ -1,355 +1,257 @@
-import { useState, useMemo } from 'react'
-import { MapContainer, TileLayer, Marker, GeoJSON, useMapEvents } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
-import L from 'leaflet'
-import { MAP_CENTER, MAP_ZOOM, TILE_OPTIONS, withinRegion, maskStyle, REGION_BOUNDARY, REGION_LABEL } from '../data/mapConfig'
-import { useTheme } from '../hooks/useTheme'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { updateStation } from '../api'
 import '../styles/AppModal.css'
+import { phoneError, STATION_TYPES, STATION_STATUSES, statusMeta } from './resourceFormOptions'
+import { ICON_CLOSE } from './incidentFormOptions'
+import { Icon, Field, SectionHead, FormStatus, LockedNote, ReviewChanges } from './incidentForm'
+import { MapPicker, PinStatus } from './MapPicker'
+import { StationDetailsSections } from './stationForm'
 
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-})
+const clean = v => (v === '—' || v == null ? '' : String(v))
+const fmtCoords = (lat, lng) => (lat !== '' && lng !== '' ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}` : '')
 
-function PickerMap({ lat, lng, onChange, onBoundsError }) {
-  const [tileId, setTileId] = useState('satellite')
-  const theme = useTheme()
-  const tile = TILE_OPTIONS.find((t) => t.id === tileId)
-
-  const maskFeature = useMemo(() => ({
-    type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [
-        [[-180, -90], [-180, 90], [180, 90], [180, -90], [-180, -90]],
-        REGION_BOUNDARY,
-      ],
-    },
-  }), [])
-
-  const boundaryFeature = useMemo(() => ({
-    type: 'Feature',
-    geometry: { type: 'Polygon', coordinates: [REGION_BOUNDARY] },
-  }), [])
-
-  function ClickHandler() {
-    useMapEvents({
-      click(e) {
-        const { lat: la, lng: lo } = e.latlng
-        if (!withinRegion(la, lo)) {
-          onBoundsError(`Selected point is outside ${REGION_LABEL}. Please pick a location within the boundary.`)
-          return
-        }
-        onBoundsError(null)
-        onChange(la, lo)
-      },
-    })
-    return null
-  }
-
-  return (
-    <div className="asm-map-wrap">
-      <MapContainer
-        center={lat && lng ? [lat, lng] : MAP_CENTER}
-        zoom={MAP_ZOOM + 1}
-        style={{ width: '100%', height: '260px', borderRadius: '6px', cursor: 'crosshair' }}
-        scrollWheelZoom
-        zoomControl
-      >
-        {tile.layers.map((l, i) => (
-          <TileLayer key={`${tileId}-${i}`} {...l} />
-        ))}
-        <GeoJSON
-          key={`mask-${theme}`}
-          data={maskFeature}
-          style={() => maskStyle(theme)}
-        />
-        <GeoJSON
-          key="boundary"
-          data={boundaryFeature}
-          style={() => ({ fill: false, stroke: true, color: '#1e90ff', weight: 2, opacity: 0.85 })}
-        />
-        <ClickHandler />
-        {lat && lng && <Marker position={[lat, lng]} />}
-      </MapContainer>
-
-      <div className="asm-tile-switcher">
-        {TILE_OPTIONS.map((opt) => (
-          <button
-            key={opt.id}
-            type="button"
-            className={`asm-tile-btn${tileId === opt.id ? ' active' : ''}`}
-            onClick={() => setTileId(opt.id)}
-            title={opt.label}
-          >
-            <img src={opt.thumb} alt={opt.label} draggable={false} />
-            <span>{opt.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function validateForm(form) {
-  const required = ['station_name', 'station_address', 'station_barangay', 'station_contact']
-  for (const key of required) {
-    if (!form[key].toString().trim()) return 'All required fields must be filled.'
-  }
-  if (form.station_type === 'sub' && !form.parent_station_id) {
-    return 'A sub-station must have a parent (main) station selected.'
-  }
-  const digits = form.station_contact.replace(/[\s\-]/g, '')
-  if (/[a-zA-Z]/.test(form.station_contact)) return 'Contact number must not contain letters.'
-  if (!/^(\+639\d{9}|09\d{9}|(\+63|0)\d{1,2}[\s\-]?\d{3,4}[\s\-]?\d{4})$/.test(digits.replace(/\-/g, ''))) {
-    return 'Contact number must be a valid Philippine phone number (e.g. +63-917-000-0000 or 09170000000).'
-  }
-  return null
-}
+// Review order and labels (location is handled as one row).
+const FIELD_META = [
+  ['station_name',         'Station name'],
+  ['station_type',         'Type'],
+  ['parent_station_id',    'Reports to'],
+  ['station_address',      'Street address'],
+  ['station_barangay',     'Barangay'],
+  ['station_contact',      'Contact number'],
+  ['station_status',       'Status'],
+  ['station_commander_id', 'Commander'],
+]
 
 export default function EditStationModal({ station, onClose, onSaved, stations }) {
   const numericId = parseInt(station.id.replace('STA-', ''), 10)
-  const parentNumericId = station.parent
-    ? parseInt(station.parent.replace('STA-', ''), 10).toString()
-    : ''
 
-  const [form, setForm] = useState({
-    station_name: station.name,
-    station_type: station.type,
-    parent_station_id: parentNumericId,
-    station_address: station.address === '—' ? '' : station.address,
-    station_barangay: station.district === '—' ? '' : station.district,
-    station_latitude: '',
-    station_longitude: '',
-    station_contact: station.contact === '—' ? '' : station.contact,
-    station_status: station.status,
+  const [initial] = useState(() => ({
+    station_name:         station.name,
+    station_type:         station.type,
+    parent_station_id:    station.parent ? String(parseInt(station.parent.replace('STA-', ''), 10)) : '',
+    station_address:      clean(station.address),
+    station_barangay:     clean(station.district),
+    station_latitude:     station.latitude ?? '',
+    station_longitude:    station.longitude ?? '',
+    station_contact:      clean(station.contact),
+    station_status:       station.status,
     station_commander_id: station.commanderId ? String(station.commanderId) : '',
-  })
-  const [error, setError] = useState(null)
-  const [mapError, setMapError] = useState(null)
-  const [saving, setSaving] = useState(false)
+  }))
+  const [form, setForm]           = useState(initial)
+  const [error, setError]         = useState(null)
+  const [mapError, setMapError]   = useState(null)
+  const [saving, setSaving]       = useState(false)
+  const [reviewing, setReviewing] = useState(false)
+
+  useEffect(() => {
+    if (reviewing) return
+    const onKey = e => { if (e.key === 'Escape' && !saving) onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose, saving, reviewing])
 
   function set(field, value) {
     setError(null)
-    setForm((prev) => ({ ...prev, [field]: value }))
+    setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  async function handleSubmit(e) {
+  // ── What changed ──
+  const effective = {
+    ...form,
+    station_name:     form.station_name.trim(),
+    station_address:  form.station_address.trim(),
+    station_barangay: form.station_barangay.trim(),
+    station_contact:  form.station_contact.trim(),
+    parent_station_id: form.station_type === 'sub' ? form.parent_station_id : '',
+  }
+  const moved = effective.station_latitude !== initial.station_latitude || effective.station_longitude !== initial.station_longitude
+  const changes = Object.fromEntries(
+    FIELD_META.map(([k]) => k).filter(k => effective[k] !== initial[k]).map(k => [k, effective[k]]),
+  )
+  const changeCount = Object.keys(changes).length + (moved ? 1 : 0)
+  const isChanged = field => field in changes
+
+  const contactError = phoneError(form.station_contact)
+  const blocked =
+    !effective.station_name || !effective.station_address || !effective.station_barangay || !effective.station_contact ||
+    (form.station_type === 'sub' && !form.parent_station_id) || !!contactError
+
+  // ── Display helpers ──
+  const mainStations = stations.filter(s => s.type === 'main' && s.id !== station.id)
+  const stationName  = id => (id ? stations.find(s => String(parseInt(s.id.replace('STA-', ''), 10)) === id)?.name ?? `Station #${id}` : '')
+  const personName   = id => station.personnelList.find(p => String(p.per_id) === id)?.name ?? (id ? `Personnel #${id}` : '')
+  const fmt = {
+    station_type:         v => statusMeta(STATION_TYPES, v).label,
+    station_status:       v => statusMeta(STATION_STATUSES, v).label,
+    parent_station_id:    stationName,
+    station_commander_id: personName,
+  }
+  const commander = station.personnelList.find(p => String(p.per_id) === form.station_commander_id)
+
+  function handleSubmit(e) {
     e.preventDefault()
-    const err = validateForm(form)
-    if (err) { setError(err); return }
+    if (blocked || changeCount === 0) return
+    setReviewing(true)
+  }
+
+  async function confirmSave() {
     setSaving(true)
+    setError(null)
     try {
-      const body = {
-        station_name: form.station_name.trim(),
-        station_type: form.station_type,
-        station_address: form.station_address.trim(),
-        station_barangay: form.station_barangay.trim(),
-        station_contact: form.station_contact.trim(),
-        station_status: form.station_status,
-        parent_station_id:
-          form.station_type === 'sub' && form.parent_station_id
-            ? parseInt(form.parent_station_id, 10)
-            : null,
-        station_commander_id: form.station_commander_id
-          ? parseInt(form.station_commander_id, 10)
-          : null,
+      const body = {}
+      for (const [k, v] of Object.entries(changes)) {
+        body[k] = k === 'parent_station_id' || k === 'station_commander_id' ? (v ? parseInt(v, 10) : null) : v
       }
-      if (form.station_latitude && form.station_longitude) {
-        body.station_latitude = parseFloat(form.station_latitude)
-        body.station_longitude = parseFloat(form.station_longitude)
+      // Switching to a main station clears its parent.
+      if (isChanged('station_type') && effective.station_type === 'main') body.parent_station_id = null
+      if (moved) {
+        body.station_latitude  = parseFloat(effective.station_latitude)
+        body.station_longitude = parseFloat(effective.station_longitude)
       }
       await updateStation(numericId, body)
       onSaved()
       onClose()
     } catch (ex) {
       setError(ex.message)
-    } finally {
       setSaving(false)
     }
   }
 
-  const mainStations = stations.filter((s) => s.type === 'main' && s.id !== station.id)
+  const rows = [
+    ...FIELD_META.filter(([key]) => isChanged(key)).map(([key, label]) => ({
+      key,
+      label,
+      before: fmt[key] ? fmt[key](initial[key]) : initial[key],
+      after:  fmt[key] ? fmt[key](changes[key]) : changes[key],
+    })),
+    ...(moved ? [{
+      key: 'loc',
+      label: 'Map location',
+      before: fmtCoords(initial.station_latitude, initial.station_longitude),
+      after:  fmtCoords(effective.station_latitude, effective.station_longitude),
+    }] : []),
+  ]
+
+  const hadPin = initial.station_latitude !== '' && initial.station_longitude !== ''
 
   return (
-    <div className="apm-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="apm-panel lim-panel">
-        <div className="apm-header">
-          <div>
-            <div className="apm-eyebrow">BFP · STATIONS</div>
-            <div className="apm-title">Edit Station</div>
-          </div>
-          <button className="apm-close" onClick={onClose}>✕</button>
-        </div>
-
-        <div className="apm-scroll">
-          <form id="esm-edit-form" className="apm-body" onSubmit={handleSubmit}>
-            <div className="apm-section-label">Station Information</div>
-
-            <div className="apm-field">
-              <label>Station Name <span className="apm-required">*</span></label>
-              <input
-                required
-                value={form.station_name}
-                onChange={(e) => set('station_name', e.target.value)}
-              />
-            </div>
-
-            <div className="apm-row">
-              <div className="apm-field">
-                <label>Station Type <span className="apm-required">*</span></label>
-                <select
-                  value={form.station_type}
-                  onChange={(e) => {
-                    set('station_type', e.target.value)
-                    if (e.target.value === 'main') set('parent_station_id', '')
-                  }}
-                >
-                  <option value="main">Main Station</option>
-                  <option value="sub">Sub-Station</option>
-                </select>
-              </div>
-              <div className="apm-field">
-                <label>
-                  Parent Station{' '}
-                  {form.station_type === 'sub' && <span className="apm-required">*</span>}
-                </label>
-                <select
-                  value={form.parent_station_id}
-                  onChange={(e) => set('parent_station_id', e.target.value)}
-                  disabled={form.station_type === 'main'}
-                >
-                  <option value="">— Select main station —</option>
-                  {mainStations.map((s) => (
-                    <option key={s.id} value={s.id.replace('STA-', '')}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="apm-row">
-              <div className="apm-field">
-                <label>Address <span className="apm-required">*</span></label>
-                <input
-                  placeholder="Street, City"
-                  value={form.station_address}
-                  onChange={(e) => set('station_address', e.target.value)}
-                />
-              </div>
-              <div className="apm-field">
-                <label>Barangay <span className="apm-required">*</span></label>
-                <input
-                  placeholder="Barangay name"
-                  value={form.station_barangay}
-                  onChange={(e) => set('station_barangay', e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="apm-row">
-              <div className="apm-field">
-                <label>Contact Number <span className="apm-required">*</span></label>
-                <input
-                  placeholder="+63-2-8123-0000"
-                  value={form.station_contact}
-                  onChange={(e) => set('station_contact', e.target.value)}
-                />
-              </div>
-              <div className="apm-field">
-                <label>Status</label>
-                <select
-                  value={form.station_status}
-                  onChange={(e) => set('station_status', e.target.value)}
-                >
-                  <option value="operational">Operational</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="apm-section-label">Head of Command</div>
-
-            <div className="apm-field">
-              <label>Station Commander</label>
-              {station.personnelList.length === 0 ? (
-                <div className="esm-no-personnel">
-                  No personnel assigned to this station yet. Assign personnel first to set a commander.
+    <>
+      {createPortal(
+        <div className="apm-overlay" onMouseDown={e => e.target === e.currentTarget && !saving && !reviewing && onClose()}>
+          <div className="apm-panel eim-panel lim-panel-split stn-panel" role="dialog" aria-modal="true" aria-labelledby="esm-title">
+            <div className="eim-header">
+              <div className="eim-header-main">
+                <div className="apm-eyebrow">EDIT STATION</div>
+                <div id="esm-title" className="eim-title">{effective.station_name || 'Untitled station'}</div>
+                <div className="apm-subtitle">
+                  {[station.code, statusMeta(STATION_TYPES, initial.station_type).label, initial.station_barangay].filter(Boolean).join(' · ')}
                 </div>
-              ) : (
-                <select
-                  value={form.station_commander_id}
-                  onChange={(e) => set('station_commander_id', e.target.value)}
-                >
-                  <option value="">No commander assigned</option>
-                  {station.personnelList.map((p) => (
-                    <option key={p.per_id} value={String(p.per_id)}>
-                      {p.rank && p.rank !== '—' ? `${p.rank} - ` : ''}{p.name}
-                    </option>
-                  ))}
-                </select>
-              )}
+              </div>
+              <button className="eim-close" onClick={onClose} aria-label="Close" disabled={saving}>
+                <Icon d={ICON_CLOSE} />
+              </button>
             </div>
 
-            {form.station_commander_id && (() => {
-              const p = station.personnelList.find((x) => String(x.per_id) === form.station_commander_id)
-              return p ? (
-                <div className="esm-commander-preview">
-                  <div className="esm-cmd-av">{p.initials}</div>
-                  <div className="esm-cmd-info">
-                    <div className="esm-cmd-name">{p.name}</div>
-                    <div className="esm-cmd-rank">{p.rank}</div>
-                  </div>
-                  <span className="esm-cmd-badge">Commander</span>
-                </div>
-              ) : null
-            })()}
-
-            <div className="apm-section-label">Update Location (optional)</div>
-
-            <div className="asm-map-section">
-              <PickerMap
-                lat={form.station_latitude || null}
-                lng={form.station_longitude || null}
-                onChange={(lat, lng) => {
-                  set('station_latitude', lat)
-                  set('station_longitude', lng)
-                }}
-                onBoundsError={setMapError}
-              />
-              {mapError ? (
-                <div className="apm-error">{mapError}</div>
-              ) : (
-                <div className="asm-coords-display">
-                  {form.station_latitude && form.station_longitude ? (
+            <div className="lim-layout">
+              <aside className="lim-rail-map" aria-label="Station location">
+                <MapPicker
+                  lat={form.station_latitude}
+                  lng={form.station_longitude}
+                  onChange={(lat, lng) => setForm(prev => ({ ...prev, station_latitude: lat, station_longitude: lng }))}
+                  onBoundsError={setMapError}
+                  prompt="Click the map where the station is"
+                  ghost={moved && hadPin ? [initial.station_latitude, initial.station_longitude] : null}
+                />
+                <PinStatus
+                  lat={form.station_latitude}
+                  lng={form.station_longitude}
+                  error={mapError}
+                  emptyText="No location on record. Click the map to set one."
+                >
+                  {moved && (
                     <>
-                      Lat <strong>{Number(form.station_latitude).toFixed(6)}</strong>
-                      &nbsp; Lng <strong>{Number(form.station_longitude).toFixed(6)}</strong>
+                      <span className="stn-moved">Moved</span>
+                      <button
+                        type="button"
+                        className="eim-link-btn stn-reset"
+                        onClick={() => setForm(prev => ({ ...prev, station_latitude: initial.station_latitude, station_longitude: initial.station_longitude }))}
+                      >
+                        Undo
+                      </button>
                     </>
-                  ) : (
-                    'Leave blank to keep current location — click map to change'
                   )}
-                </div>
-              )}
+                </PinStatus>
+              </aside>
+
+              <form id="esm-form" className="eim-body lim-rail-form" onSubmit={handleSubmit}>
+                <StationDetailsSections
+                  form={form}
+                  set={set}
+                  isChanged={isChanged}
+                  mainStations={mainStations}
+                  contactError={contactError}
+                />
+
+                <section className="eim-section">
+                  <SectionHead title="Head of command" desc="Chosen from personnel at this station." changed={isChanged('station_commander_id')} />
+                  {station.personnelList.length === 0 ? (
+                    <LockedNote>No personnel at this station yet. Assign people here first, then pick a commander.</LockedNote>
+                  ) : (
+                    <>
+                      <Field label="Station commander" changed={isChanged('station_commander_id')}>
+                        <select value={form.station_commander_id} onChange={e => set('station_commander_id', e.target.value)}>
+                          <option value="">No commander</option>
+                          {station.personnelList.map(p => (
+                            <option key={p.per_id} value={String(p.per_id)}>
+                              {p.rank && p.rank !== '—' ? `${p.rank} · ` : ''}{p.name}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      {commander && (
+                        <div className="lim-unit stn-commander">
+                          <span className="lim-unit-av frm-initials">{commander.initials}</span>
+                          <span className="lim-unit-info">
+                            <span className="lim-unit-name">{commander.name}</span>
+                            {commander.rank && commander.rank !== '—' && <span className="lim-unit-sub">{commander.rank}</span>}
+                          </span>
+                          <span className="frm-tag stn-cmd-tag">Commander</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </section>
+
+                {error && !reviewing && <div className="apm-error">{error}</div>}
+              </form>
             </div>
 
-            {error && <div className="apm-error">{error}</div>}
-          </form>
-        </div>
+            <div className="eim-footer">
+              <FormStatus changeCount={changeCount} />
+              <div className="eim-footer-actions">
+                <button type="button" className="apm-btn-cancel" onClick={onClose} disabled={saving}>Cancel</button>
+                <button type="submit" form="esm-form" className="apm-btn-submit" disabled={changeCount === 0 || blocked}>
+                  Review &amp; save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
-        <div className="apm-actions">
-          <button type="button" className="apm-btn-cancel" onClick={onClose} disabled={saving}>
-            Cancel
-          </button>
-          <button type="submit" form="esm-edit-form" className="apm-btn-submit" disabled={saving}>
-            {saving ? <span className="apm-spinner" /> : 'Save Changes'}
-          </button>
-        </div>
-      </div>
-    </div>
+      {reviewing && (
+        <ReviewChanges
+          code={station.code}
+          rows={rows}
+          note={moved && 'Moving the station changes where its routes and coverage are measured from.'}
+          saving={saving}
+          error={error}
+          onBack={() => { setError(null); setReviewing(false) }}
+          onConfirm={confirmSave}
+        />
+      )}
+    </>
   )
 }

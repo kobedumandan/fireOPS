@@ -87,6 +87,30 @@ class Personnel(Base):
     devices          = relationship("Device",             back_populates="personnel")
     team_memberships = relationship("ResponseTeamMember", back_populates="personnel")
     shift            = relationship("Shift",              back_populates="personnel")
+    push_tokens      = relationship(
+        "PushToken", back_populates="personnel", cascade="all, delete-orphan",
+    )
+
+
+class PushToken(Base):
+    """An Expo push token for one of a responder's phones.
+
+    Keyed by the token itself: a phone has exactly one, and if a different
+    account signs in on the same phone the row is reassigned rather than
+    duplicated, so the previous user stops receiving that phone's alerts.
+    """
+    __tablename__ = "push_tokens"
+
+    token         = Column(String(255), primary_key=True)
+    per_id        = Column(Integer, ForeignKey("personnel.per_id", ondelete="CASCADE"),
+                           nullable=False, index=True)
+    platform      = Column(String(20))
+    # Picks the Android channel: "dispatch" (siren-style) or "dispatch-silent".
+    sound_enabled = Column(Boolean, nullable=False, default=True)
+    created_at    = Column(DateTime(timezone=True), default=_now)
+    last_seen_at  = Column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    personnel = relationship("Personnel", back_populates="push_tokens")
 
 
 class Device(Base):
@@ -400,6 +424,26 @@ class IncidentReport(Base):
         "ReportPhoto", back_populates="report",
         cascade="all, delete-orphan", order_by="ReportPhoto.photo_id",
     )
+
+
+# ---------------------------------------------------------------------------
+# Incident events (status / alarm / severity history for the timeline)
+# ---------------------------------------------------------------------------
+
+class IncidentEvent(Base):
+    """One change to an incident's status, alarm level or severity. Only the
+    current values live on fire_incidents; this records when each changed and
+    who changed it. Dispatch/arrival times stay on dispatch_records."""
+    __tablename__ = "incident_events"
+
+    event_id    = Column(Integer, primary_key=True, autoincrement=True)
+    fire_id     = Column(Integer, ForeignKey("fire_incidents.fire_id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type  = Column(String(30), nullable=False)   # "status" | "alarm" | "severity"
+    event_from  = Column(String(50), nullable=True)
+    event_to    = Column(String(50), nullable=True)
+    user_id     = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+    event_actor = Column(String(150), nullable=True)   # display name, kept if the account goes
+    created_at  = Column(DateTime(timezone=True), default=_now, nullable=False)
 
 
 # ---------------------------------------------------------------------------

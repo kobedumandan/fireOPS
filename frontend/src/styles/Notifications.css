@@ -19,82 +19,117 @@
   display: flex;
   flex-direction: column-reverse;
   gap: 10px;
-  width: 340px;
+  width: 360px;
   max-width: calc(100vw - 36px);
   pointer-events: none;
 }
 
+/* Same card as the alerts panel: neutral surface, hairline border all round.
+   The kind's colour lives only in the icon tile and the kind pill — no accent
+   edge — so a stack of mixed alerts doesn't read as a row of coloured bars. */
 .toast {
+  position: relative;
   pointer-events: auto;
   display: flex;
-  gap: 10px;
-  padding: 11px 12px;
-  border-radius: 10px;
+  gap: 12px;
+  padding: 12px 12px 12px 12px;
+  border-radius: 14px;
   border: 1px solid var(--border);
-  /* The accent is a hairline marker, not a slab — the icon tile and the kind
-     label already carry the colour, so the edge only has to point at them. */
-  border-left: 2px solid rgb(var(--n-accent));
-  /* Flat --bg-base, deliberately. An accent-tinted gradient behind the text
-     fought the icon tile for the same signal and dropped body copy toward the
-     tint's contrast floor; the surface stays neutral and the accent stays in
-     the two places that are meant to carry it. */
-  background: var(--bg-base);
-  box-shadow: var(--shadow-md);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
   /* data-motion="off" in index.css already flattens this to a single frame,
      so the preference needs no special handling here. */
   animation: toastIn 0.22s ease-out;
 }
 
 /* .critical is still meaningful in JS — it selects role="alert" and suppresses
-   the auto-dismiss timer — it just no longer paints anything of its own. */
+   the auto-dismiss timer. Visually it carries a "Critical" pill and a faint
+   wash of the kind's accent, nothing louder. */
+.toast.critical {
+  border-color: rgba(var(--n-accent), 0.35);
+  background:
+    linear-gradient(rgba(var(--n-accent), 0.06), rgba(var(--n-accent), 0.06)),
+    var(--bg-panel);
+}
 
 @keyframes toastIn {
   from {
     opacity: 0;
-    transform: translateX(16px);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .toast-icon {
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 10px;
   background: rgba(var(--n-accent), 0.14);
   color: rgb(var(--n-accent));
 }
 .toast-icon-svg {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
 }
 
 .toast-body {
   flex: 1;
   min-width: 0;
+  padding-right: 18px; /* room for the absolutely-placed close button */
 }
 
-.toast-kind {
-  font-family: var(--font-condensed);
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 1px;
+.toast-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+  min-width: 0;
+}
+
+.toast-kind,
+.toast-crit {
+  font-family: var(--font-span);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
   text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.toast-kind {
+  background: rgba(var(--n-accent), 0.14);
   color: rgb(var(--n-accent));
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toast-crit {
+  background: var(--accent-fire-dim);
+  color: var(--accent-fire);
+}
+
+.toast-time {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-secondary);
 }
 
 .toast-title {
   font-family: var(--font-ui);
-  font-size: 12.5px;
-  font-weight: 500;
+  font-size: 12.3px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
   color: var(--text-primary);
-  margin-top: 2px;
   overflow-wrap: anywhere;
 }
 
@@ -107,29 +142,50 @@
   overflow-wrap: anywhere;
 }
 
-.toast-time {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  color: var(--text-tertiary);
-  margin-top: 5px;
-}
-
 .toast-actions {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: space-between;
   gap: 6px;
-  flex-shrink: 0;
+  margin-top: 10px;
+}
+
+.toast-btn {
+  padding: 4.8px 11px 1.8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-condensed);
+  font-size: 8.8px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.toast-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.toast-btn-primary {
+  border-color: transparent;
+  background: var(--accent-fire-dim);
+  color: var(--accent-fire);
+}
+.toast-btn-primary:hover {
+  background: rgba(var(--accent-fire-rgb), 0.25);
+  color: var(--accent-fire);
 }
 
 .toast-close {
+  position: absolute;
+  top: 9px;
+  right: 9px;
   display: flex;
-  padding: 2px;
+  padding: 3px;
   border: none;
-  border-radius: 4px;
+  border-radius: 7px;
   background: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -142,39 +198,67 @@
   height: 13px;
 }
 
-.toast-link {
-  border: none;
-  background: transparent;
-  padding: 0;
-  font-family: var(--font-condensed);
-  font-size: 10px;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: color 0.15s;
+/* Auto-dismiss countdown: a hairline along the bottom that drains over the
+   same TOAST_MS the hook uses (passed in as --toast-ms). */
+.toast-timer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(var(--n-accent), 0.55);
+  transform-origin: left center;
+  animation: toastTimer var(--toast-ms, 7s) linear forwards;
 }
-.toast-link:hover {
-  color: var(--accent-fire);
+
+@keyframes toastTimer {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+  .toast-timer { display: none; }
+}
+/* With animations off the bar would sit frozen at full width, which reads as
+   a stray border — hide it rather than show a countdown that never moves. */
+:root[data-motion="off"] .toast-timer {
+  display: none;
 }
 
 /* ── History panel ───────────────────────────────────────────────────────── */
 
 /* Fixed and anchored beside the rail rather than nested in it, for the same
-   stacking-context reason the toasts are rendered at top level. */
+   stacking-context reason the toasts are rendered at top level. Type, pills
+   and icon tiles follow the page grammar (Stations/Trucks) rather than the
+   toast's, since this is something the dispatcher reads, not glances at. */
 .notif-panel {
   position: fixed;
   left: 240px;
   bottom: 18px;
   z-index: var(--z-popover);
-  width: 330px;
+  width: 368px;
   max-width: calc(100vw - 260px);
-  max-height: min(520px, calc(100dvh - 36px));
+  max-height: min(560px, calc(100dvh - 36px));
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: 11px;
-  background: var(--bg-panel);
+  border-radius: 15px;
+  background: var(--page-default-base);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  animation: notifPanelIn 0.16s ease-out;
+}
+
+@keyframes notifPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* The rail collapses to 56px, so the panel follows it in. */
@@ -188,47 +272,42 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 11px 12px;
-  border-bottom: 1px solid var(--border);
+  padding: 14px 14px 10px 16px;
 }
 
-.notif-panel-title {
-  font-family: var(--font-condensed);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--text-primary);
-}
-
-.notif-panel-head-actions {
+.notif-panel-heading {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.notif-clear {
-  border: none;
-  background: transparent;
-  padding: 0;
+.notif-panel-title {
   font-family: var(--font-condensed);
-  font-size: 10.5px;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: color 0.15s;
+  font-size: 14.8px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
-.notif-clear:hover {
+
+.notif-new-chip {
+  font-family: var(--font-span);
+  font-size: 8.8px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: var(--accent-fire-dim);
   color: var(--accent-fire);
 }
 
 .notif-panel-close,
 .notif-item-close {
   display: flex;
-  padding: 2px;
+  padding: 4px;
   border: none;
-  border-radius: 4px;
+  border-radius: 7px;
   background: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -242,54 +321,155 @@
   height: 13px;
 }
 
-.notif-list {
-  overflow-y: auto;
-  flex: 1;
+/* Filter tabs — the same pill group the pages use for their status tabs. */
+.notif-tabs {
+  display: flex;
+  gap: 2px;
+  margin: 0 14px 12px 16px;
+  padding: 2px;
+  width: fit-content;
+  background: var(--page-default-base);
+  border: 1px solid var(--border);
+  border-radius: 9.8px;
 }
 
-.notif-empty {
-  padding: 26px 12px;
-  text-align: center;
-  font-family: var(--font-span);
-  font-size: 11.5px;
+.notif-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px 3px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-condensed);
+  font-size: 10.8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.notif-tab:hover,
+.notif-tab.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.notif-tab-count {
+  font-family: var(--font-mono);
+  font-size: 9px;
   color: var(--text-tertiary);
 }
+.notif-tab.active .notif-tab-count {
+  color: var(--text-secondary);
+}
 
-.notif-item {
+.notif-list {
+  flex: 1;
+  overflow-y: auto;
   display: flex;
-  gap: 10px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.15s;
-}
-.notif-item:last-child {
-  border-bottom: none;
-}
-.notif-item:hover {
-  background: var(--bg-hover);
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 10px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-dim) transparent;
 }
 
-/* Unread is carried by a tinted left edge rather than a dot: the accent is
-   already per-kind, so the same strip does double duty. */
-.notif-item.unread {
-  box-shadow: inset 2px 0 0 rgb(var(--n-accent));
-  background: rgba(var(--n-accent), 0.05);
+/* ── Empty state — matches the pages' "select a …" placeholder ── */
+.notif-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 34px 24px 38px;
+  text-align: center;
 }
-
-.notif-item-icon {
-  flex-shrink: 0;
-  width: 26px;
-  height: 26px;
+.notif-empty-icon {
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+.notif-empty-svg {
+  width: 20px;
+  height: 20px;
+}
+.notif-empty-title {
+  font-family: var(--font-ui);
+  font-size: 8.8px;
+  letter-spacing: -0.2px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.notif-empty-sub {
+  max-width: 220px;
+  font-family: var(--font-span);
+  font-size: 10.8px;
+  line-height: 1.45;
+  color: var(--text-tertiary);
+}
+
+/* ── Alert card ── */
+.notif-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 10px 10px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-dim);
+  border-radius: 10px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.notif-item:hover {
+  border-color: var(--border);
+}
+.notif-item.openable {
+  cursor: pointer;
+}
+.notif-item.openable:hover {
+  background: var(--bg-hover);
+}
+.notif-item:focus-visible {
+  outline: 2px solid var(--accent-fire-focus);
+  outline-offset: 1px;
+}
+
+/* Unread: a dot on the icon tile plus a faint tint of the kind's accent. The
+   dot is what survives a glance; the tint just groups the fresh ones. */
+.notif-item.unread {
+  background: rgba(var(--n-accent), 0.05);
+  border-color: rgba(var(--n-accent), 0.22);
+}
+.notif-item.unread .notif-item-icon::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgb(var(--n-accent));
+  box-shadow: 0 0 0 2px var(--bg-panel);
+}
+
+.notif-item-icon {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
   background: rgba(var(--n-accent), 0.14);
   color: rgb(var(--n-accent));
 }
 .notif-item-svg {
-  width: 15px;
-  height: 15px;
+  width: 17px;
+  height: 17px;
 }
 
 .notif-item-body {
@@ -297,36 +477,139 @@
   min-width: 0;
 }
 
-.notif-item-kind {
-  font-family: var(--font-condensed);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 1px;
+.notif-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+  min-width: 0;
+}
+
+.notif-item-kind,
+.notif-item-crit {
+  font-family: var(--font-span);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
   text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.notif-item-kind {
+  background: rgba(var(--n-accent), 0.14);
   color: rgb(var(--n-accent));
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.notif-item-crit {
+  background: var(--accent-fire-dim);
+  color: var(--accent-fire);
+}
+
+.notif-item-time {
+  margin-left: auto;
+  padding-left: 6px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-secondary);
 }
 
 .notif-item-title {
   font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11.8px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
   color: var(--text-primary);
-  margin-top: 2px;
   overflow-wrap: anywhere;
 }
 
 .notif-item-sub {
   font-family: var(--font-span);
-  font-size: 10.5px;
+  font-size: 10.8px;
   color: var(--text-secondary);
   margin-top: 2px;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
-.notif-item-time {
+.notif-item-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 6px;
+  font-family: var(--font-condensed);
+  font-size: 8.8px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  transition: color 0.15s;
+}
+.notif-item-link .material-symbols-outlined {
+  font-size: 13px;
+  transition: transform 0.15s;
+}
+.notif-item.openable:hover .notif-item-link {
+  color: var(--accent-fire);
+}
+.notif-item.openable:hover .notif-item-link .material-symbols-outlined {
+  transform: translateX(2px);
+}
+
+/* The per-item close only needs to exist when the pointer is on the card;
+   keyboard focus still reveals it. */
+.notif-item-close {
+  align-self: flex-start;
+  opacity: 0;
+}
+.notif-item:hover .notif-item-close,
+.notif-item-close:focus-visible {
+  opacity: 1;
+}
+
+/* ── Footer ── */
+.notif-panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px 10px 16px;
+  border-top: 1px solid var(--border-dim);
+}
+
+.notif-foot-count {
   font-family: var(--font-mono);
   font-size: 9px;
-  color: var(--text-tertiary);
-  margin-top: 4px;
+  color: var(--text-secondary);
+}
+
+.notif-clear {
+  padding: 4.8px 12px 0.8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-condensed);
+  font-size: 8.8px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.notif-clear:hover {
+  color: var(--accent-fire);
+  border-color: rgba(var(--accent-fire-rgb), 0.35);
+  background: var(--accent-fire-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notif-panel {
+    animation: none;
+  }
+  .notif-item-link .material-symbols-outlined {
+    transition: none;
+  }
 }

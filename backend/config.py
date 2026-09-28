@@ -30,6 +30,17 @@ SEND_SMS          = os.getenv("SEND_SMS", "false").lower() == "true"
 PHILSMS_SEND_URL  = "https://dashboard.philsms.com/api/v3/sms/send"
 
 
+# ── Dispatch alerts to responders' phones ─────────────────────────────────────
+# Pushes go through Expo's push service, which holds the FCM credentials (set
+# up with `eas credentials`). EXPO_ACCESS_TOKEN is only needed if "enhanced push
+# security" is turned on for the Expo project.
+EXPO_PUSH_URL     = "https://exp.host/--/api/v2/push/send"
+EXPO_ACCESS_TOKEN = (os.getenv("EXPO_ACCESS_TOKEN", "") or "").strip()
+# Text a dispatched member who has no registered phone. Still gated by
+# SEND_SMS above, so development never spends SMS credits by accident.
+DISPATCH_SMS_FALLBACK = os.getenv("DISPATCH_SMS_FALLBACK", "true").lower() == "true"
+
+
 # ── Uploaded report photos ────────────────────────────────────────────────────
 # Scene photographs personnel attach to an incident report are written here and
 # served back over the public tunnel at /uploads/report_photos/<file>.

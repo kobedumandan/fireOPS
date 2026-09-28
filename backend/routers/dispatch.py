@@ -32,6 +32,7 @@ from services.dispatch import (
 from services.routing import (
     _build_rerouted_payload, _load_active_obstructions, _rebuild_routes,
 )
+from services.incident_events import record_changes, snapshot
 from state import manager
 
 
@@ -171,6 +172,9 @@ def get_dispatches(
             "team_code":          r.team.team_code if r.team else None,
             "dispatch_status":    r.dispatch_status,
             "dispatch_at":        r.dispatch_at.isoformat() if r.dispatch_at else None,
+            "arrived_at":         r.dispatch_arrived_at.isoformat() if r.dispatch_arrived_at else None,
+            "completed_at":       r.dispatch_completed_at.isoformat() if r.dispatch_completed_at else None,
+            "truck_platenums":    [dt.truck.truck_platenum for dt in r.dispatch_trucks if dt.truck],
             "station_name":       r.team.station.station_name if (r.team and r.team.station) else None,
             "station_latitude":   r.team.station.station_latitude  if (r.team and r.team.station) else None,
             "station_longitude":  r.team.station.station_longitude if (r.team and r.team.station) else None,
@@ -464,7 +468,9 @@ async def mark_contained(
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found for this dispatch.")
 
+    before = snapshot(inc)
     inc.fire_status = "contained"
+    record_changes(db, inc, before, user=current_user)
     db.commit()
     db.refresh(inc)
 
@@ -581,7 +587,9 @@ async def submit_incident_report(
 
     # Filing the report closes out the incident and wraps up the dispatch,
     # returning the crew to standby and freeing their truck.
+    before = snapshot(inc)
     inc.fire_status = "closed"
+    record_changes(db, inc, before, user=current_user, at=now)
     _complete_dispatch_and_release(dispatch, now)
     _add_incident_to_heatmap(db, inc, now)
     released = _released_payload([dispatch])
@@ -589,6 +597,24 @@ async def submit_incident_report(
     db.commit()
     db.refresh(report)
     db.refresh(inc)
+
+    # Tell the dashboard a report landed, ahead of the incident_updated that
+    # closes it: the dashboard names the place from its incident snapshot, and
+    # this way the snapshot still holds it when the alert is built.
+    filer = current_user.personnel
+    await manager.broadcast({
+        "type": "report_submitted",
+        "data": {
+            "report_id":   report.report_id,
+            "fire_id":     inc.fire_id,
+            "dispatch_id": dispatch.dispatch_id,
+            "team_name":   dispatch.team.team_name if dispatch.team else None,
+            "filed_by":    " ".join(
+                x for x in (filer.per_rank, filer.per_lastname) if x
+            ) or None,
+            "photo_count": len(report.photos),
+        },
+    })
 
     data = _incident_dict(inc)
     await manager.broadcast({"type": "incident_updated", "data": data})

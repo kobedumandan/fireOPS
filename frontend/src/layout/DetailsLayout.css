@@ -19,7 +19,7 @@
    `wide` opts out of the cap for full-bleed pages. */
 .dl-container {
   width: 100%;
-  max-width: 1000px;
+  max-width: 1180px;
   margin: 0 auto;
 }
 
@@ -30,9 +30,11 @@
 .dl-back {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 6px 2px 2px;
-  margin-bottom: 10px;
+  gap: 4px;
+  /* Extra top padding offsets Axiforma's high baseline, as on other buttons.
+     The negative margin keeps the chevron flush with the header card. */
+  padding: 5px 10px 3px 8px;
+  margin: 0 0 10px -8px;
   background: transparent;
   border: none;
   border-radius: 5px;
@@ -52,8 +54,8 @@
 }
 
 .dl-back-icon {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   flex-shrink: 0;
   margin-bottom: 2px;
 }
@@ -140,7 +142,7 @@
 }
 
 .dl-aside {
-  width: 320px;
+  width: 340px;
   flex-shrink: 0;
 }
 

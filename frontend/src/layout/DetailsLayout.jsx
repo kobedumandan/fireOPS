@@ -8,7 +8,7 @@ function BackIcon() {
       className="dl-back-icon"
       fill="currentColor"
     >
-      <path d="M400-80 0-480l400-400 71 71-329 329 329 329-71 71Z" />
+      <path d="M640-80 240-480l400-400 71 71-329 329 329 329-71 71Z" />
     </svg>
   );
 }

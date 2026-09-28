@@ -246,19 +246,15 @@
 }
 
 .plan-toggle {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 7px;
   color: var(--text-secondary);
-  font-family: var(--font-condensed);
-  font-size: 9.6px;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.2px;
-  padding: 4.5px 9px;
+  padding: 5px;
   cursor: pointer;
   transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
 }
@@ -275,8 +271,32 @@
 }
 
 .plan-toggle-icon {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
+}
+
+/* Icon-only button: its label shows as a hover tooltip (same look as the
+   compact nav rail's labels in TopBar.css). Anchored to the right edge since
+   the button sits at the card's right. */
+.plan-toggle:hover::after,
+.plan-toggle:focus-visible::after {
+  content: attr(data-label);
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: var(--z-popover);
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-condensed);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .plan-map-wrap {
@@ -395,11 +415,12 @@
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  font-family: var(--font-condensed);
-  font-size: 9.8px;
-  font-weight: 500;
+  /* Same type as the status badges in the table below. */
+  font-family: var(--font-span);
+  font-size: 9px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.2px;
+  letter-spacing: -0.2px;
   padding: 4px 9px;
   border-radius: 999px;
   cursor: pointer;
@@ -457,6 +478,9 @@
   gap: 6px;
   flex: 1;
   min-width: 150px;
+  /* Reserves the space the removed "Reachable within…" hint used to take, so
+     the field keeps its previous width instead of spanning the whole row. */
+  max-width: calc(100% - 265px);
   background: var(--page-default-base);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -501,11 +525,6 @@
 
 .plan-search-clear:hover {
   color: var(--text-primary);
-}
-
-.plan-gaps-hint {
-  font-size: 10.5px;
-  color: var(--text-secondary);
 }
 
 /* The scroll area: takes remaining card height, scrolls on the y-axis.
@@ -635,15 +654,16 @@
 /* Status reads as a tinted chip rather than a coloured dot — easier to scan
    down a column and it keeps its meaning without relying on colour alone. */
 .plan-status {
-  display: inline-block;
-  font-family: var(--font-condensed);
-  font-size: 9.4px;
-  font-weight: 600;
+  /* Mirrors the Incidents severity badge (.inc-badge), minus the icon. */
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-span);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  padding: 2px 8px;
+  border-radius: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid transparent;
   white-space: nowrap;
 }
 

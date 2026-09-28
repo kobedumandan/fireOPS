@@ -6,7 +6,7 @@ from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import FireIncident, Users
+from models import DispatchRecord, FireIncident, Users
 from security import get_current_user
 
 
@@ -35,10 +35,10 @@ def metrics_summary(
     """Server-side aggregates for the Metrics page: totals, severity, contained,
     per-barangay counts, monthly incident counts, and period-over-period deltas.
 
-    NOTE: avg_response_minutes is intentionally null for now — response time
-    requires dispatch arrival timestamps that aren't reliably captured yet (see
-    the response-time capture plan). The field is here so the frontend contract
-    is stable once that lands.
+    avg_response_minutes is call-to-arrival (NFPA-style): for each incident in
+    the window, the FIRST crew arrival (`dispatch_arrived_at`, set by
+    PATCH /api/dispatch/{id}/arrived) minus `fire_incident_datetime`. It is
+    null when no incident in the window has a recorded arrival yet.
     """
     now = datetime.now(timezone.utc)
     days = _METRICS_PERIOD_DAYS.get(period, 30)
@@ -61,6 +61,35 @@ def metrics_summary(
     contained = _count(*_contained, since=start, until=now)
     prev_contained = _count(*_contained, since=prev_start, until=start)
     prev_critical = _count(*_critical, since=prev_start, until=start)
+
+    def _avg_response(since, until):
+        # First arrival per incident, so a second team arriving later doesn't
+        # drag the average up. Durations outside (0, 6h] are clock skew or a
+        # forgotten "arrived" tap, not a response, and are excluded.
+        first_arrival = (
+            db.query(
+                FireIncident.fire_incident_datetime.label("called_at"),
+                func.min(DispatchRecord.dispatch_arrived_at).label("arrived_at"),
+            )
+            .join(DispatchRecord, DispatchRecord.fire_id == FireIncident.fire_id)
+            .filter(
+                FireIncident.fire_incident_datetime >= since,
+                FireIncident.fire_incident_datetime < until,
+                DispatchRecord.dispatch_arrived_at.isnot(None),
+            )
+            .group_by(FireIncident.fire_id, FireIncident.fire_incident_datetime)
+            .subquery()
+        )
+        seconds = func.extract("epoch", first_arrival.c.arrived_at - first_arrival.c.called_at)
+        avg_s = (
+            db.query(func.avg(seconds))
+              .filter(seconds > 0, seconds <= 6 * 3600)
+              .scalar()
+        )
+        return round(float(avg_s) / 60, 1) if avg_s is not None else None
+
+    avg_response = _avg_response(start, now)
+    prev_avg_response = _avg_response(prev_start, start)
 
     # Severity breakdown for the current window.
     severity = {"Critical": 0, "Moderate": 0, "Minor": 0}
@@ -135,6 +164,10 @@ def metrics_summary(
             "total": _pct_delta(total, prev_total),
             "critical": _pct_delta(severity["Critical"], prev_critical),
             "contained": _pct_delta(contained, prev_contained),
+            "response": (
+                _pct_delta(avg_response, prev_avg_response)
+                if avg_response is not None else None
+            ),
         },
-        "avg_response_minutes": None,  # omitted for now — see response-time plan
+        "avg_response_minutes": avg_response,
     }

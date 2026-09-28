@@ -131,8 +131,8 @@ def build_roads(place: str, out_path: Path, force: bool) -> int:
         edges[col] = edges[col].map(_flatten) if col in edges.columns else None
 
     edges = edges[KEEP_COLUMNS]
-    # GeoPackage has no boolean-with-nulls; oneway rides along as text for
-    # provenance only — load_roads_gpkg builds bidirectional edges regardless.
+    # GeoPackage has no boolean-with-nulls; oneway rides along as text
+    # ("True"/"False") and load_roads_gpkg skips the reverse edge when true.
     edges["oneway"] = edges["oneway"].astype(str)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

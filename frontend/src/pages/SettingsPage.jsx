@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import "../styles/SettingsPage.css";
 import { useSessionTimer } from "../hooks/useSessionTimer";
-import AppModal from "../components/AppModal";
+import SignOutModal from "../components/SignOutModal";
 import {
   changePassword,
   fetchCurrentUser,
@@ -134,8 +134,7 @@ const LOGIN_HISTORY_LIMIT = 5;
 /**
  * Pass `on` and `onChange` to drive the switch from outside — that's the form
  * used by anything whose state has somewhere real to live. Omit them and it
- * falls back to local state, which is where the not-yet-wired preference rows
- * still sit.
+ * falls back to local state.
  */
 function Toggle({ on, onChange, defaultOn = false }) {
   const [localOn, setLocalOn] = useState(defaultOn);
@@ -895,6 +894,28 @@ function SectionNotifications({ prefs, onPrefChange }) {
         </div>
         <div className="block-row">
           <div className="row-left">
+            <div className="row-label">Fire Contained</div>
+            <div className="row-sub">
+              Alert when a team leader marks a fire contained
+            </div>
+          </div>
+          <div className="row-right">
+            <Toggle {...bind("contained")} />
+          </div>
+        </div>
+        <div className="block-row">
+          <div className="row-left">
+            <div className="row-label">Incident Reports</div>
+            <div className="row-sub">
+              Alert when an after-action report is filed from the field
+            </div>
+          </div>
+          <div className="row-right">
+            <Toggle {...bind("reportFiled")} />
+          </div>
+        </div>
+        <div className="block-row">
+          <div className="row-left">
             <div className="row-label">Incident Resolution</div>
             <div className="row-sub">Alert when an incident is closed</div>
           </div>
@@ -965,57 +986,58 @@ function SectionNotifications({ prefs, onPrefChange }) {
   );
 }
 
-function SectionMapDisplay() {
+const MAP_LAYER_ROWS = [
+  {
+    key: "incidents",
+    label: "Show Incident Markers",
+    sub: "Display fire incident pins on the map",
+  },
+  {
+    key: "personnel",
+    label: "Show Personnel Markers",
+    sub: "Display real-time field unit locations",
+  },
+  {
+    key: "routes",
+    label: "Show GNN Route Overlays",
+    sub: "Display computed dispatch routes",
+  },
+  {
+    key: "heatmap",
+    label: "Show Heat Map Layer",
+    sub: "Overlay historical incident density on the command view",
+  },
+  {
+    key: "boundaries",
+    label: "Show Barangay Boundaries",
+    sub: "Overlay barangay polygons on the command view",
+  },
+];
+
+function SectionMapDisplay({ prefs, onPrefChange }) {
   return (
     <>
       <div className="section-title">Map Display</div>
       <div className="section-desc">
-        Configure what is shown on the GIS command map.
+        Configure what is shown on the GIS command map. The Heat Map and
+        Barangay view modes always show their own layer.
       </div>
 
       <div className="settings-block">
         <div className="block-header">
           <div className="block-title">Map Layers</div>
         </div>
-        {[
-          {
-            id: "ml1",
-            label: "Show Incident Markers",
-            sub: "Display fire incident pins on the map",
-            on: true,
-          },
-          {
-            id: "ml2",
-            label: "Show Personnel Markers",
-            sub: "Display real-time field unit locations",
-            on: true,
-          },
-          {
-            id: "ml3",
-            label: "Show GNN Route Overlays",
-            sub: "Display computed dispatch routes",
-            on: true,
-          },
-          {
-            id: "ml4",
-            label: "Show Heat Map Layer",
-            sub: "Visualize historical incident density",
-            on: false,
-          },
-          {
-            id: "ml5",
-            label: "Show Purok Boundaries",
-            sub: "Display barangay and purok polygon overlays",
-            on: false,
-          },
-        ].map((row) => (
-          <div className="block-row" key={row.id}>
+        {MAP_LAYER_ROWS.map((row) => (
+          <div className="block-row" key={row.key}>
             <div className="row-left">
               <div className="row-label">{row.label}</div>
               <div className="row-sub">{row.sub}</div>
             </div>
             <div className="row-right">
-              <Toggle defaultOn={row.on} />
+              <Toggle
+                on={!!prefs[row.key]}
+                onChange={(v) => onPrefChange(row.key, v)}
+              />
             </div>
           </div>
         ))}
@@ -1110,6 +1132,8 @@ export default function SettingsPage({
   onAnimationsChange,
   notifPrefs,
   onNotifPrefChange,
+  mapLayerPrefs,
+  onMapLayerPrefChange,
   onLogout,
   onAccountUpdate,
 }) {
@@ -1161,7 +1185,12 @@ export default function SettingsPage({
           />
         );
       case "display":
-        return <SectionMapDisplay />;
+        return (
+          <SectionMapDisplay
+            prefs={mapLayerPrefs}
+            onPrefChange={onMapLayerPrefChange}
+          />
+        );
       case "about":
         return <SectionAbout />;
       default:
@@ -1198,37 +1227,11 @@ export default function SettingsPage({
       </div>
 
       {confirmLogout && (
-        <AppModal
-          eyebrow="SESSION"
-          title="Sign Out"
+        <SignOutModal
+          user={user}
+          onConfirm={onLogout}
           onClose={() => setConfirmLogout(false)}
-          width={400}
-        >
-          <div className="apm-body" style={{ paddingBottom: 18 }}>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 13,
-                color: "var(--text-secondary)",
-                lineHeight: 1.6,
-              }}
-            >
-              You are about to end your current session. Any unsaved changes
-              will be lost. Are you sure you want to sign out?
-            </p>
-          </div>
-          <div className="apm-actions">
-            <button
-              className="apm-btn-cancel"
-              onClick={() => setConfirmLogout(false)}
-            >
-              Cancel
-            </button>
-            <button className="apm-btn-submit" onClick={onLogout}>
-              Sign Out
-            </button>
-          </div>
-        </AppModal>
+        />
       )}
     </div>
   );

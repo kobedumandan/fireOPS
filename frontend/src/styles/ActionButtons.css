@@ -1,0 +1,86 @@
+/* ════════════════════════════════════════════════════════════
+   DETAIL-PANE ACTION BUTTONS  (act-*)
+   Shared by the Stations, Trucks, Personnel, Teams and Incident Details
+   panes: a labelled ghost button ("View on map") and square icon buttons
+   (edit / delete). Loaded globally from main.jsx.
+   ════════════════════════════════════════════════════════════ */
+
+.act-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 3px 12px 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-condensed);
+  font-size: 8.8px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.act-btn .material-symbols-outlined {
+  font-size: 15px;
+  margin-top: -3px;
+}
+.act-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.act-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* Full-width variant for narrow side columns */
+.act-btn.block {
+  width: 100%;
+}
+
+.act-icon-btn {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.act-icon-btn svg {
+  width: 14px;
+  height: 14px;
+  color: currentColor;
+}
+.act-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.act-icon-btn.danger:hover {
+  background: var(--accent-fire-dim);
+  color: var(--accent-fire);
+  border-color: transparent;
+}
+
+.act-btn:focus-visible,
+.act-icon-btn:focus-visible {
+  outline: 2px solid var(--accent-fire-focus);
+  outline-offset: 1px;
+}

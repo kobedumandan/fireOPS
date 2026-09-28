@@ -14,10 +14,13 @@ _BARANGAYS_GEOJSON_PATH = Config.BARANGAYS_PATH
 
 
 def _station_source_nodes(db: Session) -> list[int]:
-    """Snap every station with coordinates to its nearest graph node."""
+    """Snap every operational station with coordinates to its nearest graph
+    node. Inactive stations don't respond, so they don't count as coverage."""
     nodes: list[int] = []
     for s in db.query(Station).all():
         if s.station_latitude is None or s.station_longitude is None:
+            continue
+        if (s.station_status or "operational") == "inactive":
             continue
         near = state.routing_engine.graph.nodes_near(
             float(s.station_latitude), float(s.station_longitude), radius_km=2.0
@@ -39,7 +42,7 @@ def _compute_or_get_coverage(db: Session, refresh: bool = False) -> dict:
     if not sources:
         raise HTTPException(
             status_code=404,
-            detail="No stations with coordinates to compute coverage from.",
+            detail="No operational stations with coordinates to compute coverage from.",
         )
 
     barangays = None

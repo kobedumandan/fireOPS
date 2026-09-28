@@ -2,9 +2,6 @@
   color: var(--text-secondary);
   width: 12.8px;
 }
-.action_btn {
-  padding: 4.8px 7px 0.8px !important;
-}
 
 .unfold_icon {
   width: 16.8px;
@@ -525,10 +522,10 @@
   display: flex;
   align-items: center;
   padding: 3.8px 10px 0.8px;
-  background: var(--accent-fire-dim);
+  background: var(--chip-muted-bg);
   border: 1px solid transparent;
   border-radius: 3px;
-  color: var(--accent-fire);
+  color: var(--text-secondary);
   font-family: var(--font-condensed);
   font-size: 8.8px;
   font-weight: 500;
@@ -539,7 +536,8 @@
 }
 
 .inc-btn-view:hover {
-  background: rgba(var(--accent-fire-rgb), 0.25);
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .inc-btn-map {
@@ -659,26 +657,6 @@
 
 .inc-btn-dispatch-sm:hover {
   background: var(--accent-fire-hover);
-}
-
-.inc-btn-sec-sm {
-  padding: 4.8px 14px 0.8px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  color: var(--text-secondary);
-  font-family: var(--font-condensed);
-  font-size: 8.8px;
-  font-weight: 600;
-  letter-spacing: -0.1px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.inc-btn-sec-sm:hover {
-  background: var(--bg-hover);
-  color: var(--text-primary);
 }
 
 .inc-btn-danger-sm {

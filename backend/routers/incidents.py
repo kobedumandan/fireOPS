@@ -1,5 +1,5 @@
 """Fire incident CRUD and the after-action report readback."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, or_
@@ -9,8 +9,8 @@ import state
 from auto_dispatch import select_best_team
 from database import get_db
 from models import (
-    DispatchRecord, DispatchTruck, FireIncident, HeatmapData, IncidentReport,
-    Route, Users,
+    DispatchRecord, DispatchTruck, FireIncident, HeatmapData, IncidentEvent,
+    IncidentReport, Route, Users,
 )
 from schemas import IncidentCreate, IncidentUpdate
 from security import get_current_user
@@ -19,6 +19,7 @@ from services.dispatch import (
     _add_incident_to_heatmap, _barangay_id_for_point,
     _complete_dispatch_and_release, _perform_dispatch, _released_payload,
 )
+from services.incident_events import event_dict, record_changes, snapshot
 from state import manager, report_session_phones, report_sessions
 
 
@@ -120,7 +121,17 @@ async def create_incident(
     db: Session = Depends(get_db),
     _auth: Users = Depends(get_current_user),
 ):
+    now = datetime.now(timezone.utc)
+    occurred_at = body.fire_incident_datetime
+    if occurred_at is not None:
+        if occurred_at.tzinfo is None:
+            occurred_at = occurred_at.replace(tzinfo=timezone.utc)
+        # A few minutes of slack absorbs client clock skew.
+        if occurred_at > now + timedelta(minutes=5):
+            raise HTTPException(status_code=422, detail="Incident time can't be in the future.")
+
     incident = FireIncident(
+        fire_incident_datetime=occurred_at or now,
         fire_location_name=body.fire_location_name,
         fire_address=body.fire_address,
         fire_latitude=body.fire_latitude,
@@ -141,6 +152,11 @@ async def create_incident(
     db.add(incident)
     db.commit()
     db.refresh(incident)
+    # Logged already closed (a past incident) — it skips the edit-close path,
+    # so record its heatmap point here.
+    if incident.fire_status == "closed":
+        _add_incident_to_heatmap(db, incident, now)
+        db.commit()
     data = _incident_dict(incident)
     await manager.broadcast({"type": "incident_created", "data": data})
 
@@ -154,7 +170,8 @@ async def create_incident(
             "data": {"token": body.reporter_token},
         })
 
-    if body.auto_dispatch:
+    # Only a live (pending) report needs a crew; past incidents never auto-dispatch.
+    if body.auto_dispatch and incident.fire_status == "pending":
         selection = select_best_team(db, incident, routing_engine=state.routing_engine)
         if selection.ok:
             dispatch_result = await _perform_dispatch(db, incident.fire_id, selection.team_id)
@@ -191,8 +208,10 @@ async def update_incident(
         raise HTTPException(status_code=404, detail="Incident not found.")
     was_closed = inc.fire_status == "closed"
     released = None
+    before = snapshot(inc)
     for field, val in body.model_dump(exclude_unset=True).items():
         setattr(inc, field, val)
+    record_changes(db, inc, before, user=_auth)
     # If this edit closes the incident, release any still-active dispatch crews
     # and trucks — mirrors the report-filing close path.
     if not was_closed and inc.fire_status == "closed":
@@ -253,6 +272,9 @@ async def delete_incident(
     db.query(HeatmapData).filter(HeatmapData.fire_id == fire_id).delete(
         synchronize_session=False
     )
+    db.query(IncidentEvent).filter(IncidentEvent.fire_id == fire_id).delete(
+        synchronize_session=False
+    )
 
     db.delete(inc)
     db.commit()
@@ -277,3 +299,21 @@ def get_incident_report(
     if not report:
         return {"report": None}
     return {"report": _report_dict(report)}
+
+
+@router.get("/api/incidents/{fire_id}/events")
+def get_incident_events(
+    fire_id: int,
+    db: Session = Depends(get_db),
+    _auth: Users = Depends(get_current_user),
+):
+    """Status / alarm / severity changes for the incident timeline, oldest first."""
+    if not db.get(FireIncident, fire_id):
+        raise HTTPException(status_code=404, detail="Incident not found.")
+    rows = (
+        db.query(IncidentEvent)
+        .filter(IncidentEvent.fire_id == fire_id)
+        .order_by(IncidentEvent.created_at, IncidentEvent.event_id)
+        .all()
+    )
+    return [event_dict(e) for e in rows]

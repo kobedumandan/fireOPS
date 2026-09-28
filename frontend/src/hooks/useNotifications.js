@@ -12,6 +12,8 @@ export const NOTIF_DEFAULTS = {
   newIncident:        true,
   escalation:         true,
   resolution:         false,
+  contained:          true,
+  reportFiled:        true,
   onScene:            true,
   deviceOffline:      true,
   autoDispatchFailed: true,
@@ -30,7 +32,7 @@ export function readNotifPrefs() {
     across a 12-hour shift. */
 const MAX_ITEMS = 50
 /** How long a non-critical toast stays up. Critical ones never auto-dismiss. */
-const TOAST_MS = 7_000
+export const TOAST_MS = 7_000
 
 /**
  * The notification store behind both surfaces (toasts + the bell panel).

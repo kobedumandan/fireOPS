@@ -1,80 +1,13 @@
-import { useState, useMemo, useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, GeoJSON, useMapEvents } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
-import L from 'leaflet'
-import { MAP_CENTER, MAP_ZOOM, TILE_OPTIONS, withinRegion, maskStyle, REGION_BOUNDARY, REGION_LABEL } from '../data/mapConfig'
-import { useTheme } from '../hooks/useTheme'
+import { useState, useEffect } from 'react'
 import { fetchTeams } from '../api'
-import '../styles/AppModal.css'
-
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-})
-
-function PickerMap({ lat, lng, onChange, onBoundsError }) {
-  const [tileId, setTileId] = useState('satellite')
-  const theme = useTheme()
-  const tile = TILE_OPTIONS.find(t => t.id === tileId)
-
-  const maskFeature = useMemo(() => ({
-    type: 'Feature',
-    geometry: {
-      type: 'Polygon',
-      coordinates: [
-        [[-180, -90], [-180, 90], [180, 90], [180, -90], [-180, -90]],
-        REGION_BOUNDARY,
-      ],
-    },
-  }), [])
-
-  const boundaryFeature = useMemo(() => ({
-    type: 'Feature',
-    geometry: { type: 'Polygon', coordinates: [REGION_BOUNDARY] },
-  }), [])
-
-  function ClickHandler() {
-    useMapEvents({
-      click(e) {
-        const { lat: la, lng: lo } = e.latlng
-        if (!withinRegion(la, lo)) {
-          onBoundsError(`Selected point is outside ${REGION_LABEL}.`)
-          return
-        }
-        onBoundsError(null)
-        onChange(la, lo)
-      },
-    })
-    return null
-  }
-
-  return (
-    <div className="asm-map-wrap">
-      <MapContainer
-        center={lat && lng ? [lat, lng] : MAP_CENTER}
-        zoom={MAP_ZOOM + 1}
-        style={{ width: '100%', height: '220px', borderRadius: '6px', cursor: 'crosshair' }}
-        scrollWheelZoom
-        zoomControl
-      >
-        {tile.layers.map((l, i) => <TileLayer key={`${tileId}-${i}`} {...l} />)}
-        <GeoJSON key={`mask-${theme}`} data={maskFeature} style={() => maskStyle(theme)} />
-        <GeoJSON key="boundary" data={boundaryFeature} style={() => ({ fill: false, stroke: true, color: '#1e90ff', weight: 2, opacity: 0.85 })} />
-        <ClickHandler />
-        {lat && lng && <Marker position={[lat, lng]} />}
-      </MapContainer>
-      <div className="asm-tile-switcher">
-        {TILE_OPTIONS.map(opt => (
-          <button key={opt.id} type="button" className={`asm-tile-btn${tileId === opt.id ? ' active' : ''}`} onClick={() => setTileId(opt.id)}>
-            <img src={opt.thumb} alt={opt.label} draggable={false} />
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
+import {
+  SEVERITIES, ALARMS, STRUCTURES,
+  ICON_CLOSE, ICON_TRUCK, ICON_PLUS,
+} from './incidentFormOptions'
+import {
+  Icon, Field, SectionHead, Segmented, StatusSteps, CasualtyPicker, LockedNote,
+} from './incidentForm'
+import { MapPicker, PinStatus } from './MapPicker'
 
 const EMPTY = {
   fire_location_name:    '',
@@ -93,38 +26,81 @@ const EMPTY = {
   fire_remarks:          '',
 }
 
-export default function LogIncidentModal({ onClose, onSubmit }) {
-  const [form, setForm]       = useState(EMPTY)
-  const [mapError, setMapError] = useState(null)
-  const [error, setError]     = useState(null)
-  const [saving, setSaving]   = useState(false)
+// "YYYY-MM-DDTHH:mm" in local time, the format <input type="datetime-local"> uses.
+function localInputValue(d) {
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
-  const [allTeams, setAllTeams]   = useState([])
-  const [units, setUnits]         = useState([])   // array of team objects
+const REPORT_MODES = [
+  { value: 'live', label: 'Live report' },
+  { value: 'past', label: 'Past incident' },
+]
+
+const teamLabel = t => `${t.team_name}${t.team_code ? ` · ${t.team_code}` : ''}`
+
+export default function LogIncidentModal({ onClose, onSubmit }) {
+  const [form, setForm]         = useState(EMPTY)
+  const [mapError, setMapError] = useState(null)
+  const [error, setError]       = useState(null)
+  const [saving, setSaving]     = useState(false)
+  // Live reports always start Pending; a past incident (logbook backfill, a call
+  // handled offline) picks its own status and records when it happened.
+  const [mode, setMode]             = useState('live')
+  const [occurredAt, setOccurredAt] = useState('')
+
+  const [allTeams, setAllTeams]     = useState([])
+  const [units, setUnits]           = useState([])   // array of team objects
   const [unitSelect, setUnitSelect] = useState('')
 
   useEffect(() => {
     fetchTeams().then(setAllTeams).catch(() => {})
   }, [])
 
-  const showUnits      = form.fire_status === 'contained' || form.fire_status === 'closed'
-  const showCasualties = form.fire_status === 'closed'
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape' && !saving) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose, saving])
+
+  const isPast         = mode === 'past'
+  const nowLocal       = localInputValue(new Date())
+  const futureTime     = isPast && occurredAt !== '' && occurredAt > nowLocal
+  const showUnits      = form.fire_status !== 'pending'
+  const showCasualties = form.fire_status === 'contained' || form.fire_status === 'closed'
   const showRemarks    = form.fire_status === 'closed'
+  const hasPin         = form.fire_latitude !== '' && form.fire_longitude !== ''
+  const availableTeams = allTeams.filter(t => !units.some(u => u.team_id === t.team_id))
+
+  const missing = [
+    !hasPin && 'map pin',
+    !form.fire_location_name.trim() && 'area name',
+    isPast && !occurredAt && 'incident time',
+  ].filter(Boolean)
 
   function set(field, value) {
     setError(null)
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
-  function handleStatusChange(value) {
+  function handleModeChange(value) {
     setError(null)
-    setForm(prev => ({
-      ...prev,
-      fire_status: value,
-      ...(value === 'pending' || value === 'active' ? { fire_casualties: 'None', fire_remarks: '' } : {}),
-      ...(value === 'contained' ? { fire_casualties: 'None', fire_remarks: '' } : {}),
-    }))
-    if (value === 'pending' || value === 'active') setUnits([])
+    setMode(value)
+    if (value === 'past') {
+      // Backfilled records are usually finished incidents.
+      setForm(prev => ({ ...prev, fire_status: 'closed' }))
+    } else {
+      setForm(prev => ({ ...prev, fire_status: 'pending', fire_casualties: 'None', fire_remarks: '' }))
+      setUnits([])
+      setOccurredAt('')
+    }
+  }
+
+  function handleStatusChange(value) {
+    set('fire_status', value)
+    if (value === 'pending') setUnits([])
   }
 
   function addUnit() {
@@ -140,12 +116,20 @@ export default function LogIncidentModal({ onClose, onSubmit }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!form.fire_latitude || !form.fire_longitude) {
-      setError('Please pick the incident location on the map.')
+    if (!hasPin) {
+      setError('Pick the incident location on the map.')
       return
     }
     if (!form.fire_location_name.trim()) {
       setError('Area / Barangay name is required.')
+      return
+    }
+    if (isPast && !occurredAt) {
+      setError('Enter when the incident happened.')
+      return
+    }
+    if (futureTime) {
+      setError("Incident time can't be in the future.")
       return
     }
     setSaving(true)
@@ -157,6 +141,7 @@ export default function LogIncidentModal({ onClose, onSubmit }) {
         fire_units_assigned: showUnits ? units.length : 0,
         fire_casualties:     showCasualties ? form.fire_casualties : 'None',
         fire_remarks:        showRemarks ? form.fire_remarks : '',
+        ...(isPast ? { fire_incident_datetime: new Date(occurredAt).toISOString() } : {}),
       })
     } catch (ex) {
       setError(ex.message)
@@ -165,210 +150,213 @@ export default function LogIncidentModal({ onClose, onSubmit }) {
   }
 
   return (
-    <div className="apm-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="apm-panel lim-panel">
+    <div className="apm-overlay" onClick={e => e.target === e.currentTarget && !saving && onClose()}>
+      <div className="apm-panel eim-panel lim-panel-split" role="dialog" aria-modal="true" aria-labelledby="lim-title">
 
-        <div className="apm-header">
-          <div>
-            <div className="apm-eyebrow">INCIDENTS</div>
-            <div className="apm-title">New Incident</div>
+        <div className="eim-header">
+          <div className="eim-header-main">
+            <div className="apm-eyebrow">{isPast ? 'PAST INCIDENT' : 'NEW INCIDENT'}</div>
+            <div id="lim-title" className="eim-title">{form.fire_location_name.trim() || (isPast ? 'Record a past incident' : 'Log a new incident')}</div>
           </div>
-          <button className="apm-close" onClick={onClose}>✕</button>
+          <button className="eim-close" onClick={onClose} aria-label="Close" disabled={saving}>
+            <Icon d={ICON_CLOSE} />
+          </button>
         </div>
 
-        <div className="apm-scroll">
-          <form id="lim-form" className="apm-body" onSubmit={handleSubmit}>
+        <div className="lim-layout">
+          {/* ── Left rail: map picker ── */}
+          <aside className="lim-rail-map" aria-label="Incident location">
+            <MapPicker
+              lat={form.fire_latitude}
+              lng={form.fire_longitude}
+              onChange={(lat, lng) => setForm(prev => ({ ...prev, fire_latitude: lat, fire_longitude: lng }))}
+              onBoundsError={setMapError}
+            />
+            <PinStatus
+              lat={form.fire_latitude}
+              lng={form.fire_longitude}
+              error={mapError}
+              emptyText="No pin yet. Click inside the boundary to mark the incident."
+            />
+          </aside>
 
-            <div className="apm-section-label">Incident Location</div>
+        {/* ── Right rail: details ── */}
+        <form id="lim-form" className="eim-body lim-rail-form" onSubmit={handleSubmit}>
 
-            <div className="apm-row">
-              <div className="apm-field">
-                <label>Area / Barangay <span className="apm-required">*</span></label>
+          {/* ── Report type ── */}
+          <section className="eim-section">
+            <SectionHead
+              title="Report type"
+              desc={isPast ? 'Already handled; recorded for the history.' : 'A fire happening now.'}
+            />
+            <Segmented label="Report type" options={REPORT_MODES} value={mode} onChange={handleModeChange} />
+            {isPast ? (
+              <Field label="When did it happen?" required className="lim-when">
+                <input
+                  type="datetime-local"
+                  value={occurredAt}
+                  max={nowLocal}
+                  onChange={e => { setError(null); setOccurredAt(e.target.value) }}
+                  aria-invalid={futureTime}
+                />
+              </Field>
+            ) : (
+              <div className="lim-live-note">
+                Starts as <strong>Pending</strong> and is timestamped now. Dispatching a crew moves it forward.
+              </div>
+            )}
+          </section>
+
+          {/* ── Location ── */}
+          <section className="eim-section">
+            <SectionHead title="Location" desc="Name the area you pinned on the map." />
+            <div className="eim-row">
+              <Field label="Area / Barangay" required>
                 <input
                   placeholder="e.g. Brgy. Kakar, Panabo"
                   value={form.fire_location_name}
                   onChange={e => set('fire_location_name', e.target.value)}
                 />
-              </div>
-              <div className="apm-field">
-                <label>Street Address</label>
+              </Field>
+              <Field label="Street address">
                 <input
                   placeholder="e.g. 12 Rizal St."
                   value={form.fire_address}
                   onChange={e => set('fire_address', e.target.value)}
                 />
-              </div>
+              </Field>
             </div>
+          </section>
 
-            <div className="asm-map-section">
-              <PickerMap
-                lat={form.fire_latitude}
-                lng={form.fire_longitude}
-                onChange={(lat, lng) => { set('fire_latitude', lat); set('fire_longitude', lng) }}
-                onBoundsError={setMapError}
-              />
-              {mapError
-                ? <div className="apm-error">{mapError}</div>
-                : <div className="asm-coords-display">
-                    {form.fire_latitude && form.fire_longitude
-                      ? <>Lat <strong>{Number(form.fire_latitude).toFixed(6)}</strong>&nbsp; Lng <strong>{Number(form.fire_longitude).toFixed(6)}</strong></>
-                      : 'No location selected — click the map to mark the incident'
-                    }
-                  </div>
-              }
-            </div>
+          {/* ── Status (past incidents only; live reports start Pending) ── */}
+          {isPast && (
+            <section className="eim-section">
+              <SectionHead title="Status" desc="How far the incident got." />
+              <StatusSteps value={form.fire_status} onChange={handleStatusChange} />
+            </section>
+          )}
 
-            <div className="apm-section-label">Incident Details</div>
-
-            <div className="apm-row">
-              <div className="apm-field">
-                <label>Severity <span className="apm-required">*</span></label>
-                <select value={form.fire_severity} onChange={e => set('fire_severity', e.target.value)}>
-                  <option value="Minor">Minor</option>
-                  <option value="Moderate">Moderate</option>
-                  <option value="Critical">Critical</option>
-                </select>
-              </div>
-              <div className="apm-field">
-                <label>Status <span className="apm-required">*</span></label>
-                <select value={form.fire_status} onChange={e => handleStatusChange(e.target.value)}>
-                  <option value="pending">Pending</option>
-                  <option value="active">Active</option>
-                  <option value="contained">Contained</option>
-                  <option value="closed">Closed</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="apm-row">
-              <div className="apm-field">
-                <label>Alarm Level</label>
-                <select value={form.fire_alarm_level} onChange={e => set('fire_alarm_level', e.target.value)}>
-                  <option value="1st Alarm">1st Alarm</option>
-                  <option value="2nd Alarm">2nd Alarm</option>
-                  <option value="3rd Alarm">3rd Alarm</option>
-                </select>
-              </div>
-              <div className="apm-field">
-                <label>Structure Type</label>
+          {/* ── Assessment ── */}
+          <section className="eim-section">
+            <SectionHead title="Assessment" desc="How serious the fire looks from the report." />
+            <Field label="Severity" required>
+              <Segmented label="Severity" options={SEVERITIES} value={form.fire_severity} onChange={v => set('fire_severity', v)} />
+            </Field>
+            <div className="eim-row">
+              <Field label="Alarm level">
+                <Segmented label="Alarm level" options={ALARMS.map(a => ({ value: a, label: a.replace(' Alarm', '') }))} value={form.fire_alarm_level} onChange={v => set('fire_alarm_level', v)} />
+              </Field>
+              <Field label="Structure type">
                 <select value={form.fire_structure_type} onChange={e => set('fire_structure_type', e.target.value)}>
-                  <option value="Residential">Residential</option>
-                  <option value="Residential 2-storey">Residential 2-storey</option>
-                  <option value="Commercial">Commercial</option>
-                  <option value="Industrial">Industrial</option>
-                  <option value="Institutional">Institutional</option>
-                  <option value="Informal Settlement">Informal Settlement</option>
-                  <option value="Vegetation">Vegetation</option>
-                  <option value="Vehicle">Vehicle</option>
-                  <option value="Other">Other</option>
+                  {STRUCTURES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-              </div>
+              </Field>
             </div>
+          </section>
 
-            {showUnits && (<>
-              <div className="apm-section-label">Units Assigned</div>
-
-              <div className="etm-members-list">
-                {units.length === 0 && (
-                  <div className="etm-members-empty">No units added yet</div>
+          {isPast && (<>
+          {/* ── Units ── */}
+          <section className="eim-section">
+            <SectionHead title="Units" desc={showUnits ? `${units.length} ${units.length === 1 ? 'team' : 'teams'} on this incident` : 'Teams already responding.'} />
+            {showUnits ? (
+              <>
+                {units.length > 0 && (
+                  <ul className="lim-units">
+                    {units.map(t => (
+                      <li key={t.team_id} className="lim-unit">
+                        <span className="lim-unit-av"><Icon d={ICON_TRUCK} /></span>
+                        <span className="lim-unit-info">
+                          <span className="lim-unit-name">{teamLabel(t)}</span>
+                          {t.station_name && t.station_name !== '—' && <span className="lim-unit-sub">{t.station_name}</span>}
+                        </span>
+                        <button type="button" className="lim-unit-rm" onClick={() => removeUnit(t.team_id)} aria-label={`Remove ${t.team_name}`}>
+                          <Icon d={ICON_CLOSE} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 )}
-                {units.map(t => (
-                  <div key={t.team_id} className="etm-member-row">
-                    <div className="etm-member-av lim-unit-av">🚒</div>
-                    <div className="etm-member-info">
-                      <div className="etm-member-name">{t.team_name}{t.team_code ? ` · ${t.team_code}` : ''}</div>
-                      <div className="etm-member-rank">{t.station_name !== '—' ? t.station_name : ''}</div>
-                    </div>
-                    <button
-                      type="button"
-                      className="etm-member-rm"
-                      onClick={() => removeUnit(t.team_id)}
-                    >✕</button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="etm-add-row">
-                <select
-                  className="etm-add-select"
-                  value={unitSelect}
-                  onChange={e => setUnitSelect(e.target.value)}
-                >
-                  <option value="">Select team to assign...</option>
-                  {allTeams
-                    .filter(t => !units.some(u => u.team_id === t.team_id))
-                    .map(t => (
+                <div className="lim-unit-add">
+                  <select value={unitSelect} onChange={e => setUnitSelect(e.target.value)} disabled={availableTeams.length === 0}>
+                    <option value="">{availableTeams.length ? 'Choose a team to add' : 'No more teams available'}</option>
+                    {availableTeams.map(t => (
                       <option key={t.team_id} value={t.team_id}>
-                        {t.team_name}{t.team_code ? ` · ${t.team_code}` : ''}{t.station_name !== '—' ? ` (${t.station_name})` : ''}
+                        {teamLabel(t)}{t.station_name && t.station_name !== '—' ? ` (${t.station_name})` : ''}
                       </option>
-                    ))
-                  }
-                </select>
-                <button
-                  type="button"
-                  className="etm-add-btn"
-                  onClick={addUnit}
-                  disabled={!unitSelect}
-                >Add</button>
-              </div>
-
-              {showCasualties && (
-                <div className="apm-field">
-                  <label>Casualties</label>
-                  <select value={form.fire_casualties} onChange={e => set('fire_casualties', e.target.value)}>
-                    <option value="None">None</option>
-                    <option value="Unconfirmed">Unconfirmed</option>
-                    <option value="Minor Injuries">Minor Injuries</option>
-                    <option value="Serious Injuries">Serious Injuries</option>
-                    <option value="Fatalities">Fatalities</option>
+                    ))}
                   </select>
+                  <button type="button" className="lim-unit-add-btn" onClick={addUnit} disabled={!unitSelect}>
+                    <Icon d={ICON_PLUS} /> Add
+                  </button>
                 </div>
-              )}
-            </>)}
-
-            {showRemarks && (
-              <div className="apm-field">
-                <label>Remarks / Report</label>
-                <textarea
-                  placeholder="Add incident notes, investigation findings, or post-incident report..."
-                  value={form.fire_remarks}
-                  onChange={e => set('fire_remarks', e.target.value)}
-                  rows={3}
-                />
-              </div>
+              </>
+            ) : (
+              <LockedNote>Units can be added once the status is past <strong>Pending</strong>.</LockedNote>
             )}
+          </section>
 
-            <div className="apm-section-label">Reporter Information</div>
+          {/* ── Outcome ── */}
+          <section className="eim-section">
+            <SectionHead title="Outcome" desc="Recorded once the fire is contained." />
+            {showCasualties ? (
+              <>
+                <Field label="Casualties">
+                  <CasualtyPicker value={form.fire_casualties} onChange={v => set('fire_casualties', v)} />
+                </Field>
+                {showRemarks && (
+                  <Field label="Remarks / report">
+                    <textarea
+                      placeholder="Cause, investigation findings, or post-incident notes"
+                      value={form.fire_remarks}
+                      onChange={e => set('fire_remarks', e.target.value)}
+                      rows={3}
+                    />
+                  </Field>
+                )}
+              </>
+            ) : (
+              <LockedNote>
+                Set the status to <strong>Contained</strong> or <strong>Closed</strong> to record casualties and remarks.
+              </LockedNote>
+            )}
+          </section>
+          </>)}
 
-            <div className="apm-row">
-              <div className="apm-field">
-                <label>Reported By</label>
+          {/* ── Reporter ── */}
+          <section className="eim-section">
+            <SectionHead title="Reporter" desc="Who called it in." />
+            <div className="eim-row">
+              <Field label="Reported by">
                 <input
                   placeholder="e.g. BFP Hotline · 911"
                   value={form.fire_reporter_name}
                   onChange={e => set('fire_reporter_name', e.target.value)}
                 />
-              </div>
-              <div className="apm-field">
-                <label>Reporter Contact</label>
+              </Field>
+              <Field label="Contact number">
                 <input
                   placeholder="e.g. 09XX-XXX-XXXX"
                   value={form.fire_reporter_contact}
                   onChange={e => set('fire_reporter_contact', e.target.value)}
                 />
-              </div>
+              </Field>
             </div>
+          </section>
 
-            {error && <div className="apm-error">{error}</div>}
-
-          </form>
+          {error && <div className="apm-error">{error}</div>}
+        </form>
         </div>
 
-        <div className="apm-actions">
-          <button type="button" className="apm-btn-cancel" onClick={onClose} disabled={saving}>Cancel</button>
-          <button type="submit" form="lim-form" className="apm-btn-submit" disabled={saving}>
-            {saving ? <span className="apm-spinner" /> : 'Log Incident'}
-          </button>
+        <div className="eim-footer">
+          <span className={`eim-changes ${missing.length ? '' : 'ready'}`}>
+            {missing.length ? `Still needed: ${missing.join(' and ')}` : 'Ready to log'}
+          </span>
+          <div className="eim-footer-actions">
+            <button type="button" className="apm-btn-cancel" onClick={onClose} disabled={saving}>Cancel</button>
+            <button type="submit" form="lim-form" className="apm-btn-submit" disabled={saving || missing.length > 0}>
+              {saving ? <span className="apm-spinner" /> : isPast ? 'Record incident' : 'Log incident'}
+            </button>
+          </div>
         </div>
 
       </div>

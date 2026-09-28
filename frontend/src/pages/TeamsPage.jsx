@@ -719,14 +719,20 @@ export default function TeamsPage({ refreshKey = 0 }) {
 
                 <div className="tea-details-actions">
                   <button
-                    className="tea-btn-sec action_btn"
+                    type="button"
+                    className="act-icon-btn"
                     onClick={() => setEditing(selected)}
+                    title="Edit team"
+                    aria-label="Edit team"
                   >
                     <EditIcon/>
                   </button>
                   <button
-                    className="tea-btn-sec action_btn"
+                    type="button"
+                    className="act-icon-btn danger"
                     onClick={() => setDeleting(selected)}
+                    title="Delete team"
+                    aria-label="Delete team"
                   >
                     <RemoveIcon/>
                   </button>
