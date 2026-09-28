@@ -99,6 +99,16 @@ def delete_team(
     team = db.get(ResponseTeam, team_id)
     if not team:
         raise HTTPException(status_code=404, detail="Team not found.")
+    # Dispatch records keep the incident history intact, so a team that has
+    # ever been sent can't be removed; retiring it is the way out.
+    if team.dispatches:
+        raise HTTPException(
+            status_code=409,
+            detail="This team has dispatch history, so it can't be deleted. Set its status to inactive instead.",
+        )
+    # Memberships have a NOT NULL team_id, so they go first; the personnel stay.
+    for m in list(team.members):
+        db.delete(m)
     db.delete(team)
     db.commit()
 
