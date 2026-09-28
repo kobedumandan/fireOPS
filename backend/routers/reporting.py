@@ -91,7 +91,7 @@ async def send_reporter_sms(
 
     link = f"{PUBLIC_BASE_URL}/report/{token}"
     message = (
-        "BFP FireGIS: Please share your location to help emergency responders "
+        "BFP FireTrackr: Please share your location to help emergency responders "
         f"reach you. Tap: {link}"
     )
 

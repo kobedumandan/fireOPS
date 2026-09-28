@@ -9,7 +9,7 @@ export default function SignOutModal({ user, onConfirm, onClose }) {
     <ConfirmModal
       eyebrow="SESSION"
       icon="logout"
-      title="Sign out of FireOPS?"
+      title="Sign out of FireTrackr?"
       details={[
         ...(name ? [{ label: "Signed in as", value: name }] : []),
         { label: "Account", value: user?.email },

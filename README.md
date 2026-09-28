@@ -1,7 +1,7 @@
-# FireOPS 🔥🧑‍🚒
+# FireTrackr 🔥🧑‍🚒
 
 A fire-response dispatch and incident-management system built for the Bureau of Fire
-Protection (BFP). FireOPS gives dispatchers a real-time web command center and gives
+Protection (BFP). FireTrackr gives dispatchers a real-time web command center and gives
 field personnel a companion mobile app, tied together by a FastAPI backend that plans
 optimal fire-truck routes using a Graph Neural Network (GNN) trained on local road data.
 
@@ -144,7 +144,7 @@ See `backend/.env.example` for the full list.
 
 ## Switching regions (development only)
 
-> **Production is always Panabo City.** FireOPS was built for and proposed to
+> **Production is always Panabo City.** FireTrackr was built for and proposed to
 > BFP Panabo City, and that is the only region it is ever deployed with. The
 > region switch below exists purely so a developer can test the app — dispatch,
 > routing, live tracking — without having to physically be in Panabo. It is a

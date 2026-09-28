@@ -1,6 +1,6 @@
 /* Only DM Sans is loaded here — it backs --font-span and is the fallback for
    the Axiforma tokens below. Barlow Condensed is imported by LoginPage.css,
-   which is the only place it is used (the FIREOPS wordmark). Share Tech Mono,
+   which is the only place it is used (the FIRETRACKR wordmark). Share Tech Mono,
    Barlow, Montserrat, Poppins, Roboto and Inter used to be requested here and
    were referenced nowhere. */
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");

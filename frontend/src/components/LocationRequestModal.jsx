@@ -60,7 +60,7 @@ export default function LocationRequestModal({
 
   const received = !!receivedData;
   const reportUrl = `${PUBLIC_BASE_URL.replace(/\/$/, "")}/report/${token}`;
-  const smsText = `BFP FireOPS: Please share your location to help emergency responders reach you. Tap: ${reportUrl}`;
+  const smsText = `BFP FireTrackr: Please share your location to help emergency responders reach you. Tap: ${reportUrl}`;
 
   async function handleSendSms(e) {
     e.preventDefault();
