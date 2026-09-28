@@ -31,20 +31,6 @@ function AddIcon() {
     </svg>
   );
 }
-
-function FireTruckIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 -960 960 960"
-      className="sta-truck-svg"
-      fill="currentColor"
-    >
-      <path d="M195-155q-35-35-35-85h-40q-33 0-56.5-23.5T40-320v-200h440v-160q0-33 23.5-56.5T560-760h80v-40q0-17 11.5-28.5T680-840h40q17 0 28.5 11.5T760-800v40h22q26 0 47 15t29 40l58 172q2 6 3 12.5t1 13.5v267H800q0 50-35 85t-85 35q-50 0-85-35t-35-85H400q0 50-35 85t-85 35q-50 0-85-35Zm113.5-56.5Q320-223 320-240t-11.5-28.5Q297-280 280-280t-28.5 11.5Q240-257 240-240t11.5 28.5Q263-200 280-200t28.5-11.5Zm400 0Q720-223 720-240t-11.5-28.5Q697-280 680-280t-28.5 11.5Q640-257 640-240t11.5 28.5Q663-200 680-200t28.5-11.5ZM120-440v120h71q17-19 40-29.5t49-10.5q26 0 49 10.5t40 29.5h111v-120H120Zm440 120h31q17-19 40-29.5t49-10.5q26 0 49 10.5t40 29.5h71v-120H560v120Zm0-200h276l-54-160H560v160ZM40-560v-60h40v-80H40v-60h400v60h-40v80h40v60H40Zm100-60h70v-80h-70v80Zm130 0h70v-80h-70v80Zm210 180H120h360Zm80 0h280-280Z" />
-    </svg>
-  );
-}
-
 function UnfoldIcon() {
   return (
     <svg
@@ -82,432 +68,388 @@ function EditIcon() {
   );
 }
 
+const stationKey = (id) => `STA-${String(id).padStart(3, "0")}`;
+
 function dbToStation(s) {
-  const parentId = s.parent_station_id
-    ? `STA-${String(s.parent_station_id).padStart(3, "0")}`
-    : null;
   return {
-    id: `STA-${String(s.station_id).padStart(3, "0")}`,
+    id: stationKey(s.station_id),
+    numericId: s.station_id,
     code: `BFP-${s.station_id}`,
     name: s.station_name,
     type: s.station_type || "main",
-    parent: parentId,
+    parent: s.parent_station_id ? stationKey(s.parent_station_id) : null,
     district: s.station_barangay || "—",
     address: s.station_address || "—",
     status: s.station_status || "operational",
-    personnel: 0,
-    units: 0,
-    activeUnits: 0,
     contact: s.station_contact || "—",
     commanderId: s.station_commander_id || null,
     commander: s.commander_name || "—",
-    established: s.created_at
-      ? new Date(s.created_at).getFullYear().toString()
-      : "—",
-    coverage: s.station_barangay || "—",
-    capacity: 0,
-    capUsed: 0,
-    incident: "—",
+    latitude: s.station_latitude ?? null,
+    longitude: s.station_longitude ?? null,
     subs: [],
     personnelList: [],
     teamsList: [],
     trucksList: [],
-    latitude: s.station_latitude ?? null,
-    longitude: s.station_longitude ?? null,
+    personnel: 0,
   };
 }
 
 const TABS = ["all", "main", "sub"];
-const TAB_LABELS = {
-  all: "All",
-  main: "Main Stations",
-  sub: "Substations",
+const TAB_LABELS = { all: "All", main: "Main Stations", sub: "Substations" };
+
+// Status pills keep to the three accents: green = ready, amber = committed,
+// fire = on scene / out of service; anything else is neutral.
+const TONE = {
+  personnel: { standby: "green", dispatched: "amber", onscene: "fire", offduty: "muted" },
+  team: { standby: "green", dispatched: "amber", active: "amber", inactive: "muted" },
+  truck: { available: "green", dispatched: "amber", maintenance: "amber", unavailable: "fire" },
 };
+const LABEL = { onscene: "On scene", offduty: "Off duty" };
 
-const P_STATUS_MAP = {
-  dispatched: { cls: "sta-hb-amber", label: "Dispatched" },
-  onscene: { cls: "sta-hb-fire", label: "On Scene" },
-  standby: { cls: "sta-hb-blue", label: "Standby" },
-  offduty: { cls: "sta-hb-muted", label: "Off Duty" },
-};
-
-function StatusBadge({ status }) {
-  if (status === "operational")
-    return <span className="sta-hbadge sta-hb-green">Operational</span>;
-  if (status === "standby")
-    return <span className="sta-hbadge sta-hb-amber">Standby</span>;
-  return <span className="sta-hbadge sta-hb-muted">{status}</span>;
-}
-
-function PStatusPill({ status }) {
-  const { cls, label } = P_STATUS_MAP[status] || {
-    cls: "sta-hb-muted",
-    label: status,
-  };
+function Pill({ kind, status }) {
+  const tone = TONE[kind][status] || "muted";
+  const live = status === "dispatched" || status === "onscene";
+  const label = LABEL[status] || (status ? status.charAt(0).toUpperCase() + status.slice(1) : "—");
   return (
-    <span className={`sta-hbadge ${cls}`}>
-      {status === "dispatched" && <span className="sta-blink-dot" />}
+    <span className={`sta-pill sta-pill-${tone}`}>
+      {live && <span className="sta-pill-dot" />}
       {label}
     </span>
   );
 }
 
-function StationListItem({ s, stations, selected, onSelect }) {
-  const isMain = s.type === "main";
-  const parent = !isMain && stations.find((x) => x.id === s.parent);
+function Sym({ name }) {
+  return <span className="material-symbols-outlined">{name}</span>;
+}
 
+const clean = (v) => (v && v !== "—" ? v : null);
+
+function trucksReady(s) {
+  return s.trucksList.filter((t) => t.status === "available").length;
+}
+
+// ── Left list ────────────────────────────────────────────────────────────────
+
+function StationRow({ s, parentName, nested, selected, onSelect }) {
+  const isMain = s.type === "main";
+  const inactive = s.status === "inactive";
   return (
-    <div
-      className={`sta-item ${isMain ? "sta-item-main" : "sta-item-sub"}${
-        selected ? " selected" : ""
-      }`}
+    <button
+      type="button"
+      className={`sta-row${nested ? " nested" : ""}${selected ? " selected" : ""}${inactive ? " inactive" : ""}`}
       onClick={() => onSelect(s.id)}
+      aria-current={selected || undefined}
     >
-      <div className="sta-item-top">
-        <div className="sta-item-name-wrap">
-          <div className={isMain ? "sta-icon-main" : "sta-icon-sub"}>
-            <span className="material-symbols-outlined">
-              {isMain ? "apartment" : "location_on"}
-            </span>
-          </div>
-          <div>
-            <div className="sta-item-name">{s.name}</div>
-            <div className="sta-item-code">{s.code}</div>
-          </div>
-        </div>
-        <span
-          className={`sta-type-tag ${isMain ? "sta-tt-main" : "sta-tt-sub"}`}
-        >
-          {isMain ? "Main" : "Sub"}
+      <span className={`sta-row-icon ${isMain ? "is-main" : "is-sub"}`}>
+        <Sym name={isMain ? "apartment" : "location_on"} />
+      </span>
+      <span className="sta-row-text">
+        <span className="sta-row-name">
+          {s.name}
+          {inactive && <span className="sta-pill sta-pill-muted">Inactive</span>}
         </span>
-      </div>
-      <div className="sta-item-meta">
-        {/* <div className="sta-meta-chip">
-          <div
-            className={`sta-meta-dot ${
-              s.activeUnits > 0 ? "md-fire" : isMain ? "md-green" : "md-muted"
-            }`}
-          />
-          {isMain
-            ? `${s.personnel} personnel`
-            : `${s.units} unit${s.units > 1 ? "s" : ""}`}
-        </div>
-        <div className="sta-meta-chip">
-          <div className="sta-meta-dot md-amber" />
-          {s.units} units
-        </div> */}
-        <div className="sta-meta-chip">
-          {/* <div className="sta-meta-dot md-muted" /> */}
-          {s.district}
-        </div>
-      </div>
-      <div className="sta-item-parent" style={{ visibility: parent ? 'visible' : 'hidden' }}>
-        {parent ? `↑ Under ${parent.name}` : '↑'}
-      </div>
+        <span className="sta-row-meta">
+          <span className="sta-mono">{s.code}</span>
+          {clean(s.district) && <span>{s.district}</span>}
+          {parentName && <span>Under {parentName}</span>}
+        </span>
+      </span>
+      <span className="sta-row-counts" aria-label={`${s.personnel} personnel, ${s.trucksList.length} trucks`}>
+        <span title="Personnel"><Sym name="group" />{s.personnel}</span>
+        <span title="Trucks"><Sym name="fire_truck" />{s.trucksList.length}</span>
+      </span>
+    </button>
+  );
+}
+
+/* Main stations with their sub-stations nested underneath. Subs whose parent
+   is filtered out (or missing) still show, with an "Under …" hint. */
+function StationTree({ list, stations, selectedId, onSelect, flat }) {
+  const byId = new Map(stations.map((s) => [s.id, s]));
+  const visible = new Set(list.map((s) => s.id));
+  const nameOf = (id) => byId.get(id)?.name;
+
+  if (flat) {
+    return list.map((s) => (
+      <StationRow key={s.id} s={s} parentName={s.parent ? nameOf(s.parent) : null}
+        selected={selectedId === s.id} onSelect={onSelect} />
+    ));
+  }
+
+  const rows = [];
+  for (const s of list) {
+    if (s.type === "sub" && s.parent && visible.has(s.parent)) continue; // drawn under its parent
+    rows.push(
+      <StationRow key={s.id} s={s}
+        parentName={s.type === "sub" && s.parent ? nameOf(s.parent) : null}
+        selected={selectedId === s.id} onSelect={onSelect} />
+    );
+    if (s.type === "main") {
+      const kids = list.filter((k) => k.parent === s.id);
+      if (kids.length) {
+        rows.push(
+          <div key={`${s.id}-kids`} className="sta-tree-kids">
+            {kids.map((k) => (
+              <StationRow key={k.id} s={k} nested selected={selectedId === k.id} onSelect={onSelect} />
+            ))}
+          </div>
+        );
+      }
+    }
+  }
+  return rows;
+}
+
+// ── Right detail ─────────────────────────────────────────────────────────────
+
+function Section({ title, count, children, empty }) {
+  return (
+    <section className="sta-sec">
+      <h3 className="sta-sec-title">
+        {title}
+        {count != null && <span className="sta-sec-count">{count}</span>}
+      </h3>
+      {empty ? <div className="sta-sec-empty">{empty}</div> : children}
+    </section>
+  );
+}
+
+function StatTile({ label, value, sub }) {
+  return (
+    <div className="sta-stat">
+      <div className="sta-stat-label">{label}</div>
+      <div className="sta-stat-value">{value}</div>
+      {sub && <div className="sta-stat-sub">{sub}</div>}
     </div>
+  );
+}
+
+function CopyValue({ text, mono }) {
+  const [copied, setCopied] = useState(false);
+  if (!text) return <span className="sta-field-value sta-dim">—</span>;
+  function copy() {
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+  return (
+    <span className={`sta-field-value${mono ? " sta-mono" : ""}`}>
+      {text}
+      <button type="button" className="sta-copy" onClick={copy} title="Copy" aria-label={`Copy ${text}`}>
+        <Sym name={copied ? "check" : "content_copy"} />
+      </button>
+    </span>
   );
 }
 
 function StationDetail({ s, stations, onSelectStation, onEdit, onDelete, onViewOnMap }) {
   if (!s) {
     return (
-      <div className="sta-no-selection">
-        <div className="sta-no-sel-icon">
-          <span className="material-symbols-outlined">apartment</span>
-        </div>
-        <div className="sta-no-sel-text">Select a station to view details</div>
+      <div className="sta-empty-detail">
+        <div className="sta-empty-icon"><Sym name="apartment" /></div>
+        <div className="sta-empty-title">No station selected</div>
+        <div className="sta-empty-sub">Pick one from the list to see its teams, trucks and people.</div>
       </div>
     );
   }
 
   const isMain = s.type === "main";
-
-  const subData = isMain
-    ? s.subs.map((sid) => stations.find((x) => x.id === sid)).filter(Boolean)
-    : [];
-  const parentStation =
-    !isMain && s.parent ? stations.find((x) => x.id === s.parent) : null;
+  const inactive = s.status === "inactive";
+  const subs = isMain ? s.subs.map((id) => stations.find((x) => x.id === id)).filter(Boolean) : [];
+  const parent = !isMain && s.parent ? stations.find((x) => x.id === s.parent) : null;
+  const hasCoords = s.latitude != null && s.longitude != null;
+  const commander = s.personnelList.find((p) => p.per_id === s.commanderId);
+  const onStandby = s.personnelList.filter((p) => p.status === "standby").length;
+  const teamsReady = s.teamsList.filter((t) => t.status === "standby").length;
+  const ready = trucksReady(s);
+  const deployed = s.trucksList.filter((t) => t.status === "dispatched").length;
 
   return (
     <div className="sta-detail-scroll">
-      {/* Hero */}
-      <div className={`sta-detail-hero ${isMain ? "hero-main" : "hero-sub"}`}>
+      {/* ── Hero ── */}
+      <div className={`sta-hero${inactive ? " inactive" : ""}`}>
         <div className="sta-hero-top">
           <div className="sta-hero-left">
-            <div
-              className={isMain ? "sta-hero-icon-main" : "sta-hero-icon-sub"}
-            >
-              <span className="material-symbols-outlined">
-                {isMain ? "apartment" : "location_on"}
-              </span>
+            <div className={`sta-hero-icon ${isMain ? "is-main" : "is-sub"}`}>
+              <Sym name={isMain ? "apartment" : "location_on"} />
             </div>
-            <div>
-              <div
-                className={`sta-hero-tag ${
-                  isMain ? "hero-tag-main" : "hero-tag-sub"
-                }`}
-              >
-                <div
-                  className={isMain ? "sta-hero-crown" : "sta-hero-subicon"}
-                />
-                {isMain
-                  ? "Main Station · Command Hub"
-                  : "Sub-Station · Satellite Unit"}
-              </div>
+            <div className="sta-hero-text">
+              <div className="sta-hero-eyebrow">{s.code}</div>
               <div className="sta-hero-name">{s.name}</div>
-              <div className="sta-hero-code">
-                {s.code} · {s.district}
+              {clean(s.address) && <div className="sta-hero-addr">{s.address}</div>}
+              <div className="sta-hero-chips">
+                <span className="sta-pill sta-pill-muted">{isMain ? "Main station" : "Sub-station"}</span>
+                <span className={`sta-pill ${inactive ? "sta-pill-muted" : "sta-pill-green"}`}>
+                  {inactive ? "Inactive" : "Operational"}
+                </span>
+                {parent && (
+                  <button type="button" className="sta-pill sta-pill-link" onClick={() => onSelectStation(parent.id)}>
+                    Reports to {parent.name}
+                  </button>
+                )}
               </div>
             </div>
           </div>
-          <div className="sta-hero-badges">
-            <StatusBadge status={s.status} />
-            {s.incident !== "—" && (
-              <span className="sta-hbadge sta-hb-fire">{s.incident}</span>
-            )}
-            {/* <span
-              className={`sta-hbadge ${isMain ? "sta-hb-gold" : "sta-hb-blue"}`}
-            >
-              {isMain ? "Command" : "Satellite"}
-            </span> */}
+          <div className="sta-hero-actions">
+            <button type="button" className="act-btn" onClick={onViewOnMap} disabled={!hasCoords}
+              title={hasCoords ? "Show on the Command map" : "No location on record"}>
+              <Sym name="map" />
+              View on map
+            </button>
+            <button type="button" className="act-icon-btn" onClick={onEdit} title="Edit station" aria-label="Edit station">
+              <EditIcon />
+            </button>
+            <button type="button" className="act-icon-btn danger" onClick={onDelete} title="Delete station" aria-label="Delete station">
+              <RemoveIcon />
+            </button>
           </div>
         </div>
 
-        <div className="sta-detail-grid">
-          <div className="sta-detail-stat">
-            <div className="sta-ds-label">Personnel</div>
-            <div className="sta-ds-value">{s.personnel}</div>
-            <div className="sta-ds-sub">ASSIGNED</div>
+        {inactive && (
+          <div className="sta-hero-note">
+            <Sym name="info" />
+            Marked inactive: left out of coverage, and its teams aren&apos;t auto-dispatched or recommended.
           </div>
-          <div className="sta-detail-stat">
-            <div className="sta-ds-label">Fire Units</div>
-            <div className="sta-ds-value">{s.units}</div>
-            <div className="sta-ds-sub">{s.activeUnits} DEPLOYED</div>
-          </div>
-          <div className="sta-detail-stat">
-            <div className="sta-ds-label">Fire Trucks</div>
-            <div className="sta-ds-value">{s.trucksList.length}</div>
-            <div className="sta-ds-sub">{s.activeUnits} DEPLOYED</div>
-          </div>
-          <div className="sta-detail-stat">
-            <div className="sta-ds-label">
-              {isMain ? "Sub-Stations" : "Parent"}
-            </div>
-            <div className="sta-ds-value">{isMain ? s.subs.length : 1}</div>
-            <div className="sta-ds-sub">
-              {isMain ? "UNDER COMMAND" : "REPORTING TO"}
-            </div>
-          </div>
+        )}
+
+        <div className="sta-stats">
+          <StatTile label="Personnel" value={s.personnel} sub={`${onStandby} on standby`} />
+          <StatTile label="Teams" value={s.teamsList.length} sub={`${teamsReady} ready`} />
+          <StatTile label="Trucks" value={`${ready}/${s.trucksList.length}`} sub={deployed ? `${deployed} deployed` : "available"} />
+          {isMain
+            ? <StatTile label="Sub-stations" value={subs.length} sub="under command" />
+            : <StatTile label="Parent" value={parent ? parent.code : "—"} sub={parent ? parent.name : "none set"} />}
         </div>
       </div>
 
-      {/* Station Info */}
-      <div className="sta-info-section">
-        <div className="sta-info-title">Station Information</div>
-        <div className="sta-info-grid">
-          {[
-            { label: "Address", value: s.address },
-            { label: "Contact", value: s.contact, mono: true },
-            { label: "Commander", value: s.commander },
-            { label: "Established", value: s.established },
-            { label: "Coverage Area", value: s.coverage },
-            { label: "District", value: s.district },
-          ].map(({ label, value, mono }) => (
-            <div key={label} className="sta-info-row">
-              <span className="sta-info-label">{label}</span>
-              <span
-                className="sta-info-value"
-                style={
-                  mono
-                    ? { fontFamily: "var(--font-mono)", fontSize: 11 }
-                    : undefined
-                }
-              >
-                {value}
+      {/* ── Details ── */}
+      <Section title="Details">
+        <div className="sta-fields">
+          <div className="sta-field">
+            <span className="sta-field-label">Barangay</span>
+            <span className="sta-field-value">{clean(s.district) || <span className="sta-dim">—</span>}</span>
+          </div>
+          <div className="sta-field">
+            <span className="sta-field-label">Contact</span>
+            <CopyValue text={clean(s.contact)} mono />
+          </div>
+          <div className="sta-field">
+            <span className="sta-field-label">Commander</span>
+            {commander || clean(s.commander) ? (
+              <span className="sta-field-value sta-person">
+                <span className="sta-av sm">{commander?.initials || "—"}</span>
+                {commander?.name || s.commander}
               </span>
+            ) : (
+              <button type="button" className="sta-link" onClick={onEdit}>Assign a commander</button>
+            )}
+          </div>
+          <div className="sta-field">
+            <span className="sta-field-label">Coordinates</span>
+            <CopyValue text={hasCoords ? `${s.latitude.toFixed(5)}, ${s.longitude.toFixed(5)}` : null} mono />
+          </div>
+        </div>
+      </Section>
+
+      {/* ── Command chain ── */}
+      {isMain ? (
+        <Section title="Sub-stations" count={subs.length} empty={subs.length === 0 && "No sub-stations report to this station."}>
+          <div className="sta-list-rows">
+            {subs.map((sub) => (
+              <button key={sub.id} type="button" className="sta-line clickable" onClick={() => onSelectStation(sub.id)}>
+                <span className="sta-line-icon"><Sym name="location_on" /></span>
+                <span className="sta-line-text">
+                  <span className="sta-line-name">{sub.name}</span>
+                  <span className="sta-line-sub">{[sub.code, clean(sub.district)].filter(Boolean).join(" · ")}</span>
+                </span>
+                <span className="sta-line-meta">{sub.personnel} people · {sub.trucksList.length} trucks</span>
+                {sub.status === "inactive" && <span className="sta-pill sta-pill-muted">Inactive</span>}
+                <span className="sta-line-chev"><Sym name="chevron_right" /></span>
+              </button>
+            ))}
+          </div>
+        </Section>
+      ) : null}
+
+      {/* ── Teams ── */}
+      <Section title="Response teams" count={s.teamsList.length} empty={s.teamsList.length === 0 && "No teams are based here."}>
+        <div className="sta-list-rows">
+          {s.teamsList.map((t) => (
+            <div key={t.team_id} className="sta-line">
+              <span className="sta-line-icon"><Sym name="groups" /></span>
+              <span className="sta-line-text">
+                <span className="sta-line-name">{t.name}</span>
+                <span className="sta-line-sub">{[t.code, t.shift].filter(Boolean).join(" · ") || "—"}</span>
+              </span>
+              <span className="sta-line-meta">{t.members} {t.members === 1 ? "member" : "members"}</span>
+              <Pill kind="team" status={t.status} />
             </div>
           ))}
         </div>
-      </div>
+      </Section>
 
-      {/* Sub-stations panel (main only) */}
-      {isMain && subData.length > 0 && (
-        <div className="sta-info-section">
-          <div className="sta-info-title">Sub-Stations under this command</div>
-          <div className="sta-subs-grid">
-            {subData.map((sub) => (
-              <div
-                key={sub.id}
-                className="sta-sub-card"
-                onClick={() => onSelectStation(sub.id)}
-              >
-                <div className="sta-smc-name">{sub.name}</div>
-                <div className="sta-smc-code">{sub.code}</div>
-                <div className="sta-smc-row">
-                  <span className="sta-smc-label">Status</span>
-                  <span className="sta-smc-val">{sub.status}</span>
-                </div>
-                <div className="sta-smc-row">
-                  <span className="sta-smc-label">District</span>
-                  <span className="sta-smc-val">{sub.district}</span>
-                </div>
-                <div className="sta-smc-row">
-                  <span className="sta-smc-label">Units</span>
-                  <span className="sta-smc-val">{sub.units}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Parent station panel (sub only) */}
-      {!isMain && parentStation && (
-        <div className="sta-info-section">
-          <div className="sta-info-title">Parent Station</div>
-          <div
-            className="sta-sub-card"
-            style={{ borderLeftColor: "var(--accent-gold)" }}
-            onClick={() => onSelectStation(parentStation.id)}
-          >
-            <div className="sta-smc-name">{parentStation.name}</div>
-            <div className="sta-smc-code">
-              {parentStation.code} · Main Station
+      {/* ── Trucks ── */}
+      <Section title="Fire trucks" count={s.trucksList.length} empty={s.trucksList.length === 0 && "No trucks are assigned here."}>
+        <div className="sta-list-rows">
+          {s.trucksList.map((t) => (
+            <div key={t.truck_id} className="sta-line">
+              <span className="sta-line-icon"><Sym name="fire_truck" /></span>
+              <span className="sta-line-text">
+                <span className="sta-line-name sta-mono">{t.plate}</span>
+              </span>
+              <Pill kind="truck" status={t.status} />
             </div>
-            <div className="sta-smc-row">
-              <span className="sta-smc-label">Commander</span>
-              <span className="sta-smc-val">{parentStation.commander}</span>
+          ))}
+        </div>
+      </Section>
+
+      {/* ── Personnel ── */}
+      <Section title="Personnel" count={s.personnelList.length} empty={s.personnelList.length === 0 && "No one is assigned to this station yet."}>
+        <div className="sta-list-rows">
+          {s.personnelList.map((p) => (
+            <div key={p.per_id} className="sta-line">
+              <span className="sta-av">{p.initials}</span>
+              <span className="sta-line-text">
+                <span className="sta-line-name">
+                  {p.name}
+                  {p.per_id === s.commanderId && <span className="sta-pill sta-pill-fire">Commander</span>}
+                </span>
+                <span className="sta-line-sub">{clean(p.rank) || "—"}</span>
+              </span>
+              <Pill kind="personnel" status={p.status} />
             </div>
-            <div className="sta-smc-row">
-              <span className="sta-smc-label">Contact</span>
-              <span className="sta-smc-val">{parentStation.contact}</span>
-            </div>
-          </div>
+          ))}
         </div>
-      )}
-
-      {/* Teams */}
-      {s.teamsList.length > 0 && (
-        <div className="sta-info-section">
-          <div className="sta-info-title">Response Teams</div>
-          <div className="sta-teams-list">
-            {s.teamsList.map((t) => (
-              <div key={t.team_id} className="sta-team-row">
-                <div className="sta-team-icon">
-                  <span className="material-symbols-outlined">flag</span>
-                </div>
-                <div className="sta-team-info">
-                  <div className="sta-team-name">{t.name}</div>
-                  <div className="sta-team-code">{t.code || "—"}</div>
-                </div>
-                <div className="sta-team-meta">
-                  <div className="sta-team-chip">
-                    <span className="sta-team-chip-val">{t.members}</span>
-                    <span className="sta-team-chip-label">Members</span>
-                  </div>
-                  <div className="sta-team-chip">
-                    <span className={`sta-hbadge ${
-                      t.status === "dispatched"   ? "sta-hb-amber" :
-                      t.status === "standby"  ? "sta-hb-blue"  :
-                      t.status === "inactive" ? "sta-hb-muted"  : "sta-hb-muted"
-                    }`}>
-                      {t.status === "dispatched" && (
-                        <span className="sta-blink-dot" />
-                      )}
-                      {t.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Trucks */}
-      {s.trucksList.length > 0 && (
-        <div className="sta-info-section">
-          <div className="sta-info-title">Fire Trucks</div>
-          <div className="sta-teams-list">
-            {s.trucksList.map((t) => {
-              const chipCls =
-                t.status === "available"   ? "sta-hb-green" :
-                t.status === "dispatched"  ? "sta-hb-amber" :
-                t.status === "maintenance" ? "sta-hb-muted" :
-                                             "sta-hb-muted";
-              return (
-                <div key={t.truck_id} className="sta-team-row">
-                  <div className="sta-team-icon">
-                  <span className="material-symbols-outlined">fire_truck</span>
-                  </div>
-                  <div className="sta-team-info">
-                    <div className="sta-team-name">{t.plate}</div>
-                  </div>
-                  <div className="sta-team-meta">
-                    <span className={`sta-hbadge ${chipCls}`}>
-                      {t.status === "dispatched" && (
-                        <span className="sta-blink-dot" />
-                      )}
-                      {t.status}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Personnel */}
-      {s.personnelList.length > 0 && (
-        <div className="sta-info-section">
-          <div className="sta-info-title">Assigned Personnel</div>
-          <div className="sta-personnel-list">
-            {s.personnelList.map((p, i) => (
-              <div key={i} className="sta-p-row">
-                <div
-                  className={`sta-p-av ${
-                    p.status === "dispatched"
-                      ? "pav-amber"
-                      : p.status === "onscene"
-                      ? "pav-fire"
-                      : "pav-normal"
-                  }`}
-                >
-                  {p.initials}
-                </div>
-                <div className="sta-p-info">
-                  <div className="sta-p-name">{p.name}</div>
-                  <div className="sta-p-rank">{p.rank}</div>
-                </div>
-                <PStatusPill status={p.status} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="sta-detail-actions">
-        {/* <button className="sta-btn-dispatch">Dispatch From This Station</button> */}
-        <button
-          className="sta-btn-sec"
-          onClick={onViewOnMap}
-          disabled={s.latitude == null || s.longitude == null}
-        >
-          View on Map
-        </button>
-        <button className="sta-btn-sec">Incident History</button>
-        <button className="sta-btn-sec action_btn" onClick={onEdit}>
-          <EditIcon />
-        </button>
-        <button className="sta-btn-sec action_btn" onClick={onDelete}>
-          <RemoveIcon />
-        </button>
-      </div>
+      </Section>
     </div>
   );
 }
+
+// ── Export ───────────────────────────────────────────────────────────────────
+
+function exportCsv(rows, stations) {
+  const nameOf = (id) => stations.find((s) => s.id === id)?.name || "";
+  const header = ["Code", "Name", "Type", "Reports to", "Status", "Barangay", "Address", "Contact", "Commander", "Personnel", "Teams", "Trucks", "Trucks available", "Latitude", "Longitude"];
+  const esc = (v) => {
+    const t = v == null ? "" : String(v);
+    return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const lines = rows.map((s) => [
+    s.code, s.name, s.type === "main" ? "Main" : "Sub", s.parent ? nameOf(s.parent) : "",
+    s.status, clean(s.district), clean(s.address), clean(s.contact), clean(s.commander),
+    s.personnel, s.teamsList.length, s.trucksList.length, trucksReady(s), s.latitude ?? "", s.longitude ?? "",
+  ].map(esc).join(","));
+  const blob = new Blob([[header.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `stations-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function StationsPage({ onShowOnMap }) {
   const [stations, setStations] = useState([]);
@@ -515,7 +457,7 @@ export default function StationsPage({ onShowOnMap }) {
   const [fetchError, setFetchError] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
-  const [districtFilter, setDistrictFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -527,80 +469,54 @@ export default function StationsPage({ onShowOnMap }) {
     try {
       const [data, personnel, teams, trucks] = await Promise.all([fetchStations(), fetchPersonnel(), fetchTeams(), fetchTrucks()]);
       const mapped = data.map(dbToStation);
+      const byNum = new Map(mapped.map((s) => [s.numericId, s]));
 
-      // populate subs arrays from parent references
       mapped.forEach((s) => {
         if (s.type === "sub" && s.parent) {
           const parentStation = mapped.find((x) => x.id === s.parent);
           if (parentStation) parentStation.subs.push(s.id);
         }
       });
-
-      // populate teamsList from fetched teams
       teams.forEach((t) => {
-        if (!t.station_id) return;
-        const station = mapped.find((s) => {
-          const rawId = parseInt(s.id.replace("STA-", ""), 10);
-          return rawId === t.station_id;
+        byNum.get(t.station_id)?.teamsList.push({
+          team_id: t.team_id,
+          name: t.team_name,
+          code: t.team_code,
+          shift: clean(t.shift_name),
+          status: t.team_status,
+          members: t.member_count,
         });
-        if (station) {
-          station.teamsList.push({
-            team_id:    t.team_id,
-            name:       t.team_name,
-            code:       t.team_code,
-            status:     t.team_status,
-            members:    t.member_count,
-          });
-        }
       });
-
-      // populate trucksList from fetched trucks
       trucks.forEach((t) => {
-        if (!t.station_id) return;
-        const station = mapped.find((s) => {
-          const rawId = parseInt(s.id.replace("STA-", ""), 10);
-          return rawId === t.station_id;
+        byNum.get(t.station_id)?.trucksList.push({
+          truck_id: t.truck_id,
+          plate: t.truck_platenum,
+          status: t.truck_status,
         });
-        if (station) {
-          station.trucksList.push({
-            truck_id: t.truck_id,
-            plate:    t.truck_platenum,
-            status:   t.truck_status,
-          });
-          station.units = station.trucksList.length;
-          if (t.truck_status === "dispatched") station.activeUnits += 1;
-        }
       });
-
-      // populate personnelList and personnel count from fetched personnel
       personnel.forEach((p) => {
-        if (!p.station_id) return;
-        const station = mapped.find((s) => {
-          const rawId = parseInt(s.id.replace("STA-", ""), 10);
-          return rawId === p.station_id;
+        const station = byNum.get(p.station_id);
+        if (!station) return;
+        const first = (p.name || "").split(" ")[0] || "";
+        const last = (p.name || "").split(" ").slice(1).join(" ");
+        station.personnelList.push({
+          per_id: p.per_id,
+          name: p.name,
+          initials: ((first[0] || "") + (last[0] || "")).toUpperCase() || "??",
+          rank: p.rank,
+          status: p.status,
         });
-        if (station) {
-          const first = (p.name || "").split(" ")[0] || "";
-          const last  = (p.name || "").split(" ").slice(1).join(" ");
-          station.personnelList.push({
-            per_id:   p.per_id,
-            name:     p.name,
-            initials: ((first[0] || "") + (last[0] || "")).toUpperCase() || "??",
-            rank:     p.rank,
-            status:   p.status,
-          });
-          station.personnel = station.personnelList.length;
-        }
+        station.personnel = station.personnelList.length;
       });
 
       setStations(mapped);
-      if (!selectedId && mapped.length > 0) setSelectedId(mapped[0].id);
+      setSelectedId((cur) => (cur && mapped.some((s) => s.id === cur) ? cur : mapped[0]?.id ?? null));
     } catch (ex) {
       setFetchError(ex.message);
     } finally {
       setLoading(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     loadStations();
@@ -611,40 +527,36 @@ export default function StationsPage({ onShowOnMap }) {
     await loadStations();
   }
 
-  const stats = useMemo(
-    () => ({
+  const stats = useMemo(() => {
+    const trucks = stations.flatMap((s) => s.trucksList);
+    return {
+      total: stations.length,
       main: stations.filter((s) => s.type === "main").length,
       sub: stations.filter((s) => s.type === "sub").length,
+      operational: stations.filter((s) => s.status !== "inactive").length,
       personnel: stations.reduce((acc, s) => acc + s.personnel, 0),
-    }),
-    [stations]
-  );
+      trucks: trucks.length,
+      trucksReady: trucks.filter((t) => t.status === "available").length,
+    };
+  }, [stations]);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
     return stations.filter((s) => {
-      const mq =
-        !q ||
-        s.name.toLowerCase().includes(q) ||
-        s.code.toLowerCase().includes(q);
-      const md = !districtFilter || s.district === districtFilter;
-      const mt =
-        activeTab === "all" ||
-        (activeTab === "main" && s.type === "main") ||
-        (activeTab === "sub" && s.type === "sub");
-      return mq && md && mt;
+      const mq = !q || [s.name, s.code, s.district, s.commander, s.address]
+        .some((v) => (v || "").toLowerCase().includes(q));
+      const ms = !statusFilter || s.status === statusFilter;
+      const mt = activeTab === "all" || s.type === activeTab;
+      return mq && ms && mt;
     });
-  }, [stations, search, districtFilter, activeTab]);
+  }, [stations, search, statusFilter, activeTab]);
 
   const selected = stations.find((s) => s.id === selectedId) || null;
-
-  function handleSelectStation(id) {
-    setSelectedId(id);
-  }
+  // Nesting only makes sense when both kinds are listed and nothing is being searched.
+  const flat = activeTab !== "all" || search.trim() !== "";
 
   async function confirmDelete() {
-    const stationId = parseInt(deleting.id.replace("STA-", ""), 10);
-    await deleteStation(stationId);
+    await deleteStation(deleting.numericId);
     if (selectedId === deleting.id) setSelectedId(null);
     await loadStations();
   }
@@ -659,14 +571,11 @@ export default function StationsPage({ onShowOnMap }) {
             <UnfoldIcon />
           </div>
           <div className="sta-header-actions">
-            <button className="sta-btn-secondary">
+            <button className="sta-btn-secondary" onClick={() => exportCsv(filtered, stations)} disabled={filtered.length === 0}>
               <ExportIcon />
               Export
             </button>
-            <button
-              className="sta-btn-primary"
-              onClick={() => setShowAddModal(true)}
-            >
+            <button className="sta-btn-primary" onClick={() => setShowAddModal(true)}>
               <AddIcon />
               Add Station
             </button>
@@ -691,12 +600,12 @@ export default function StationsPage({ onShowOnMap }) {
           </div>
         </div>
 
-        {/* STAT CARDS — 3 cards: Main, Sub, Personnel */}
         <div className="kpi-row sta-stat-row">
           {[
-            { key: "main", accent: "amber", icon: "apartment", label: "Main Stations", value: stats.main, sub: "Command Hubs" },
-            { key: "sub", accent: "blue", icon: "location_on", label: "Sub-Stations", value: stats.sub, sub: "Satellite Units" },
-            { key: "personnel", accent: "purple", icon: "groups", label: "Total Personnel", value: stats.personnel, sub: "Across All Stations" },
+            { key: "total", accent: "fire", icon: "apartment", label: "Stations", value: stats.total, sub: `${stats.main} main · ${stats.sub} sub` },
+            { key: "ops", accent: "green", icon: "check_circle", label: "Operational", value: stats.operational, sub: stats.total - stats.operational ? `${stats.total - stats.operational} inactive` : "All in service" },
+            { key: "personnel", accent: "amber", icon: "groups", label: "Personnel", value: stats.personnel, sub: "Across all stations" },
+            { key: "trucks", accent: "fire", icon: "fire_truck", label: "Trucks ready", value: `${stats.trucksReady}/${stats.trucks}`, sub: "Available to dispatch" },
           ].map((c) => (
             <KpiCard
               key={c.key}
@@ -714,80 +623,72 @@ export default function StationsPage({ onShowOnMap }) {
       {/* TOOLBAR */}
       <div className="sta-toolbar">
         <div className="sta-search-wrap">
-          <span className="sta-search-icon">⌕</span>
+          <span className="sta-search-icon"><Sym name="search" /></span>
           <input
             type="text"
-            placeholder="Search station name, code..."
+            placeholder="Search name, code, barangay, commander…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         <select
           className="sta-filter-select"
-          value={districtFilter}
-          onChange={(e) => setDistrictFilter(e.target.value)}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          aria-label="Filter by status"
         >
-          <option value="">All Districts</option>
-          <option value="District 1">District 1</option>
-          <option value="District 2">District 2</option>
+          <option value="">All statuses</option>
+          <option value="operational">Operational</option>
+          <option value="inactive">Inactive</option>
         </select>
         <span className="sta-result-count">
-          Showing {filtered.length} Station{filtered.length !== 1 ? "s" : ""}
+          {filtered.length} of {stations.length} station{stations.length !== 1 ? "s" : ""}
         </span>
       </div>
 
       {/* CONTENT AREA */}
       <div className="sta-content">
-        {/* LEFT: Station List */}
         <div className="sta-list">
           {loading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className={`sta-item ${i % 3 === 0 ? 'sta-item-sub' : 'sta-item-main'}`} style={{ cursor: 'default' }}>
-                <div className="sta-item-top">
-                  <div className="sta-item-name-wrap">
-                    <div className="sta-skel" style={{ width: 30, height: 30, borderRadius: 4, flexShrink: 0 }} />
-                    <div>
-                      <div className="sta-skel" style={{ width: 130, height: 13, marginBottom: 5 }} />
-                      <div className="sta-skel" style={{ width: 60, height: 9 }} />
-                    </div>
-                  </div>
-                  <div className="sta-skel" style={{ width: 30, height: 16, borderRadius: 2 }} />
-                </div>
-                <div className="sta-item-meta">
-                  <div className="sta-skel" style={{ width: 80, height: 10 }} />
-                  <div className="sta-skel" style={{ width: 55, height: 10 }} />
-                  <div className="sta-skel" style={{ width: 65, height: 10 }} />
-                </div>
-                <div className="sta-item-parent">
-                  <div className="sta-skel" style={{ width: 100, height: 9 }} />
-                </div>
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className={`sta-row sta-row-skel${i % 3 ? " nested" : ""}`}>
+                <span className="sta-skel sta-skel-icon" />
+                <span className="sta-row-text">
+                  <span className="sta-skel sta-skel-line" />
+                  <span className="sta-skel sta-skel-line short" />
+                </span>
               </div>
             ))
           ) : fetchError ? (
-            <div className="sta-list-empty" style={{ color: "var(--fire)" }}>
-              {fetchError}
+            <div className="sta-list-state error">
+              <Sym name="error" />
+              <span>{fetchError}</span>
+              <button type="button" className="sta-link" onClick={loadStations}>Try again</button>
+            </div>
+          ) : stations.length === 0 ? (
+            <div className="sta-list-state">
+              <Sym name="apartment" />
+              <span>No stations yet.</span>
+              <button type="button" className="sta-link" onClick={() => setShowAddModal(true)}>Add the first station</button>
             </div>
           ) : filtered.length === 0 ? (
-            <div className="sta-list-empty">No stations match your filters</div>
+            <div className="sta-list-state">
+              <Sym name="search_off" />
+              <span>No stations match these filters.</span>
+              <button type="button" className="sta-link" onClick={() => { setSearch(""); setStatusFilter(""); setActiveTab("all"); }}>
+                Clear filters
+              </button>
+            </div>
           ) : (
-            filtered.map((s) => (
-              <StationListItem
-                key={s.id}
-                s={s}
-                stations={stations}
-                selected={selectedId === s.id}
-                onSelect={handleSelectStation}
-              />
-            ))
+            <StationTree list={filtered} stations={stations} selectedId={selectedId} onSelect={setSelectedId} flat={flat} />
           )}
         </div>
 
-        {/* RIGHT: Station Detail */}
         <div className="sta-detail">
           <StationDetail
             s={selected}
             stations={stations}
-            onSelectStation={handleSelectStation}
+            onSelectStation={setSelectedId}
             onEdit={() => setShowEditModal(true)}
             onDelete={() => setDeleting(selected)}
             onViewOnMap={() => onShowOnMap?.(selected)}
@@ -816,15 +717,13 @@ export default function StationsPage({ onShowOnMap }) {
         <ConfirmModal
           eyebrow="DELETE STATION"
           title={`Delete ${deleting.name}?`}
-          message={
-            <>
-              This will permanently remove station{" "}
-              <strong>{deleting.name}</strong>. Personnel, trucks, or teams
-              assigned to it must be reassigned first. This action cannot be
-              undone.
-            </>
-          }
-          confirmLabel="Delete Station"
+          details={[
+            { label: "Station", value: `${deleting.code} · ${deleting.type === "main" ? "Main" : "Sub-station"}` },
+            { label: "Barangay", value: clean(deleting.district) },
+            { label: "Assigned", value: `${deleting.personnel} personnel · ${deleting.teamsList.length} teams · ${deleting.trucksList.length} trucks` },
+          ]}
+          message="Personnel, teams and trucks assigned to it must be moved first. This can't be undone."
+          confirmLabel="Delete station"
           onConfirm={confirmDelete}
           onClose={() => setDeleting(null)}
         />

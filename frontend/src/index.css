@@ -252,6 +252,11 @@
   --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.6);
 
+  /* Photo lightbox. Dark in both themes on purpose (photos read best on
+     black), so the light block doesn't override these. */
+  --lightbox-bg: rgba(4, 6, 9, 0.92);
+  --lightbox-fg-rgb: 255, 255, 255;
+
   /* Map canvas + the panels floating on it. */
   --map-base: #0d1520;
   --map-panel-grad: linear-gradient(135deg, #0a1520, #1a2d44);

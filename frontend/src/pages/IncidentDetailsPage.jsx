@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import "../styles/IncidentDetailsPage.css";
 import DetailsLayout, {
   DetailsSection,
@@ -8,17 +9,12 @@ import DetailsLayout, {
 } from "../layout/DetailsLayout";
 import {
   SeverityBadge,
-  StatusPill,
   EditIcon,
   RemoveIcon,
   FireGeneralIcon,
   formatReported,
 } from "../components/incidentUi";
 import { fetchIncidentReport, fetchDispatches } from "../api";
-
-// Severity → accent, shared by the hero tile and the stat highlights so the
-// page reads as one colour, the same one the list's severity badge uses.
-const SEV_TONE = { Critical: "fire", Moderate: "amber", Minor: "blue" };
 
 const STEPS = [
   { key: "pending", label: "Reported" },
@@ -175,6 +171,90 @@ function UnitCard({ d, now }) {
   );
 }
 
+/* Full-screen scene-photo lightbox: counter + caption up top, prev/next,
+   a thumbnail strip to jump around, Esc / ← / → from the keyboard. */
+function PhotoViewer({ photos, index, onIndexChange, onClose, caption }) {
+  const count = photos.length;
+  const go = (delta) => onIndexChange((index + delta + count) % count);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft" && count > 1) onIndexChange((index - 1 + count) % count);
+      else if (e.key === "ArrowRight" && count > 1) onIndexChange((index + 1) % count);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [index, count, onClose, onIndexChange]);
+
+  return createPortal(
+    <div
+      className="idp-viewer"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Scene photo ${index + 1} of ${count}`}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="idp-viewer-bar">
+        <div className="idp-viewer-meta">
+          <span className="idp-viewer-count">
+            Photo {index + 1} <span>of {count}</span>
+          </span>
+          {caption && <span className="idp-viewer-caption">{caption}</span>}
+        </div>
+        <div className="idp-viewer-tools">
+          <a
+            className="idp-viewer-btn"
+            href={photos[index]}
+            target="_blank"
+            rel="noreferrer"
+            title="Open full size in a new tab"
+            aria-label="Open full size in a new tab"
+          >
+            <span className="material-symbols-outlined">open_in_new</span>
+          </a>
+          <button type="button" className="idp-viewer-btn" onClick={onClose} aria-label="Close viewer" autoFocus>
+            <span className="material-symbols-outlined">close</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="idp-viewer-stage" onClick={(e) => e.target === e.currentTarget && onClose()}>
+        {count > 1 && (
+          <button type="button" className="idp-viewer-btn idp-viewer-nav prev" onClick={() => go(-1)} aria-label="Previous photo">
+            <span className="material-symbols-outlined">chevron_left</span>
+          </button>
+        )}
+        <img key={photos[index]} className="idp-viewer-img" src={photos[index]} alt={`Scene photo ${index + 1}`} />
+        {count > 1 && (
+          <button type="button" className="idp-viewer-btn idp-viewer-nav next" onClick={() => go(1)} aria-label="Next photo">
+            <span className="material-symbols-outlined">chevron_right</span>
+          </button>
+        )}
+      </div>
+
+      {count > 1 && (
+        <div className="idp-viewer-strip" role="tablist" aria-label="All photos">
+          {photos.map((url, i) => (
+            <button
+              key={url}
+              type="button"
+              role="tab"
+              aria-selected={i === index}
+              aria-label={`Photo ${i + 1}`}
+              className={`idp-viewer-thumb${i === index ? " active" : ""}`}
+              onClick={() => onIndexChange(i)}
+            >
+              <img src={url} alt="" loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>,
+    document.body
+  );
+}
+
 /**
  * Full-page view of a single incident, built on the shared DetailsLayout.
  *
@@ -259,27 +339,8 @@ export default function IncidentDetailsPage({
 
   const photos = report?.photos ?? [];
 
-  const closeViewer = () => setPhotoIndex(null);
-  const showPrevPhoto = () =>
-    setPhotoIndex((i) => (i - 1 + photos.length) % photos.length);
-  const showNextPhoto = () =>
-    setPhotoIndex((i) => (i + 1) % photos.length);
-
-  // Keyboard controls while the viewer is open: Esc closes, arrows navigate.
-  useEffect(() => {
-    if (photoIndex === null) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") closeViewer();
-      else if (e.key === "ArrowLeft") showPrevPhoto();
-      else if (e.key === "ArrowRight") showNextPhoto();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [photoIndex, photos.length]);
-
   if (!incident) return null;
 
-  const tone = SEV_TONE[incident.sev] ?? "fire";
   const closed = incident.status === "closed";
   const hasCoords = incident.latitude != null && incident.longitude != null;
   const coords = hasCoords
@@ -347,12 +408,13 @@ export default function IncidentDetailsPage({
         {!closed && (
           <button
             type="button"
-            className="idp-btn-wide"
+            className="act-btn block"
             onClick={() => onViewOnMap?.(incident)}
             disabled={!hasCoords}
+            title={hasCoords ? "Show on the Command map" : "No location on record"}
           >
             <span className="material-symbols-outlined">map</span>
-            View on Map
+            View on map
           </button>
         )}
       </DetailsSection>
@@ -362,28 +424,27 @@ export default function IncidentDetailsPage({
   return (
     <DetailsLayout onBack={onBack} backLabel="Incidents" aside={aside}>
       {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <div className={`idp-hero idp-hero-${tone}`}>
+      <div className="idp-hero idp-hero-fire">
         <div className="idp-hero-top">
           <div className="idp-hero-left">
-            <div className={`idp-hero-icon idp-tile-${tone}`}>
+            <div className="idp-hero-icon idp-tile-fire">
               <FireGeneralIcon className="idp-hero-svg" />
             </div>
             <div className="idp-hero-text">
               <div className="idp-eyebrow">
-                {incident.id} · Reported {formatReported(incident.reported_at)}
+                {incident.id}
               </div>
               <div className="idp-title">{incident.loc}</div>
               {incident.addr && <div className="idp-addr">{incident.addr}</div>}
               <div className="idp-chips">
                 <SeverityBadge sev={incident.sev} />
-                <StatusPill status={incident.status} />
-                {incident.alarm && <Tone>{incident.alarm}</Tone>}
               </div>
             </div>
           </div>
           <div className="idp-actions">
             <button
-              className="inc-btn-sec-sm action_btn"
+              type="button"
+              className="act-icon-btn"
               onClick={() => onEdit?.(incident)}
               title="Edit incident"
               aria-label="Edit incident"
@@ -391,7 +452,8 @@ export default function IncidentDetailsPage({
               <EditIcon />
             </button>
             <button
-              className="inc-btn-sec-sm action_btn"
+              type="button"
+              className="act-icon-btn danger"
               onClick={() => onDelete?.(incident)}
               title="Delete incident"
               aria-label="Delete incident"
@@ -523,59 +585,16 @@ export default function IncidentDetailsPage({
       )}
 
       {photoIndex !== null && photos[photoIndex] && (
-        <div
-          className="idp-viewer"
-          onClick={closeViewer}
-          role="dialog"
-          aria-modal="true"
-        >
-          <button
-            className="idp-viewer-close"
-            onClick={closeViewer}
-            aria-label="Close viewer"
-          >
-            ✕
-          </button>
-
-          {photos.length > 1 && (
-            <button
-              className="idp-viewer-nav prev"
-              onClick={(e) => {
-                e.stopPropagation();
-                showPrevPhoto();
-              }}
-              aria-label="Previous photo"
-            >
-              ‹
-            </button>
-          )}
-
-          <img
-            className="idp-viewer-img"
-            src={photos[photoIndex]}
-            alt={`Scene photo ${photoIndex + 1}`}
-            onClick={(e) => e.stopPropagation()}
-          />
-
-          {photos.length > 1 && (
-            <button
-              className="idp-viewer-nav next"
-              onClick={(e) => {
-                e.stopPropagation();
-                showNextPhoto();
-              }}
-              aria-label="Next photo"
-            >
-              ›
-            </button>
-          )}
-
-          {photos.length > 1 && (
-            <div className="idp-viewer-count">
-              {photoIndex + 1} / {photos.length}
-            </div>
-          )}
-        </div>
+        <PhotoViewer
+          photos={photos}
+          index={photoIndex}
+          onIndexChange={setPhotoIndex}
+          onClose={() => setPhotoIndex(null)}
+          caption={[
+            report.author && `Filed by ${report.author_rank ? `${report.author_rank} ` : ""}${report.author}`,
+            report.submitted_at && formatReported(report.submitted_at),
+          ].filter(Boolean).join(" · ")}
+        />
       )}
     </DetailsLayout>
   );

@@ -5,9 +5,6 @@
   color: var(--text-secondary);
   width: 12.8px;
 }
-.action_btn {
-  padding: 4.8px 7px 0.8px !important;
-}
 
 .per-page {
   flex: 1;
@@ -459,11 +456,11 @@
   transition: all 0.15s;
 }
 .per-btn-view {
-  background: var(--accent-fire-dim);
+  background: var(--chip-muted-bg);
   border: 1px solid transparent;
-  color: var(--accent-fire);
+  color: var(--text-secondary);
 }
-.per-btn-view:hover { background: rgba(var(--accent-fire-rgb), 0.25); }
+.per-btn-view:hover { background: var(--bg-hover); color: var(--text-primary); }
 .per-btn-ghost {
   background: transparent;
   border: 1px solid var(--border);
@@ -773,29 +770,6 @@
   border-top: 1px solid var(--border-dim);
 }
 
-.per-btn-sec {
-  padding: 4.8px 14px 0.8px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  color: var(--text-secondary);
-  font-family: var(--font-condensed);
-  font-size: 8.8px;
-  font-weight: 600;
-  letter-spacing: -0.1px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.per-btn-sec:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-.per-btn-sec:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 @media (max-width: 1200px) {
   .per-detail { width: 320px; }
 }
@@ -971,7 +945,6 @@
   font-size: 10.8px;
   color: var(--text-secondary);
 }
-
 
 @media (max-width: 1280px) {
   .per-table th:nth-child(4),

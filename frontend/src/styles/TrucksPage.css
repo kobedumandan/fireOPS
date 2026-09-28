@@ -2,9 +2,6 @@
   color: var(--text-secondary);
   width: 12.8px;
 }
-.action_btn {
-  padding: 4.8px 7px 0.8px !important;
-}
 
 .trk-page {
   flex: 1;
@@ -468,11 +465,11 @@
   transition: all 0.15s;
 }
 .trk-btn-view {
-  background: var(--accent-fire-dim);
+  background: var(--chip-muted-bg);
   border: 1px solid transparent;
-  color: var(--accent-fire);
+  color: var(--text-secondary);
 }
-.trk-btn-view:hover { background: rgba(var(--accent-fire-rgb), 0.25); }
+.trk-btn-view:hover { background: var(--bg-hover); color: var(--text-primary); }
 .trk-btn-ghost {
   background: transparent;
   border: 1px solid var(--border);
@@ -780,29 +777,6 @@
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--border-dim);
-}
-
-.trk-btn-sec {
-  padding: 4.8px 14px 0.8px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  color: var(--text-secondary);
-  font-family: var(--font-condensed);
-  font-size: 8.8px;
-  font-weight: 600;
-  letter-spacing: -0.1px;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.trk-btn-sec:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-}
-.trk-btn-sec:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 @media (max-width: 1200px) {

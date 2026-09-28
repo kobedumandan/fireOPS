@@ -305,17 +305,19 @@ function PersonnelDetail({ p, loc, tracking, onShowOnMap, onEdit, onDelete }) {
       {/* Actions */}
       <div className="per-detail-actions">
         <button
-          className="per-btn-sec"
+          type="button"
+          className="act-btn"
           onClick={onShowOnMap}
           disabled={!loc}
-          title={loc ? undefined : "No location reported"}
+          title={loc ? "Show on the Command map" : "No location reported"}
         >
-          Track on Map
+          <span className="material-symbols-outlined">map</span>
+          Track on map
         </button>
-        <button className="per-btn-sec action_btn" onClick={onEdit} aria-label="Edit personnel">
+        <button type="button" className="act-icon-btn" onClick={onEdit} title="Edit personnel" aria-label="Edit personnel">
           <EditIcon />
         </button>
-        <button className="per-btn-sec action_btn" onClick={onDelete} aria-label="Delete personnel">
+        <button type="button" className="act-icon-btn danger" onClick={onDelete} title="Delete personnel" aria-label="Delete personnel">
           <RemoveIcon />
         </button>
       </div>

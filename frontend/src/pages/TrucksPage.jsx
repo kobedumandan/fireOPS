@@ -236,17 +236,19 @@ function TruckDetail({ t, onEdit, onDelete, onShowOnMap }) {
       {/* Actions */}
       <div className="trk-detail-actions">
         <button
-          className="trk-btn-sec"
+          type="button"
+          className="act-btn"
           onClick={onShowOnMap}
           disabled={!fix || !onShowOnMap}
-          title={fix ? undefined : "No location on file"}
+          title={fix ? "Show on the Command map" : "No location on file"}
         >
-          Track on Map
+          <span className="material-symbols-outlined">map</span>
+          Track on map
         </button>
-        <button className="trk-btn-sec action_btn" onClick={onEdit} aria-label="Edit truck">
+        <button type="button" className="act-icon-btn" onClick={onEdit} title="Edit truck" aria-label="Edit truck">
           <EditIcon />
         </button>
-        <button className="trk-btn-sec action_btn" onClick={onDelete} aria-label="Delete truck">
+        <button type="button" className="act-icon-btn danger" onClick={onDelete} title="Delete truck" aria-label="Delete truck">
           <RemoveIcon />
         </button>
       </div>
