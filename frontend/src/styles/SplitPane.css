@@ -1,0 +1,35 @@
+/* Drag handle between a page's main area and its side panel (useSplitPane).
+   It stands in for the 10px gap, so the flex container itself uses gap: 0. */
+.split-resizer {
+  position: relative;
+  flex: 0 0 10px;
+  margin-bottom: 12px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+.split-resizer::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 36px;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  background: var(--border);
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, height 0.15s;
+}
+:hover > .split-resizer::after { opacity: 1; }
+.split-resizer:hover::after,
+.split-resizer:focus-visible::after,
+body.is-resizing-x .split-resizer::after {
+  opacity: 1;
+  height: 56px;
+  background: var(--accent-fire);
+}
+body.is-resizing-x {
+  cursor: col-resize;
+  user-select: none;
+}

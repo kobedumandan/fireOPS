@@ -6,6 +6,7 @@ import EditTruckModal from "../components/EditTruckModal";
 import ConfirmModal from "../components/ConfirmModal";
 import { formatReported } from "../components/incidentUi";
 import { fetchTrucks, createTruck, deleteTruck } from "../api";
+import useSplitPane from "../hooks/useSplitPane";
 
 const STATUS_OPTIONS = ["available", "dispatched", "maintenance", "unavailable"];
 const STATUS_TABS = ["all", ...STATUS_OPTIONS];
@@ -270,6 +271,7 @@ export default function TrucksPage({ refreshKey = 0, onShowOnMap }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const { width: detailWidth, handleProps: resizeHandle } = useSplitPane({ storageKey: "trucks.detailWidth", minMain: 632 });
 
   // refreshKey is bumped by App when a dispatch completes, so a close that
   // returns a crew to standby lands here without a reload. Deliberately does
@@ -727,8 +729,10 @@ export default function TrucksPage({ refreshKey = 0, onShowOnMap }) {
             )}
           </div>
 
+          <div className="split-resizer" {...resizeHandle} />
+
           {/* DETAILS PANEL */}
-          <div className="trk-detail">
+          <div className="trk-detail" style={{ width: detailWidth }}>
             <TruckDetail
               t={selected}
               onEdit={() => setEditing(selected)}

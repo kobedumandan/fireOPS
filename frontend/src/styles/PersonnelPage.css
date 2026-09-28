@@ -279,7 +279,7 @@
   flex-direction: row;
   background-color: transparent;
   padding: 2px 20px;
-  gap: 10px;
+  gap: 0;
   overflow: hidden;
   min-height: 0;
 }
@@ -288,7 +288,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  min-width: 420px;
   min-height: 0;
   overflow: hidden;
   margin-bottom: 12px;
@@ -297,6 +297,7 @@
 /* ── Table view ── */
 .per-table-wrap {
   flex: 1;
+  container: per-table / inline-size;
   overflow-y: auto;
   background: var(--bg-base);
   border: 1px solid var(--border-dim);
@@ -309,6 +310,7 @@
 
 .per-table {
   width: 100%;
+  min-width: 685px; /* every column but Actions at its set width */
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -586,7 +588,8 @@
 /* ── Detail panel (mirrors the Stations detail) ── */
 .per-detail {
   width: 380px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 320px;
   overflow: hidden;
   background: var(--page-default-base);
   border: 1px solid var(--border-dim);
@@ -762,17 +765,13 @@
 }
 
 .per-detail-actions {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-dim);
+  margin-top: 14px;
 }
-
-@media (max-width: 1200px) {
-  .per-detail { width: 320px; }
-}
+.per-detail-actions .act-btn { flex: 1; }
 
 @media (prefers-reduced-motion: reduce) {
   .per-skel,
@@ -946,7 +945,10 @@
   color: var(--text-secondary);
 }
 
-@media (max-width: 1280px) {
-  .per-table th:nth-child(4),
-  .per-table td:nth-child(4) { display: none; }
+/* Columns sum to 805px (Actions is the last 120). Below that the Actions
+   column drops out instead of squeezing the others; edit and delete stay
+   reachable from the detail pane. */
+@container per-table (max-width: 804.98px) {
+  .per-table th:last-child,
+  .per-table td:last-child { display: none; }
 }

@@ -8,7 +8,7 @@ import state
 from database import get_db
 from models import GnnConstraint, Users
 from schemas import VALID_CONSTRAINT_TYPES, ConstraintCreate, ConstraintUpdate
-from security import get_current_user
+from security import require_admin
 from serializers import _constraint_to_dict
 from state import manager
 
@@ -19,7 +19,7 @@ router = APIRouter(tags=["constraints"])
 @router.get("/api/constraints")
 def get_constraints(
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     rows = (
         db.query(GnnConstraint)
@@ -34,7 +34,7 @@ def get_constraints(
 async def create_constraint(
     body: ConstraintCreate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     if body.constraint_type not in VALID_CONSTRAINT_TYPES:
         raise HTTPException(status_code=422, detail=f"Invalid type. Must be one of: {VALID_CONSTRAINT_TYPES}")
@@ -66,7 +66,7 @@ async def update_constraint(
     constraint_id: int,
     body: ConstraintUpdate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     c = db.get(GnnConstraint, constraint_id)
     if not c:
@@ -101,7 +101,7 @@ async def update_constraint(
 async def delete_constraint(
     constraint_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     c = db.get(GnnConstraint, constraint_id)
     if not c:

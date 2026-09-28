@@ -133,6 +133,8 @@ export default function LoginPage({ onLogin }) {
         localStorage.setItem("bfp_token", data.access_token);
         localStorage.setItem("bfp_user", JSON.stringify(data.user));
         onLogin(data.user);
+      } else if (res.status === 403) {
+        setAlert("This account is for field personnel. Sign in with the FireTrackr mobile app instead.");
       } else {
         setErrors({ email: true, password: true });
         setAlert("Invalid credentials. Please check your email and password.");
@@ -161,7 +163,7 @@ export default function LoginPage({ onLogin }) {
             <div className="lp-title-wrap">
               <div className="lp-title-logo-icon" />
               <div className="lp-title-logo-text">
-                FIRE<span>OPS</span>
+                FIRE<span>TRACKR</span>
               </div>
             </div>
           </div>
@@ -232,7 +234,7 @@ export default function LoginPage({ onLogin }) {
             <div className="lp-logo-row">
               <div className="lp-logo-icon" />
               <div className="lp-logo-text">
-                FIRE<span>OPS</span>
+                FIRE<span>TRACKR</span>
               </div>
             </div>
             <div className="lp-card-title">Sign In</div>
@@ -332,7 +334,7 @@ export default function LoginPage({ onLogin }) {
             </div>
             <div className="lp-copyright-wrap">
               <div className="lp-copyright">
-                © 2026 FireGIS  |  Bureau of Fire Protection
+                © 2026 FireTrackr  |  Bureau of Fire Protection
               </div>
               <div className="lp-copyright">All rights reserved.</div>
             </div>

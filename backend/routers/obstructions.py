@@ -9,7 +9,7 @@ from database import get_db
 from models import RoadObstruction, Users
 from routers.routing import SNAP_RADIUS_M
 from schemas import ObstructionCreate
-from security import get_current_user
+from security import require_admin
 from state import manager
 
 
@@ -42,7 +42,7 @@ def _snap(lat: float, lon: float) -> dict | None:
 @router.get("/api/obstructions")
 def get_obstructions(
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     rows = (
         db.query(RoadObstruction)
@@ -70,7 +70,7 @@ def get_obstructions(
 async def create_obstruction(
     body: ObstructionCreate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     if body.type not in ("repair", "blockade", "flood", "accident"):
         raise HTTPException(status_code=422, detail="Invalid obstruction type.")
@@ -116,7 +116,7 @@ async def create_obstruction(
 async def delete_obstruction(
     obstruction_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     obs = db.get(RoadObstruction, obstruction_id)
     if not obs:

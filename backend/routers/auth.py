@@ -69,6 +69,10 @@ def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     user = db.query(Users).filter(Users.user_email == req.email).first()
     if not user or not _verify_password(req.password, user.user_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    # Dashboard sign-in. Personnel sign in through /login_user (the mobile app);
+    # their token would 403 on nearly every dashboard route anyway.
+    if user.user_role != "admin":
+        raise HTTPException(status_code=403, detail="This account can't sign in to the dashboard.")
     _record_login(db, user, request)
     return {
         "access_token": _create_token(user),

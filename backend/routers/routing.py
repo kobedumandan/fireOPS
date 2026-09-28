@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 import state
 from ai import Config
 from database import get_db
-from models import GnnConstraint
+from models import GnnConstraint, Users
 from schemas import RouteRequest, RouteResponse
+from security import require_admin
 from services.constraints import (
     _CONSTRAINT_PROP_KEYS, _CUSTOM_STYLE_KEY, _label_for, _load_constraint_style,
 )
@@ -43,7 +44,11 @@ def routing_status():
 
 
 @router.post("/api/routing/compute", response_model=RouteResponse)
-def compute_route(req: RouteRequest, db: Session = Depends(get_db)):
+def compute_route(
+    req: RouteRequest,
+    db: Session = Depends(get_db),
+    _auth: Users = Depends(require_admin),
+):
     try:
         obs = _load_active_obstructions(db)
         result = state.routing_engine.compute_route(req.source_node, req.target_node, obstructions=obs)
@@ -55,12 +60,15 @@ def compute_route(req: RouteRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/api/routing/graph/summary")
-def graph_summary():
+def graph_summary(_auth: Users = Depends(require_admin)):
     return state.routing_engine.graph.summary()
 
 
 @router.get("/api/routing/gnn-constraints")
-def gnn_constraints(db: Session = Depends(get_db)):
+def gnn_constraints(
+    db: Session = Depends(get_db),
+    _auth: Users = Depends(require_admin),
+):
     """Return GAT-predicted per-road constraints + user-drawn custom constraints.
 
     Each feature carries its own map_color / map_weight / map_opacity and
@@ -187,7 +195,7 @@ def gnn_constraints(db: Session = Depends(get_db)):
 
 
 @router.get("/api/routing/nearest-station")
-def nearest_station(lat: float, lon: float):
+def nearest_station(lat: float, lon: float, _auth: Users = Depends(require_admin)):
     node_id = state.routing_engine.nearest_station_node(lat, lon)
     if node_id is None:
         raise HTTPException(status_code=404, detail="No station node found near that location.")
@@ -202,7 +210,12 @@ SNAP_RADIUS_M: float = 60.0
 
 
 @router.get("/api/routing/snap")
-def snap_to_road(lat: float, lon: float, radius_m: float = SNAP_RADIUS_M):
+def snap_to_road(
+    lat: float,
+    lon: float,
+    radius_m: float = SNAP_RADIUS_M,
+    _auth: Users = Depends(require_admin),
+):
     """
     Snap a coordinate onto the nearest road segment.
 

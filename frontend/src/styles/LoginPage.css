@@ -1,7 +1,7 @@
 /* LoginPage — styled to match the dashboard.
    Consumes the global design tokens defined in index.css (--bg-*, --border*,
    --accent-*, --text-*, --font-*) so it inherits the Axiforma type ramp and
-   light/dark theme support automatically. The FIREOPS wordmark keeps its
+   light/dark theme support automatically. The FIRETRACKR wordmark keeps its
    original Barlow Condensed face. */
 
 @import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&display=swap");

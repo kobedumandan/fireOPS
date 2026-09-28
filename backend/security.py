@@ -67,6 +67,15 @@ def get_current_user(
     return user
 
 
+def require_admin(user: Users = Depends(get_current_user)) -> Users:
+    """Dashboard-only routes. Personnel tokens are issued to the mobile app and
+    are valid JWTs too, so authentication alone would let any responder edit the
+    fleet, roster, stations or incidents — the role has to be checked as well."""
+    if user.user_role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
 def _user_profile(user: Users) -> dict:
     """Return a serialisable profile dict that includes name/contact from the related table."""
     profile = {

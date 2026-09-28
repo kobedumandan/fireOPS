@@ -858,7 +858,13 @@ export default function App() {
           }}
         />
       ) : activeNav === 'Teams' ? (
-        <TeamsPage refreshKey={rosterNonce} />
+        <TeamsPage
+          refreshKey={rosterNonce}
+          onShowOnMap={(t) => {
+            setActiveNav('Command')
+            setMapFocus({ lat: t.station_latitude, lng: t.station_longitude, nonce: Date.now() })
+          }}
+        />
       ) : activeNav === 'Stations' ? (
         <StationsPage
           onShowOnMap={(s) => {

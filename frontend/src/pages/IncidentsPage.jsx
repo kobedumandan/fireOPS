@@ -4,6 +4,7 @@ import KpiCard from "../components/KpiCard";
 import LogIncidentModal from "../components/LogIncidentModal";
 import EditIncidentModal from "../components/EditIncidentModal";
 import ConfirmModal from "../components/ConfirmModal";
+import ExportRegisterModal from "../components/ExportRegisterModal";
 import IncidentDetailsPage from "./IncidentDetailsPage";
 import { SeverityBadge, StatusPill, formatReported } from "../components/incidentUi";
 import { fetchIncidents, createIncident, deleteIncident } from "../api";
@@ -73,6 +74,9 @@ export default function IncidentsPage({ onShowOnMap }) {
   const [showLogModal, setShowLogModal] = useState(false);
   const [editingIncident, setEditingIncident] = useState(null);
   const [deletingIncident, setDeletingIncident] = useState(null);
+  // Filters frozen when Export is clicked, so the report's scope can't shift
+  // under the preview while the modal is open.
+  const [exportQuery, setExportQuery] = useState(null);
 
   // raw search input — debounced before hitting the server
   const [search, setSearch] = useState("");
@@ -262,6 +266,9 @@ export default function IncidentsPage({ onShowOnMap }) {
             onClose={() => setDeletingIncident(null)}
           />
         )}
+        {exportQuery && (
+          <ExportRegisterModal query={exportQuery} onClose={() => setExportQuery(null)} />
+        )}
       </>
     );
   }
@@ -291,7 +298,12 @@ export default function IncidentsPage({ onShowOnMap }) {
             <UnfoldIcon />
           </div>
           <div className="inc-header-actions">
-            <button className="inc-btn-secondary">
+            <button
+              className="inc-btn-secondary"
+              // The live search box, not the debounced query.search, so text
+              // typed a moment before clicking is still in scope.
+              onClick={() => setExportQuery({ ...query, search })}
+            >
               <ExportIcon />
               Export
             </button>

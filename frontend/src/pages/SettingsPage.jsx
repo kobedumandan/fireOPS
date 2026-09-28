@@ -773,7 +773,7 @@ function SectionAppearance({
     <>
       <div className="section-title">Appearance</div>
       <div className="section-desc">
-        Customize how the FireGIS interface looks.
+        Customize how the FireTrackr interface looks.
       </div>
 
       <div className="settings-block">
@@ -1056,12 +1056,12 @@ function SectionAbout() {
 
       <div className="settings-block">
         <div className="block-header">
-          <div className="block-title">FireGIS Platform</div>
+          <div className="block-title">FireTrackr Platform</div>
         </div>
         {[
           {
             label: "System Name",
-            value: "FireOPS Administrator Dashboard",
+            value: "FireTrackr Administrator Dashboard",
             badge: null,
             cls: "",
           },
@@ -1097,7 +1097,7 @@ function SectionAbout() {
           },
           {
             label: "Copyright",
-            value: "© 2026 FireOPS · All rights reserved.",
+            value: "© 2026 FireTrackr · All rights reserved.",
             badge: null,
             cls: "",
           },

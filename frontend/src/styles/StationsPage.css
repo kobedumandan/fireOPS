@@ -311,7 +311,7 @@
   flex: 1;
   display: flex;
   padding: 2px 20px;
-  gap: 10px;
+  gap: 0;
   overflow: hidden;
   min-height: 0;
 }
@@ -319,7 +319,8 @@
 /* ── Left list: command tree ── */
 .sta-list {
   width: 340px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 260px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -524,7 +525,7 @@
 /* ── Right detail ── */
 .sta-detail {
   flex: 1;
-  min-width: 0;
+  min-width: 420px;
   display: flex;
   flex-direction: column;
   margin-bottom: 12px;
@@ -911,7 +912,9 @@
 }
 @media (max-width: 860px) {
   .sta-content { flex-direction: column; overflow-y: auto; }
-  .sta-list { width: auto; max-height: 280px; }
+  .sta-list { width: auto !important; min-width: 0; max-height: 280px; }
+  .sta-detail { min-width: 0; }
+  .sta-content > .split-resizer { display: none; }
   .sta-hero-top { flex-direction: column; }
   .sta-fields { grid-template-columns: 1fr; }
 }

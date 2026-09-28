@@ -11,7 +11,7 @@ from models import (
     Personnel, ResponseTeamMember, Shift, Station, Users,
 )
 from schemas import PersonnelCreate, PersonnelUpdate
-from security import _hash_password, get_current_user
+from security import _hash_password, require_admin
 
 
 router = APIRouter(tags=["personnel"])
@@ -20,7 +20,7 @@ router = APIRouter(tags=["personnel"])
 @router.get("/api/personnel")
 def get_personnel(
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     rows = db.query(Personnel).all()
 
@@ -111,7 +111,7 @@ def get_personnel(
 @router.get("/api/personnel/locations")
 def get_personnel_locations(
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     """Dashboard polls this every 10 seconds to refresh personnel markers on the map."""
     now = datetime.now(timezone.utc)
@@ -165,7 +165,7 @@ def update_personnel(
     per_id: int,
     body: PersonnelUpdate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     p = db.get(Personnel, per_id)
     if not p:
@@ -222,7 +222,7 @@ def update_personnel(
 def create_personnel(
     body: PersonnelCreate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     conflict = db.query(Users).filter(Users.user_email == body.user_email).first()
     if conflict:
@@ -281,7 +281,7 @@ def create_personnel(
 def delete_personnel(
     per_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     p = db.get(Personnel, per_id)
     if not p:

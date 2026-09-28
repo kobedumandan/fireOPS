@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Users
-from security import get_current_user
+from security import require_admin
 from services.coverage import _compute_or_get_coverage
 
 
@@ -15,7 +15,7 @@ router = APIRouter(tags=["coverage"])
 def coverage_isochrones(
     refresh: bool = False,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     """GeoJSON reachability bands (nested <=3 / <=5 / <=8 min) from the stations."""
     data = _compute_or_get_coverage(db, refresh)
@@ -27,7 +27,7 @@ def coverage_gaps(
     minutes: int = 5,
     refresh: bool = False,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     """Per-barangay coverage % within `minutes`, worst-covered first."""
     data = _compute_or_get_coverage(db, refresh)

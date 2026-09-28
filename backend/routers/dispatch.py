@@ -22,7 +22,7 @@ from models import (
     ResponseTeamMember, Route, Users,
 )
 from schemas import DispatchCreate, SelectRouteBody, TruckManningBody
-from security import get_current_user
+from security import get_current_user, require_admin
 from serializers import _incident_dict, _report_photo_url
 from services.dispatch import (
     _add_incident_to_heatmap, _complete_dispatch_and_release, _is_driver,
@@ -44,7 +44,7 @@ router = APIRouter(tags=["dispatch"])
 async def create_dispatch(
     body: DispatchCreate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     return await _perform_dispatch(db, body.fire_id, body.team_id)
 
@@ -55,7 +55,7 @@ def get_dispatch_recommendations(
     limit: int = 8,
     target_level: str | None = None,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     """Ranked shortlist of teams to send for an alarm escalation.
 
@@ -118,7 +118,7 @@ def get_dispatch_recommendations(
 def get_dispatches(
     fire_id: int | None = None,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     q = db.query(DispatchRecord)
     if fire_id:
@@ -191,7 +191,7 @@ def get_dispatches(
 def get_incident_routes(
     fire_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     routes = (
         db.query(Route)
@@ -236,7 +236,7 @@ def select_dispatch_route(
     dispatch_id: int,
     body: SelectRouteBody,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     dispatch = db.get(DispatchRecord, dispatch_id)
     if not dispatch:
@@ -634,7 +634,7 @@ async def submit_incident_report(
 async def full_reroute(
     dispatch_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     """Dispatcher-only: replace the current route from the driver's live position."""
     dispatch = db.get(DispatchRecord, dispatch_id)

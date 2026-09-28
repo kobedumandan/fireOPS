@@ -5,6 +5,7 @@ import { fetchStations, createStation, deleteStation, fetchPersonnel, fetchTeams
 import AddStationModal from "../components/AddStationModal";
 import EditStationModal from "../components/EditStationModal";
 import ConfirmModal from "../components/ConfirmModal";
+import useSplitPane from "../hooks/useSplitPane";
 
 function ExportIcon() {
   return (
@@ -462,6 +463,9 @@ export default function StationsPage({ onShowOnMap }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const { width: listWidth, handleProps: resizeHandle } = useSplitPane({
+    storageKey: "stations.listWidth", side: "left", initial: 340, min: 260, minMain: 480,
+  });
 
   const loadStations = useCallback(async () => {
     setLoading(true);
@@ -648,7 +652,7 @@ export default function StationsPage({ onShowOnMap }) {
 
       {/* CONTENT AREA */}
       <div className="sta-content">
-        <div className="sta-list">
+        <div className="sta-list" style={{ width: listWidth }}>
           {loading ? (
             Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className={`sta-row sta-row-skel${i % 3 ? " nested" : ""}`}>
@@ -683,6 +687,8 @@ export default function StationsPage({ onShowOnMap }) {
             <StationTree list={filtered} stations={stations} selectedId={selectedId} onSelect={setSelectedId} flat={flat} />
           )}
         </div>
+
+        <div className="split-resizer" {...resizeHandle} />
 
         <div className="sta-detail">
           <StationDetail

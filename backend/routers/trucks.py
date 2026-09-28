@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import Station, Truck, Users
 from schemas import TruckCreate, TruckUpdate
-from security import get_current_user
+from security import get_current_user, require_admin
 from serializers import _truck_dict
 
 
@@ -25,7 +25,7 @@ def get_trucks(
 def create_truck(
     body: TruckCreate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     if db.query(Truck).filter(Truck.truck_platenum == body.truck_platenum).first():
         raise HTTPException(status_code=409, detail="A truck with that plate number already exists.")
@@ -47,7 +47,7 @@ def update_truck(
     truck_id: int,
     body: TruckUpdate,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     truck = db.get(Truck, truck_id)
     if not truck:
@@ -75,7 +75,7 @@ def update_truck(
 def delete_truck(
     truck_id: int,
     db: Session = Depends(get_db),
-    _auth: Users = Depends(get_current_user),
+    _auth: Users = Depends(require_admin),
 ):
     truck = db.get(Truck, truck_id)
     if not truck:
