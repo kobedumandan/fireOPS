@@ -1,0 +1,445 @@
+/* ════════════════════════════════════════════════════════════
+   EXPORT MODAL  (xpm-*)
+   Used by: components/ExportRegisterModal.jsx
+   Preview pane on the left, settings rail on the right. Builds on the eim-*
+   / apm-* / nim-* primitives in AppModal.css.
+   ════════════════════════════════════════════════════════════ */
+
+.eim-panel.xpm-panel {
+  width: 1280px;
+  height: min(880px, calc(100dvh - 60px));
+}
+
+.xpm-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+}
+
+/* ── Preview pane ── */
+.xpm-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--surface-sunken);
+  border-right: 1px solid var(--border-dim);
+}
+
+.xpm-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px 8px 18px;
+  border-bottom: 1px solid var(--border-dim);
+  background: var(--page-default-base);
+}
+.xpm-toolbar-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-condensed);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.xpm-toolbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.apm-spinner.xpm-spin {
+  width: 12px;
+  height: 12px;
+  border-color: rgba(var(--accent-slate-rgb), 0.3);
+  border-top-color: var(--text-secondary);
+}
+
+.xpm-zoom {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+}
+.xpm-zoom button {
+  height: 24px;
+  min-width: 26px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.xpm-zoom button:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.xpm-zoom button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.xpm-zoom .xpm-zoom-val {
+  min-width: 46px;
+  padding-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Block (not flex) on purpose: auto side-margins centre a page that fits and
+   collapse to 0 once zoom makes it wider than the pane, so the left edge stays
+   reachable by scrolling. Flex centring would push it off-screen. */
+.xpm-pages {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px 24px 28px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-dim) transparent;
+}
+
+.xpm-page {
+  margin: 0 auto 22px;
+  width: calc(min(100%, var(--xpm-fit)) * var(--xpm-zoom, 1));
+  animation: eim-row-in 0.25s ease-out both;
+}
+.xpm-page img,
+.xpm-page-skeleton {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 2px;
+  box-shadow: var(--shadow-md);
+  outline: 1px solid var(--border-dim);
+}
+.xpm-page-skeleton {
+  background: var(--chip-muted-bg);
+  animation: dpm-shimmer 1.2s ease-in-out infinite;
+}
+.xpm-page figcaption {
+  margin-top: 7px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 9.8px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.xpm-more {
+  max-width: 420px;
+  margin: 0 auto;
+  text-align: center;
+  font-size: 10.8px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.xpm-state {
+  height: 100%;
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  font-size: 10.8px;
+  color: var(--text-secondary);
+}
+.xpm-state strong {
+  font-family: var(--font-condensed);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.xpm-state .apm-btn-cancel {
+  margin-top: 8px;
+}
+.xpm-state-icon {
+  width: 26px;
+  height: 26px;
+  margin-bottom: 4px;
+  color: var(--accent-amber);
+}
+
+/* ── CSV sheet preview ── */
+.xpm-sheet-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.xpm-sheet {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  /* clip, not hidden: hidden would make the table a scroll container and
+     pin the sticky header to it instead of to the preview pane. */
+  overflow: clip;
+  box-shadow: var(--shadow-sm);
+}
+.xpm-sheet th,
+.xpm-sheet td {
+  padding: 7px 10px 5px;
+  text-align: left;
+  white-space: nowrap;
+  border-right: 1px solid var(--border-dim);
+  border-bottom: 1px solid var(--border-dim);
+}
+.xpm-sheet th {
+  position: sticky;
+  top: -24px;
+  z-index: 1;
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  background: var(--bg-card);
+}
+.xpm-sheet tbody tr:hover td {
+  background: var(--surface-raise);
+}
+.xpm-sheet .xpm-sheet-n {
+  min-width: 36px;
+  text-align: right;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  background: var(--bg-card);
+}
+.xpm-sheet-empty {
+  text-align: center !important;
+  color: var(--text-secondary);
+  padding: 18px !important;
+}
+.xpm-sheet-skeleton {
+  height: 320px;
+  border-radius: 8px;
+  background: var(--chip-muted-bg);
+  animation: dpm-shimmer 1.2s ease-in-out infinite;
+}
+
+/* ── Settings rail ── */
+.xpm-rail {
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-dim) transparent;
+}
+.xpm-rail > .eim-section:first-child {
+  padding-top: 12px;
+}
+.xpm-rail .apm-error {
+  margin: 4px 0 12px;
+}
+
+/* Format picker */
+.xpm-formats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.xpm-format {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 10px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+}
+.xpm-format:hover:not(.active) {
+  background: var(--bg-hover);
+}
+.xpm-format.active {
+  border-color: rgba(var(--accent-fire-rgb), 0.45);
+  background: var(--accent-fire-dim);
+}
+.xpm-format:focus-visible {
+  outline: 2px solid var(--accent-fire-focus);
+  outline-offset: 1px;
+}
+.xpm-format-icon {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+}
+.xpm-format-icon .eim-icon {
+  width: 30px;
+  height: 30px;
+}
+.xpm-badge {
+  position: absolute;
+  left: 12px;
+  bottom: 1px;
+  padding: 2px 4px 1px;
+  border-radius: 3px;
+  font-family: var(--font-span);
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--on-accent);
+}
+.xpm-badge-pdf  { background: var(--accent-red); }
+.xpm-badge-docx { background: var(--accent-blue); }
+.xpm-badge-csv  { background: var(--accent-green); color: var(--on-accent-green); }
+.xpm-format-name {
+  font-family: var(--font-condensed);
+  font-size: 11.8px;
+  font-weight: 600;
+}
+.xpm-format.active .xpm-format-name {
+  color: var(--accent-fire);
+}
+.xpm-format-desc {
+  font-size: 9.5px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+.xpm-format-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 14px;
+  height: 14px;
+  color: var(--accent-fire);
+}
+
+/* Scope summary */
+.xpm-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 11px 12px 10px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  background: var(--surface-raise);
+  border: 1px solid var(--border-dim);
+}
+.xpm-scope-count {
+  font-size: 11.8px;
+  color: var(--text-secondary);
+}
+.xpm-scope-count strong {
+  font-family: var(--font-condensed);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.xpm-scope-cap {
+  color: var(--accent-amber);
+}
+.xpm-scope .eim-subtitle {
+  margin-top: 6px;
+}
+.xpm-scope-sort {
+  margin-top: 8px;
+  font-size: 9.8px;
+  color: var(--text-secondary);
+}
+
+.xpm-sign-fields {
+  margin-top: 2px;
+}
+
+/* File name with a fixed extension suffix */
+.xpm-file {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.xpm-file:focus-within {
+  border-color: var(--accent-fire-focus);
+}
+.apm-field .xpm-file input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  font-family: var(--font-mono);
+}
+.xpm-file-ext {
+  display: flex;
+  align-items: center;
+  padding: 3px 11px 0;
+  font-family: var(--font-mono);
+  font-size: 10.8px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border-left: 1px solid var(--border-dim);
+}
+
+/* Footer buttons carry an icon */
+.xpm-btn-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.xpm-btn-icon .eim-icon {
+  width: 13px;
+  height: 13px;
+  margin-top: -2px;
+}
+
+/* Hidden frame the Print action loads the PDF into */
+.xpm-print-frame {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border: 0;
+}
+
+@media (max-width: 960px) {
+  .eim-panel.xpm-panel {
+    height: auto;
+  }
+  .xpm-layout {
+    display: block;
+  }
+  .xpm-preview {
+    height: 55dvh;
+    border-right: 0;
+    border-bottom: 1px solid var(--border-dim);
+  }
+  .xpm-rail {
+    overflow: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xpm-page,
+  .xpm-page-skeleton,
+  .xpm-sheet-skeleton {
+    animation: none;
+  }
+}
