@@ -427,6 +427,26 @@ class IncidentReport(Base):
 
 
 # ---------------------------------------------------------------------------
+# Incident events (status / alarm / severity history for the timeline)
+# ---------------------------------------------------------------------------
+
+class IncidentEvent(Base):
+    """One change to an incident's status, alarm level or severity. Only the
+    current values live on fire_incidents; this records when each changed and
+    who changed it. Dispatch/arrival times stay on dispatch_records."""
+    __tablename__ = "incident_events"
+
+    event_id    = Column(Integer, primary_key=True, autoincrement=True)
+    fire_id     = Column(Integer, ForeignKey("fire_incidents.fire_id", ondelete="CASCADE"), nullable=False, index=True)
+    event_type  = Column(String(30), nullable=False)   # "status" | "alarm" | "severity"
+    event_from  = Column(String(50), nullable=True)
+    event_to    = Column(String(50), nullable=True)
+    user_id     = Column(Integer, ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+    event_actor = Column(String(150), nullable=True)   # display name, kept if the account goes
+    created_at  = Column(DateTime(timezone=True), default=_now, nullable=False)
+
+
+# ---------------------------------------------------------------------------
 # Report photos (scene photographs attached to an incident report)
 # ---------------------------------------------------------------------------
 

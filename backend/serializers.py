@@ -74,6 +74,7 @@ def _team_dict(t: ResponseTeam) -> dict:
         "station_name":      t.station.station_name      if t.station else "—",
         "station_latitude":  t.station.station_latitude  if t.station else None,
         "station_longitude": t.station.station_longitude if t.station else None,
+        "station_status":    (t.station.station_status or "operational") if t.station else None,
         "shift_id":          t.shift_id,
         "shift_name":        t.shift.shift_name if t.shift else "—",
         "truck_id":          t.truck_id,

@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+import state
 from database import get_db
 from models import Personnel, ResponseTeam, Station, Truck, Users
 from schemas import StationCreate, StationUpdate
@@ -10,6 +11,12 @@ from serializers import _station_dict
 
 
 router = APIRouter(tags=["stations"])
+
+
+def _invalidate_coverage():
+    """Coverage is computed from station positions and status, and cached per
+    process; any station write makes that cache stale."""
+    state.coverage_cache = None
 
 
 @router.get("/api/stations")
@@ -47,6 +54,7 @@ def create_station(
     db.add(station)
     db.commit()
     db.refresh(station)
+    _invalidate_coverage()
     return _station_dict(station)
 
 
@@ -94,6 +102,7 @@ def update_station(
         station.station_commander_id = body.station_commander_id
     db.commit()
     db.refresh(station)
+    _invalidate_coverage()
     return _station_dict(station)
 
 
@@ -135,3 +144,4 @@ def delete_station(
 
     db.delete(station)
     db.commit()
+    _invalidate_coverage()

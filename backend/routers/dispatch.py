@@ -32,6 +32,7 @@ from services.dispatch import (
 from services.routing import (
     _build_rerouted_payload, _load_active_obstructions, _rebuild_routes,
 )
+from services.incident_events import record_changes, snapshot
 from state import manager
 
 
@@ -467,7 +468,9 @@ async def mark_contained(
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found for this dispatch.")
 
+    before = snapshot(inc)
     inc.fire_status = "contained"
+    record_changes(db, inc, before, user=current_user)
     db.commit()
     db.refresh(inc)
 
@@ -584,7 +587,9 @@ async def submit_incident_report(
 
     # Filing the report closes out the incident and wraps up the dispatch,
     # returning the crew to standby and freeing their truck.
+    before = snapshot(inc)
     inc.fire_status = "closed"
+    record_changes(db, inc, before, user=current_user, at=now)
     _complete_dispatch_and_release(dispatch, now)
     _add_incident_to_heatmap(db, inc, now)
     released = _released_payload([dispatch])

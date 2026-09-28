@@ -79,14 +79,20 @@ def _eligible_teams(
     )
 
     counts = {
-        "total":           len(all_teams),
-        "not_active":      0,
-        "on_shift":        0,
-        "has_truck":       0,
-        "members_standby": 0,
+        "total":               len(all_teams),
+        "station_operational": 0,
+        "not_active":          0,
+        "on_shift":            0,
+        "has_truck":           0,
+        "members_standby":     0,
     }
     eligible: list[ResponseTeam] = []
     for team in all_teams:
+        # A station marked inactive is out of service; its teams aren't sent.
+        if (team.station.station_status or "operational") == "inactive":
+            continue
+        counts["station_operational"] += 1
+
         if (team.team_status or "").lower() == "active":
             continue
         counts["not_active"] += 1
@@ -197,6 +203,8 @@ def _rank_teams(
         # Pick the most informative reason based on where the funnel collapsed.
         if stage_counts["total"] == 0:
             reason = "no_teams_configured"
+        elif stage_counts["station_operational"] == 0:
+            reason = "no_operational_station"
         elif stage_counts["not_active"] == 0:
             reason = "all_teams_active"
         elif shift_id is not None and stage_counts["on_shift"] == 0:

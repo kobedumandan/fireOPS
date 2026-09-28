@@ -1,4 +1,6 @@
 """Request/response models shared by the routers."""
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -177,6 +179,9 @@ class IncidentCreate(BaseModel):
     fire_reporter_contact: str | None = None
     fire_location_source: str = "manual"
     fire_remarks:        str | None = None
+    # When the fire actually happened, for incidents recorded after the fact
+    # (logbook backfill, calls handled while offline). Omitted → now.
+    fire_incident_datetime: datetime | None = None
     auto_dispatch:       bool = False
     # When the incident was logged from a reporter pin, the session token so the
     # transient location can be cleared (it's now persisted as an incident).
