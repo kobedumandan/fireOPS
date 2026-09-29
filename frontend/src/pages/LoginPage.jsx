@@ -113,6 +113,45 @@ function AlertIcon() {
   );
 }
 
+// Hero routes, as grid points [col, row] on the 44px background grid. Each
+// segment is horizontal or vertical so the route rides the grid lines.
+const GRID = 44;
+const ROUTES = [
+  { pts: [[0, 6], [7, 6], [7, 11], [15, 11], [15, 4], [26, 4]], dur: 11, delay: 0 },
+  { pts: [[30, 15], [19, 15], [19, 8], [11, 8], [11, 2], [3, 2], [3, 0]], dur: 14, delay: -5 },
+  { pts: [[2, 26], [2, 17], [13, 17], [13, 13], [26, 13]], dur: 10, delay: -3 },
+  { pts: [[22, 0], [22, 6], [17, 6], [17, 20], [30, 20]], dur: 13, delay: -8 },
+];
+
+// Grid lines are 1px wide at 44k-1 (background-position: -1px), so their
+// centre is 44k-0.5.
+const toXY = ([c, r]) => [c * GRID - 0.5, r * GRID - 0.5];
+
+function HeroRoutes() {
+  return (
+    <svg className="lp-hero-routes lp-hero-layer" aria-hidden="true">
+      {ROUTES.map((route, i) => {
+        const d = route.pts
+          .map((p, j) => `${j ? "L" : "M"}${toXY(p).join(" ")}`)
+          .join(" ");
+        const [ex, ey] = toXY(route.pts[route.pts.length - 1]);
+        return (
+          <g key={i}>
+            <path className="lp-route-base" d={d} />
+            <path
+              className="lp-route-pulse"
+              d={d}
+              pathLength="100"
+              style={{ "--dur": `${route.dur}s`, "--delay": `${route.delay}s` }}
+            />
+            <rect className="lp-route-node" x={ex - 2} y={ey - 2} width="4" height="4" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 const FEATURES = [
   {
     cls: "fi-fire",
@@ -147,6 +186,51 @@ export default function LoginPage({ onLogin }) {
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState("");
   const [errors, setErrors] = useState({ email: false, password: false });
+
+  // Spotlight: write the cursor position straight onto the hero as CSS vars
+  // (no re-render per move); the CSS transition on --mx/--my supplies the lag.
+  // Clearing them on leave lets the glow drift back to its resting corner.
+  // Every .lp-spot element gets the same point in its own coordinates
+  // (--sx/--sy) so its rim light tracks the glow.
+  function aimSpots(hero, clientX, clientY) {
+    hero.querySelectorAll(".lp-spot").forEach((el) => {
+      const r = el.getBoundingClientRect();
+      el.style.setProperty("--sx", `${clientX - r.left}px`);
+      el.style.setProperty("--sy", `${clientY - r.top}px`);
+    });
+  }
+
+  // The light enters from its resting corner, so start each rim there without
+  // animating — otherwise it sweeps in from wherever it was last left.
+  function handleHeroEnter(e) {
+    if (e.pointerType !== "mouse") return;
+    const hero = e.currentTarget;
+    const h = hero.getBoundingClientRect();
+    const spots = hero.querySelectorAll(".lp-spot");
+    spots.forEach((el) => (el.style.transition = "none"));
+    aimSpots(hero, h.right, h.bottom);
+    spots.forEach((el) => {
+      void el.offsetWidth;
+      el.style.transition = "";
+    });
+  }
+
+  function handleHeroMove(e) {
+    if (e.pointerType !== "mouse") return;
+    const hero = e.currentTarget;
+    const r = hero.getBoundingClientRect();
+    hero.style.setProperty("--mx", `${((e.clientX - r.left) / r.width) * 100}%`);
+    hero.style.setProperty("--my", `${((e.clientY - r.top) / r.height) * 100}%`);
+    aimSpots(hero, e.clientX, e.clientY);
+  }
+
+  function handleHeroLeave(e) {
+    const hero = e.currentTarget;
+    const r = hero.getBoundingClientRect();
+    hero.style.removeProperty("--mx");
+    hero.style.removeProperty("--my");
+    aimSpots(hero, r.right, r.bottom);
+  }
 
   function validate() {
     const e = {
@@ -191,8 +275,15 @@ export default function LoginPage({ onLogin }) {
     <main className="lp-body">
       <div className="lp-shell">
         {/* LEFT: HERO PANEL */}
-        <section className="lp-hero" aria-label="About FireTrackr">
-          <div className="lp-hero-glow" aria-hidden="true" />
+        <section
+          className="lp-hero"
+          aria-label="About FireTrackr"
+          onPointerEnter={handleHeroEnter}
+          onPointerMove={handleHeroMove}
+          onPointerLeave={handleHeroLeave}
+        >
+          <div className="lp-hero-glow lp-hero-layer" aria-hidden="true" />
+          <HeroRoutes />
 
           <div className="lp-hero-top lp-rise" style={{ "--d": "0ms" }}>
             <div className="lp-brand">
@@ -201,26 +292,21 @@ export default function LoginPage({ onLogin }) {
                 FIRE<span>TRACKR</span>
               </div>
             </div>
-            <div className="lp-eyebrow">
-              <span className="lp-eyebrow-dot" />
-              Bureau of Fire Protection · Panabo City
-            </div>
           </div>
 
           <div className="lp-hero-copy lp-rise" style={{ "--d": "80ms" }}>
             <h1 className="lp-headline">
               Command, route and dispatch <span>from one console.</span>
             </h1>
-            <p className="lp-lede">
-              The FireTrackr dashboard gives station commanders a live view of
-              incidents, units and response coverage across the city.
-            </p>
+            <div className="lp-eyebrow lp-spot">
+              Bureau of Fire Protection · Panabo City
+            </div>
           </div>
 
           <ul className="lp-features">
             {FEATURES.map((f, i) => (
               <li
-                className="lp-feature lp-rise"
+                className="lp-feature lp-spot lp-rise"
                 key={f.title}
                 style={{ "--d": `${160 + i * 60}ms` }}
               >
@@ -339,17 +425,9 @@ export default function LoginPage({ onLogin }) {
                 "Sign in"
               )}
             </button>
-
-            <p className="lp-form-note">
-              Field personnel sign in through the FireTrackr mobile app.
-            </p>
           </form>
 
           <footer className="lp-footer">
-            <div className="lp-online-row">
-              <span className="lp-online-dot" />
-              System online
-            </div>
             <div className="lp-copyright">
               © 2026 FireTrackr · Bureau of Fire Protection. All rights reserved.
             </div>

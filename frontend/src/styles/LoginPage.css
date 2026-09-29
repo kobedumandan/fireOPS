@@ -28,11 +28,25 @@
   grid-template-columns: minmax(0, 1.2fr) minmax(380px, 0.8fr);
   gap: 10px;
   min-height: 100%;
-  max-width: 1480px;
-  margin: 0 auto;
 }
 
 /* ── Hero panel ───────────────────────────────────────────────────────────── */
+
+/* Spotlight origin. LoginPage.jsx writes these on pointer move and clears them
+   on leave, so the rest value below is the "natural" bottom-right corner.
+   Registering them as <percentage> is what makes them transition — an
+   unregistered custom property can only snap — and the transition is the
+   trailing delay behind the cursor. */
+@property --mx {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 100%;
+}
+@property --my {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 100%;
+}
 
 .lp-hero {
   position: relative;
@@ -44,10 +58,14 @@
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 11.8px;
+  --mx: 100%;
+  --my: 100%;
+  transition: --mx 0.9s cubic-bezier(0.2, 0.7, 0.2, 1),
+    --my 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-/* Blueprint grid, faded out toward the top-left so the copy sits on a clean
-   surface and the texture gathers where the glow is. */
+/* Blueprint grid, revealed around the spotlight origin and faded out away
+   from it, so the texture gathers where the glow is. */
 .lp-hero::before {
   content: "";
   position: absolute;
@@ -57,12 +75,12 @@
   background-size: 44px 44px;
   background-position: -1px -1px;
   mask-image: radial-gradient(
-    ellipse 90% 80% at 100% 100%,
+    ellipse 90% 80% at var(--mx) var(--my),
     #000 0%,
     transparent 70%
   );
   -webkit-mask-image: radial-gradient(
-    ellipse 90% 80% at 100% 100%,
+    ellipse 90% 80% at var(--mx) var(--my),
     #000 0%,
     transparent 70%
   );
@@ -72,8 +90,9 @@
 
 .lp-hero-glow {
   position: absolute;
-  right: -18%;
-  bottom: -30%;
+  left: var(--mx);
+  top: var(--my);
+  translate: -50% -50%;
   width: 70%;
   aspect-ratio: 1;
   background: radial-gradient(
@@ -85,9 +104,104 @@
   pointer-events: none;
 }
 
-.lp-hero > *:not(.lp-hero-glow) {
+.lp-hero > *:not(.lp-hero-layer) {
   position: relative;
   z-index: 1;
+}
+
+/* ── Routes ─────────────────────────────────────────────────────────────────
+   Orthogonal routes drawn on the grid lines (LoginPage.jsx snaps them to the
+   same 44px pitch as ::before), each with a short pulse travelling along it.
+   Kept faint on purpose — texture, not content. */
+.lp-hero-routes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.lp-route-base {
+  fill: none;
+  stroke: var(--accent-fire);
+  stroke-width: 1;
+  opacity: 0.07;
+}
+
+.lp-route-pulse {
+  fill: none;
+  stroke: var(--accent-fire);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 7 93;
+  opacity: 0.4;
+  animation: lp-route var(--dur, 9s) linear infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+.lp-route-node {
+  fill: var(--accent-fire);
+  opacity: 0.25;
+}
+
+@keyframes lp-route {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ── Spotlight borders ──────────────────────────────────────────────────────
+   Elements tagged .lp-spot carry the light's position in their OWN
+   coordinates (--sx/--sy, written by LoginPage.jsx). They transition with the
+   same timing as the hero's --mx/--my, so the rim light trails the cursor in
+   lockstep with the glow. The ::after is a gradient clipped to a 1px ring, so
+   whichever edge is nearest the light is the one that catches it. */
+@property --sx {
+  syntax: "<length>";
+  /* true, so the ::after (which draws the ring) receives the value. */
+  inherits: true;
+  initial-value: 0px;
+}
+@property --sy {
+  syntax: "<length>";
+  /* true, so the ::after (which draws the ring) receives the value. */
+  inherits: true;
+  initial-value: 0px;
+}
+
+.lp-spot {
+  transition: --sx 0.9s cubic-bezier(0.2, 0.7, 0.2, 1),
+    --sy 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.lp-spot::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    140px circle at var(--sx) var(--sy),
+    rgba(var(--accent-fire-rgb), 0.8),
+    rgba(var(--accent-fire-rgb), 0.2) 40%,
+    transparent 70%
+  );
+  /* Shorthands first, composites last: a later -webkit-mask shorthand resets
+     the composite, which fills the whole box instead of cutting a ring. */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.lp-hero:hover .lp-spot::after {
+  opacity: 1;
 }
 
 .lp-hero-top {
@@ -148,6 +262,7 @@
 }
 
 .lp-eyebrow {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -160,18 +275,13 @@
   color: var(--text-secondary);
 }
 
-.lp-eyebrow-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent-fire);
-  flex-shrink: 0;
-}
-
 /* ── Hero copy ────────────────────────────────────────────────────────────── */
 
+/* Auto margins on both sides split the free space, so the copy floats midway
+   between the wordmark and the feature tiles instead of sinking onto them. */
 .lp-hero-copy {
   margin-top: auto;
+  margin-bottom: auto;
 }
 
 .lp-headline {
@@ -183,20 +293,13 @@
   color: var(--text-primary);
   max-width: 15ch;
   text-wrap: balance;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .lp-headline span {
   color: var(--text-secondary);
 }
 
-.lp-lede {
-  font-size: 12.8px;
-  line-height: 1.7;
-  color: var(--text-secondary);
-  max-width: 46ch;
-  text-wrap: pretty;
-}
 
 /* ── Feature tiles (KpiCard vocabulary) ───────────────────────────────────── */
 
@@ -204,39 +307,44 @@
   list-style: none;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .lp-feature {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 14px 14px 16px;
+  gap: 4px;
+  padding: 10px 12px 12px;
   background: var(--bg-panel);
   border: 1px solid var(--border-dim);
   border-radius: 12px;
-  transition: border-color 0.18s ease, transform 0.18s ease;
+  transition: border-color 0.18s ease, translate 0.18s ease,
+    --sx 0.9s cubic-bezier(0.2, 0.7, 0.2, 1),
+    --sy 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
+/* `translate`, not `transform`: the lp-rise entry animation holds a transform
+   (fill: both), which would override a transform set here. */
 .lp-feature:hover {
   border-color: var(--border);
-  transform: translateY(-1px);
+  translate: 0 -1px;
 }
 
 .lp-feature-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .lp-feature-glyph {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
 }
 
@@ -258,14 +366,14 @@
 }
 
 .lp-feature-title {
-  font-size: 11.8px;
+  font-size: 10.8px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .lp-feature-desc {
-  font-size: 10.8px;
-  line-height: 1.6;
+  font-size: 9.8px;
+  line-height: 1.55;
   color: var(--text-secondary);
   text-wrap: pretty;
 }
@@ -497,45 +605,15 @@
   }
 }
 
-.lp-form-note {
-  margin-top: 20px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border-dim);
-  font-size: 10.3px;
-  line-height: 1.6;
-  color: var(--text-secondary);
-  text-align: center;
-}
 
 /* ── Footer ───────────────────────────────────────────────────────────────── */
 
 .lp-footer {
   width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
   padding-top: 24px;
+  text-align: center;
 }
 
-.lp-online-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 9.8px;
-  color: var(--text-secondary);
-}
-
-.lp-online-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent-green);
-  box-shadow: 0 0 6px var(--accent-green);
-  animation: blink 2s ease-in-out infinite;
-  flex-shrink: 0;
-}
 
 .lp-copyright {
   font-size: 9.8px;
@@ -584,9 +662,5 @@
   }
   .lp-auth {
     padding: 32px 16px 12px;
-  }
-  .lp-footer {
-    justify-content: center;
-    text-align: center;
   }
 }
