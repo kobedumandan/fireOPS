@@ -100,14 +100,137 @@ function FeatureTruckIcon() {
   );
 }
 
+function AlertIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 -960 960 960"
+      className="lp-alert-icon"
+      fill="currentColor"
+    >
+      <path d="M480-280q17 0 28.5-11.5T520-320q0-17-11.5-28.5T480-360q-17 0-28.5 11.5T440-320q0 17 11.5 28.5T480-280Zm-40-160h80v-240h-80v240Zm40 360q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z" />
+    </svg>
+  );
+}
+
+// Hero routes, as grid points [col, row] on the 44px background grid. Each
+// segment is horizontal or vertical so the route rides the grid lines.
+const GRID = 44;
+const ROUTES = [
+  { pts: [[0, 6], [7, 6], [7, 11], [15, 11], [15, 4], [26, 4]], dur: 11, delay: 0 },
+  { pts: [[30, 15], [19, 15], [19, 8], [11, 8], [11, 2], [3, 2], [3, 0]], dur: 14, delay: -5 },
+  { pts: [[2, 26], [2, 17], [13, 17], [13, 13], [26, 13]], dur: 10, delay: -3 },
+  { pts: [[22, 0], [22, 6], [17, 6], [17, 20], [30, 20]], dur: 13, delay: -8 },
+];
+
+// Grid lines are 1px wide at 44k-1 (background-position: -1px), so their
+// centre is 44k-0.5.
+const toXY = ([c, r]) => [c * GRID - 0.5, r * GRID - 0.5];
+
+function HeroRoutes() {
+  return (
+    <svg className="lp-hero-routes lp-hero-layer" aria-hidden="true">
+      {ROUTES.map((route, i) => {
+        const d = route.pts
+          .map((p, j) => `${j ? "L" : "M"}${toXY(p).join(" ")}`)
+          .join(" ");
+        const [ex, ey] = toXY(route.pts[route.pts.length - 1]);
+        return (
+          <g key={i}>
+            <path className="lp-route-base" d={d} />
+            <path
+              className="lp-route-pulse"
+              d={d}
+              pathLength="100"
+              style={{ "--dur": `${route.dur}s`, "--delay": `${route.delay}s` }}
+            />
+            <rect className="lp-route-node" x={ex - 2} y={ey - 2} width="4" height="4" />
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+const FEATURES = [
+  {
+    cls: "fi-fire",
+    Icon: FeatureFireIcon,
+    title: "Incident management",
+    desc: "Track active fires across every barangay, with live severity and alarm escalation.",
+  },
+  {
+    cls: "fi-blue",
+    Icon: FeatureRoutingIcon,
+    title: "GNN-RL routing",
+    desc: "Response routes computed by a graph neural network over the city road network.",
+  },
+  {
+    cls: "fi-green",
+    Icon: FeatureTrackingIcon,
+    title: "Personnel tracking",
+    desc: "Field units reported in real time through the FireTrackr mobile app.",
+  },
+  {
+    cls: "fi-amber",
+    Icon: FeatureTruckIcon,
+    title: "Multi-station dispatch",
+    desc: "Coordinate main and sub-station teams from one command dashboard.",
+  },
+];
+
 export default function LoginPage({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
-  const [remembered, setRemembered] = useState(false);
   const [loading, setLoading] = useState(false);
   const [alert, setAlert] = useState("");
   const [errors, setErrors] = useState({ email: false, password: false });
+
+  // Spotlight: write the cursor position straight onto the hero as CSS vars
+  // (no re-render per move); the CSS transition on --mx/--my supplies the lag.
+  // Clearing them on leave lets the glow drift back to its resting corner.
+  // Every .lp-spot element gets the same point in its own coordinates
+  // (--sx/--sy) so its rim light tracks the glow.
+  function aimSpots(hero, clientX, clientY) {
+    hero.querySelectorAll(".lp-spot").forEach((el) => {
+      const r = el.getBoundingClientRect();
+      el.style.setProperty("--sx", `${clientX - r.left}px`);
+      el.style.setProperty("--sy", `${clientY - r.top}px`);
+    });
+  }
+
+  // The light enters from its resting corner, so start each rim there without
+  // animating — otherwise it sweeps in from wherever it was last left.
+  function handleHeroEnter(e) {
+    if (e.pointerType !== "mouse") return;
+    const hero = e.currentTarget;
+    const h = hero.getBoundingClientRect();
+    const spots = hero.querySelectorAll(".lp-spot");
+    spots.forEach((el) => (el.style.transition = "none"));
+    aimSpots(hero, h.right, h.bottom);
+    spots.forEach((el) => {
+      void el.offsetWidth;
+      el.style.transition = "";
+    });
+  }
+
+  function handleHeroMove(e) {
+    if (e.pointerType !== "mouse") return;
+    const hero = e.currentTarget;
+    const r = hero.getBoundingClientRect();
+    hero.style.setProperty("--mx", `${((e.clientX - r.left) / r.width) * 100}%`);
+    hero.style.setProperty("--my", `${((e.clientY - r.top) / r.height) * 100}%`);
+    aimSpots(hero, e.clientX, e.clientY);
+  }
+
+  function handleHeroLeave(e) {
+    const hero = e.currentTarget;
+    const r = hero.getBoundingClientRect();
+    hero.style.removeProperty("--mx");
+    hero.style.removeProperty("--my");
+    aimSpots(hero, r.right, r.bottom);
+  }
 
   function validate() {
     const e = {
@@ -118,7 +241,9 @@ export default function LoginPage({ onLogin }) {
     return !e.email && !e.password;
   }
 
-  async function handleLogin() {
+  async function handleLogin(e) {
+    e.preventDefault();
+    if (loading) return;
     setAlert("");
     if (!validate()) return;
 
@@ -146,201 +271,169 @@ export default function LoginPage({ onLogin }) {
     }
   }
 
-  function handleKeyDown(e) {
-    if (e.key === "Enter") handleLogin();
-  }
-
   return (
-    <div className="lp-body" onKeyDown={handleKeyDown}>
-      <div className="lp-wrapper">
-        {/* LEFT: HERO */}
-        <div className="lp-hero">
-          <div className="lp-eyebrow">
-            Panabo City | Bureau of Fire Protection
-          </div>
+    <main className="lp-body">
+      <div className="lp-shell">
+        {/* LEFT: HERO PANEL */}
+        <section
+          className="lp-hero"
+          aria-label="About FireTrackr"
+          onPointerEnter={handleHeroEnter}
+          onPointerMove={handleHeroMove}
+          onPointerLeave={handleHeroLeave}
+        >
+          <div className="lp-hero-glow lp-hero-layer" aria-hidden="true" />
+          <HeroRoutes />
 
-          <div className="lp-title">
-            <div className="lp-title-wrap">
-              <div className="lp-title-logo-icon" />
-              <div className="lp-title-logo-text">
+          <div className="lp-hero-top lp-rise" style={{ "--d": "0ms" }}>
+            <div className="lp-brand">
+              <div className="lp-brand-icon" />
+              <div className="lp-brand-text">
                 FIRE<span>TRACKR</span>
               </div>
             </div>
           </div>
 
-          {/* <div className="lp-subtitle">GNN-Powered Geospatial Routing &amp; Dispatch</div>
-          <div className="lp-rule" /> */}
+          <div className="lp-hero-copy lp-rise" style={{ "--d": "80ms" }}>
+            <h1 className="lp-headline">
+              Command, route and dispatch <span>from one console.</span>
+            </h1>
+            <div className="lp-eyebrow lp-spot">
+              Bureau of Fire Protection · Panabo City
+            </div>
+          </div>
 
-          <div className="lp-features">
-            {[
-              {
-                cls: "fi-fire",
-                Icon: FeatureFireIcon,
-                title: "Real-Time Incident Management",
-                desc: "Monitor active fire incidents across all barangays with live severity tracking and alarm escalation.",
-              },
-              {
-                cls: "fi-blue",
-                Icon: FeatureRoutingIcon,
-                title: "GNN-RL Routing Engine",
-                desc: "Optimal routing computed by a Graph Neural Network.",
-              },
-              {
-                cls: "fi-green",
-                Icon: FeatureTrackingIcon,
-                title: "Personnel Tracking",
-                desc: "Field unit locations tracked via GPS.",
-              },
-              {
-                cls: "fi-amber",
-                Icon: FeatureTruckIcon,
-                title: "Multi-Station Dispatch",
-                desc: "Coordinate response teams across main and sub-stations from a single command dashboard.",
-              },
-            ].map((f) => (
-              <div className="lp-feature" key={f.title}>
+          <ul className="lp-features">
+            {FEATURES.map((f, i) => (
+              <li
+                className="lp-feature lp-spot lp-rise"
+                key={f.title}
+                style={{ "--d": `${160 + i * 60}ms` }}
+              >
                 <div className={`lp-feature-icon ${f.cls}`}>
                   <f.Icon />
                 </div>
-                <div>
-                  <div className="lp-feature-title">{f.title}</div>
-                  <div className="lp-feature-desc">{f.desc}</div>
-                </div>
-              </div>
+                <div className="lp-feature-title">{f.title}</div>
+                <div className="lp-feature-desc">{f.desc}</div>
+              </li>
             ))}
-          </div>
+          </ul>
+        </section>
 
-          {/* <div className="lp-stats">
-            {[
-              { val: "3", unit: "", label: "Main Stations" },
-              { val: "14", unit: "", label: "Personnel" },
-              { val: "8", unit: "", label: "Fire Units" },
-              { val: "94", unit: "%", label: "Model Accuracy" },
-            ].map((s) => (
-              <div key={s.label}>
-                <div className="lp-stat-val-wrapper">
-                  <span className="lp-stat-val">{s.val}</span>
-                  <span className="lp-stat-unit">{s.unit}</span>
-                </div>
-                <span className="lp-stat-label">{s.label}</span>
-              </div>
-            ))}
-          </div> */}
-        </div>
-
-        {/* RIGHT: LOGIN CARD */}
-        <div className="lp-card">
-          <div className="lp-card-header">
-            <div className="lp-logo-row">
-              <div className="lp-logo-icon" />
-              <div className="lp-logo-text">
+        {/* RIGHT: SIGN-IN */}
+        <section className="lp-auth" aria-labelledby="lp-auth-title">
+          <form
+            className="lp-form lp-rise"
+            style={{ "--d": "120ms" }}
+            onSubmit={handleLogin}
+            noValidate
+          >
+            <div className="lp-form-brand">
+              <div className="lp-brand-icon sm" />
+              <div className="lp-brand-text sm">
                 FIRE<span>TRACKR</span>
               </div>
             </div>
-            <div className="lp-card-title">Sign In</div>
-          </div>
 
-          {/* <hr className="lp-divider" /> */}
-
-          {alert && (
-            <div className="lp-alert">
-              <span>⚠</span>
-              <span>{alert}</span>
+            <div className="lp-form-head">
+              <h2 id="lp-auth-title" className="lp-form-title">
+                Sign in
+              </h2>
+              <p className="lp-form-sub">
+                Use your dispatcher or administrator account.
+              </p>
             </div>
-          )}
 
-          {/* Email */}
-          <div className="lp-field-group">
-            <label className="lp-field-label">Email</label>
-            <div className="lp-field-wrap">
-              <EmailIcon />
-              <input
-                className={`lp-field-input${errors.email ? " error" : ""}`}
-                type="email"
-                placeholder="you@bfp.gov.ph"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-            </div>
-            {errors.email && (
-              <div className="lp-field-error">
-                Please enter a valid email address.
+            {alert && (
+              <div className="lp-alert" role="alert">
+                <AlertIcon />
+                <span>{alert}</span>
               </div>
             )}
-          </div>
 
-          {/* Password */}
-          <div className="lp-field-group">
-            <label className="lp-field-label">Password</label>
-            <div className="lp-field-wrap">
-              <PasswordIcon />
-              <input
-                className={`lp-field-input${errors.password ? " error" : ""}`}
-                type={showPw ? "text" : "password"}
-                placeholder="••••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
-              <button
-                className="lp-pw-toggle"
-                onClick={() => setShowPw((v) => !v)}
-              >
-                {showPw ? <VisibilityOn /> : <VisibilityOff />}
-              </button>
+            <div className="lp-field-group">
+              <label className="lp-field-label" htmlFor="lp-email">
+                Email
+              </label>
+              <div className="lp-field-wrap">
+                <EmailIcon />
+                <input
+                  id="lp-email"
+                  className={`lp-field-input${errors.email ? " error" : ""}`}
+                  type="email"
+                  placeholder="you@bfp.gov.ph"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  aria-invalid={errors.email}
+                  aria-describedby={errors.email ? "lp-email-err" : undefined}
+                />
+              </div>
+              {errors.email && (
+                <div id="lp-email-err" className="lp-field-error">
+                  Please enter a valid email address.
+                </div>
+              )}
             </div>
-            {errors.password && (
-              <div className="lp-field-error">Password is required.</div>
-            )}
-          </div>
 
-          {/* Meta row */}
-          <div className="lp-meta-row">
-            <div
-              className="lp-remember-wrap"
-              onClick={() => setRemembered((v) => !v)}
+            <div className="lp-field-group">
+              <label className="lp-field-label" htmlFor="lp-password">
+                Password
+              </label>
+              <div className="lp-field-wrap">
+                <PasswordIcon />
+                <input
+                  id="lp-password"
+                  className={`lp-field-input has-toggle${errors.password ? " error" : ""}`}
+                  type={showPw ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  aria-invalid={errors.password}
+                  aria-describedby={errors.password ? "lp-pw-err" : undefined}
+                />
+                <button
+                  type="button"
+                  className="lp-pw-toggle"
+                  onClick={() => setShowPw((v) => !v)}
+                  aria-label={showPw ? "Hide password" : "Show password"}
+                  aria-pressed={showPw}
+                >
+                  {showPw ? <VisibilityOn /> : <VisibilityOff />}
+                </button>
+              </div>
+              {errors.password && (
+                <div id="lp-pw-err" className="lp-field-error">
+                  Password is required.
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className={`lp-btn-login${loading ? " loading" : ""}`}
+              disabled={loading}
+              aria-busy={loading}
             >
-              {/* <div className={`lp-remember-box${remembered ? " on" : ""}`}>
-                ✓
-              </div> */}
-              {/* <span className="lp-remember-label">Remember me</span> */}
-            </div>
-              {/* <a className="lp-forgot" href="#">
-                Forgot password
-              </a> */}
-          </div>
+              {loading ? (
+                <>
+                  <span className="lp-spinner" aria-hidden="true" />
+                  Signing in…
+                </>
+              ) : (
+                "Sign in"
+              )}
+            </button>
+          </form>
 
-          <button
-            type="button"
-            className={`lp-btn-login${loading ? " loading" : ""}`}
-            onClick={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="lp-spinner" />
-                {/* Authenticating... */}
-              </>
-            ) : (
-              "Sign In"
-            )}
-          </button>
-
-          <div className="lp-card-footer">
-            <div className="lp-online-row">
-              <div className="lp-online-dot" />
-              System Online
+          <footer className="lp-footer">
+            <div className="lp-copyright">
+              © 2026 FireTrackr · Bureau of Fire Protection. All rights reserved.
             </div>
-            <div className="lp-copyright-wrap">
-              <div className="lp-copyright">
-                © 2026 FireTrackr  |  Bureau of Fire Protection
-              </div>
-              <div className="lp-copyright">All rights reserved.</div>
-            </div>
-          </div>
-        </div>
+          </footer>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }

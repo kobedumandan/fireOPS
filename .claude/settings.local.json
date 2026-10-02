@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(move \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\components\\\\TopBar.css\" \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\styles\\\\\" && move \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\components\\\\LeftSidebar.css\" \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\styles\\\\\")",
+      "Bash(move \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\components\\\\MapArea.css\" \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\styles\\\\\" && move \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\components\\\\RightSidebar.css\" \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\styles\\\\\")",
+      "Bash(move \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\components\\\\StatusBar.css\" \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\styles\\\\\" && move \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\components\\\\IncidentsPage.css\" \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\styles\\\\\")",
+      "Bash(move \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\components\\\\NewIncidentModal.css\" \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\styles\\\\\" && move \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\components\\\\LocationRequestModal.css\" \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\styles\\\\\")",
+      "Bash(move \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\components\\\\ReporterPage.css\" \"c:\\\\Users\\\\Kobe\\\\Documents\\\\Coding\\\\Capstone Project\\\\bfp_capstone\\\\frontend\\\\src\\\\styles\\\\\")",
+      "Bash(mkdir -p \"/c/Users/Kobe/Documents/Coding/Capstone Project/bfp_capstone/frontend/src/styles\" && mv \"/c/Users/Kobe/Documents/Coding/Capstone Project/bfp_capstone/frontend/src/components/\"*.css \"/c/Users/Kobe/Documents/Coding/Capstone Project/bfp_capstone/frontend/src/styles/\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Kobe\\Documents\\Coding\\Capstone Project\\bfp_capstone\\frontend\\src\\components"
+    ]
+  }
+}
